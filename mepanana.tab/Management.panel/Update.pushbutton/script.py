@@ -115,9 +115,9 @@ class MepananaUpdateWindow(forms.WPFWindow):
 
                         if hasattr(self, 'txtStatus'):
                             if is_new_update:
-                                self.txtStatus.Text = u"✨ A new version ({}) is available to install!".format(sha)
+                                self.txtStatus.Text = u"✨ New update ({}) ready to install.".format(sha)
                             else:
-                                self.txtStatus.Text = u"✅ MEPANANA is currently up to date."
+                                self.txtStatus.Text = u"✅ Extension is up to date."
                     else:
                         err_msg = res.get("error", "Unknown error")
                         if hasattr(self, 'txtStatus'):
