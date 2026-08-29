@@ -2,13 +2,27 @@
 """
 updater_engine.py - MEPANANA In-App Auto-Updater & GitHub Synchronizer
 Part of mepanana.extension.
+Fully compatible with IronPython 2.7, pyRevit, and CPython 3.x.
 """
 import os
 import sys
 import json
 import shutil
 import zipfile
-import urllib.request
+
+try:
+    unicode
+except NameError:
+    unicode = str
+
+try:
+    import clr
+    clr.AddReference("System")
+    import System
+    from System.Net import WebClient, ServicePointManager, SecurityProtocolType
+    HAS_DOTNET_NET = True
+except Exception:
+    HAS_DOTNET_NET = False
 
 GITHUB_REPO = "nguyen-hoang-hai/mepanana"
 API_URL = "https://api.github.com/repos/{}/commits/main".format(GITHUB_REPO)
@@ -22,7 +36,7 @@ def get_extension_root():
 
 
 def get_local_version():
-    """Reads current local version and commit hash from version.json or git."""
+    """Reads current local version and commit hash from version.json."""
     root = get_extension_root()
     v_file = os.path.join(root, "version.json")
     if os.path.exists(v_file):
@@ -38,7 +52,6 @@ def get_local_version():
         except Exception:
             pass
 
-    # Fallback default
     return {
         "version": "1.0.0",
         "commit": "Initial",
@@ -47,37 +60,86 @@ def get_local_version():
     }
 
 
+def _http_get_string(url):
+    """Cross-compatible HTTP GET string method."""
+    if HAS_DOTNET_NET:
+        try:
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12
+        except Exception:
+            pass
+        wc = WebClient()
+        wc.Headers.Add("User-Agent", "MEPANANA-AutoUpdater")
+        return wc.DownloadString(url)
+    else:
+        try:
+            # Python 3
+            import urllib.request
+            req = urllib.request.Request(url, headers={"User-Agent": "MEPANANA-AutoUpdater"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.read().decode("utf-8")
+        except ImportError:
+            # Python 2
+            import urllib2
+            req = urllib2.Request(url, headers={"User-Agent": "MEPANANA-AutoUpdater"})
+            resp = urllib2.urlopen(req, timeout=10)
+            return resp.read().decode("utf-8")
+
+
+def _http_download_file(url, target_path):
+    """Cross-compatible file downloader."""
+    if HAS_DOTNET_NET:
+        try:
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12
+        except Exception:
+            pass
+        wc = WebClient()
+        wc.Headers.Add("User-Agent", "MEPANANA-AutoUpdater")
+        wc.DownloadFile(url, target_path)
+    else:
+        try:
+            # Python 3
+            import urllib.request
+            req = urllib.request.Request(url, headers={"User-Agent": "MEPANANA-AutoUpdater"})
+            with urllib.request.urlopen(req, timeout=20) as resp, open(target_path, "wb") as out_f:
+                out_f.write(resp.read())
+        except ImportError:
+            # Python 2
+            import urllib2
+            req = urllib2.Request(url, headers={"User-Agent": "MEPANANA-AutoUpdater"})
+            resp = urllib2.urlopen(req, timeout=20)
+            with open(target_path, "wb") as out_f:
+                out_f.write(resp.read())
+
+
 def check_cloud_version():
     """
     Queries GitHub Commits API for latest commit on main branch.
     Returns dict: {'sha': str, 'full_sha': str, 'message': str, 'date': str, 'author': str}
     """
-    req = urllib.request.Request(API_URL, headers={"User-Agent": "MEPANANA-AutoUpdater"})
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            full_sha = data.get("sha", "")
-            sha = full_sha[:7] if full_sha else "Unknown"
-            commit_info = data.get("commit", {})
-            msg = commit_info.get("message", "").strip()
-            date = commit_info.get("author", {}).get("date", "")
-            author = commit_info.get("author", {}).get("name", "")
+        raw_json = _http_get_string(API_URL)
+        data = json.loads(raw_json)
+        full_sha = data.get("sha", "")
+        sha = full_sha[:7] if full_sha else "Unknown"
+        commit_info = data.get("commit", {})
+        msg = commit_info.get("message", "").strip()
+        date = commit_info.get("author", {}).get("date", "")
+        author = commit_info.get("author", {}).get("name", "")
 
-            # Format readable date
-            readable_date = date
-            if "T" in date:
-                parts = date.split("T")
-                readable_date = parts[0] + " " + parts[1].replace("Z", " UTC")
+        readable_date = date
+        if "T" in date:
+            parts = date.split("T")
+            readable_date = parts[0] + " " + parts[1].replace("Z", " UTC")
 
-            return {
-                "sha": sha,
-                "full_sha": full_sha,
-                "message": msg,
-                "date": readable_date,
-                "raw_date": date,
-                "author": author,
-                "success": True
-            }
+        return {
+            "sha": sha,
+            "full_sha": full_sha,
+            "message": msg,
+            "date": readable_date,
+            "raw_date": date,
+            "author": author,
+            "success": True
+        }
     except Exception as ex:
         return {
             "success": False,
@@ -102,9 +164,7 @@ def download_and_install_update(progress_callback=None):
 
         # 2. Download ZIP
         if progress_callback: progress_callback(30, u"Downloading latest update archive from GitHub...")
-        req = urllib.request.Request(ZIP_URL, headers={"User-Agent": "MEPANANA-AutoUpdater"})
-        with urllib.request.urlopen(req, timeout=20) as resp, open(temp_zip, "wb") as out_f:
-            out_f.write(resp.read())
+        _http_download_file(ZIP_URL, temp_zip)
 
         # 3. Extract ZIP
         if progress_callback: progress_callback(60, u"Extracting and verifying update package...")
@@ -134,7 +194,6 @@ def download_and_install_update(progress_callback=None):
                 d = os.path.join(target_dir, item)
                 if os.path.isdir(s):
                     if os.path.exists(d):
-                        # Copy contents over
                         for sub_root, dirs, files in os.walk(s):
                             rel = os.path.relpath(sub_root, s)
                             dest_sub = os.path.join(d, rel)
@@ -152,15 +211,17 @@ def download_and_install_update(progress_callback=None):
                     except Exception:
                         pass
 
-            # Update version.json in target
             new_v_data = {
                 "version": "1.0.0",
                 "commit": cloud_info.get("sha", "latest"),
                 "date": cloud_info.get("raw_date", ""),
                 "repo": "https://github.com/{}".format(GITHUB_REPO)
             }
-            with open(os.path.join(target_dir, "version.json"), "w") as vf:
-                json.dump(new_v_data, vf, indent=2)
+            try:
+                with open(os.path.join(target_dir, "version.json"), "w") as vf:
+                    json.dump(new_v_data, vf, indent=2)
+            except Exception:
+                pass
 
         # 5. Cleanup
         try: os.remove(temp_zip)
