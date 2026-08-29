@@ -53,10 +53,15 @@ class MepananaUpdateWindow(forms.WPFWindow):
 
     def InitDisplay(self):
         """Populates initial local version information."""
+        raw_date = str(self.local_info.get("date", "Unknown"))
+        if "T" in raw_date:
+            parts = raw_date.split("T")
+            raw_date = parts[0] + " · " + parts[1].replace("Z", "")[:5] + " UTC"
+
         if hasattr(self, 'txtLocalCommit'):
             self.txtLocalCommit.Text = u"Commit: {}".format(self.local_info.get("commit", "Unknown"))
         if hasattr(self, 'txtLocalDate'):
-            self.txtLocalDate.Text = u"Installed: {}".format(self.local_info.get("date", "Unknown"))
+            self.txtLocalDate.Text = u"Installed: {}".format(raw_date)
 
     def CheckUpdatesAsync(self):
         """Asynchronously checks GitHub for the latest commit on main branch."""
@@ -83,13 +88,19 @@ class MepananaUpdateWindow(forms.WPFWindow):
                     self.cloud_info = res
                     if res.get("success"):
                         sha = res.get("sha", "Unknown")
-                        date = res.get("date", "Unknown")
+                        raw_date = str(res.get("raw_date", res.get("date", "Unknown")))
+                        if "T" in raw_date:
+                            parts = raw_date.split("T")
+                            readable_date = parts[0] + " · " + parts[1].replace("Z", "")[:5] + " UTC"
+                        else:
+                            readable_date = raw_date
+
                         msg = res.get("message", "No release notes provided.")
 
                         if hasattr(self, 'txtCloudCommit'):
                             self.txtCloudCommit.Text = u"Commit: {}".format(sha)
                         if hasattr(self, 'txtCloudDate'):
-                            self.txtCloudDate.Text = u"Released: {}".format(date)
+                            self.txtCloudDate.Text = u"Released: {}".format(readable_date)
                         if hasattr(self, 'txtChangelog'):
                             self.txtChangelog.Text = msg
 
@@ -105,12 +116,12 @@ class MepananaUpdateWindow(forms.WPFWindow):
                                 self.txtCloudBadge.Text = u"UP TO DATE"
                                 self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(71, 85, 105))
 
-                        if hasattr(self, 'btnUpdate') and hasattr(self, 'txtUpdateBtnLabel'):
+                        if hasattr(self, 'btnUpdate'):
                             self.btnUpdate.IsEnabled = True
                             if is_new_update:
-                                self.txtUpdateBtnLabel.Text = u"Update Now"
+                                self.btnUpdate.Content = u"🚀 Update Now"
                             else:
-                                self.txtUpdateBtnLabel.Text = u"Reinstall / Repair"
+                                self.btnUpdate.Content = u"🔄 Reinstall / Repair"
 
                         if hasattr(self, 'txtStatus'):
                             if is_new_update:
