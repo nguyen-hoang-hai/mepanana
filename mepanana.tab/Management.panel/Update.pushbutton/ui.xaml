@@ -1,0 +1,184 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MEPANANA Update"
+        Width="640" Height="520" MinWidth="580" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        FontFamily="Segoe UI" FontSize="12.5"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        Background="{DynamicResource WindowBgBrush}">
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.2"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />  <!-- Row 0: Tier 1 Header -->
+            <RowDefinition Height="*" />     <!-- Row 1: Tier 2 Content Cards -->
+            <RowDefinition Height="Auto" />  <!-- Row 2: Tier 3 Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Tier 1: Header ────────────────────────────────────────────── -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Icon Badge -->
+            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="10" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" Margin="0,0,14,0" VerticalAlignment="Center">
+                <TextBlock Text="🔄" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+
+            <!-- Title & Subtitle -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="MEPANANA Auto-Updater" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                <TextBlock Text="Synchronize your extension with the latest features and bug fixes from GitHub" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ── Tier 2: Body Content ──────────────────────────────────────── -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Version Comparison Cards (2 Columns) -->
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left Card: Installed Version -->
+                <Border Grid.Column="0" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <TextBlock Text="💻 Installed Version" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+                            <Border Background="#DCFCE7" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
+                                <TextBlock Text="LOCAL" FontSize="10" FontWeight="Bold" Foreground="#15803D" />
+                            </Border>
+                        </Grid>
+                        <TextBlock Name="txtLocalCommit" Text="Commit: e64a9da" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,2" />
+                        <TextBlock Name="txtLocalDate" Text="Release: 2026-08-29" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Right Card: Cloud Version -->
+                <Border Grid.Column="2" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <TextBlock Text="☁️ Latest GitHub Version" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+                            <Border Name="badgeCloud" Background="#EFF6FF" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
+                                <TextBlock Name="txtCloudBadge" Text="CHECKING..." FontSize="10" FontWeight="Bold" Foreground="#1D4ED8" />
+                            </Border>
+                        </Grid>
+                        <TextBlock Name="txtCloudCommit" Text="Commit: Fetching..." FontSize="15" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,2" />
+                        <TextBlock Name="txtCloudDate" Text="Checking latest commit..." FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Changelog & Release Notes Card -->
+            <Border Grid.Row="1" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="📝 What's New in this Release:" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" Margin="0,0,0,8" />
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                        <TextBlock Name="txtChangelog" Text="Click 'Check Updates' to query the latest commit details and change summary from GitHub repository."
+                                   FontSize="12" Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap" LineHeight="18" />
+                    </ScrollViewer>
+
+                    <TextBlock Grid.Row="2" Text="🔗 Repository: https://github.com/nguyen-hoang-hai/mepanana" FontSize="10.5" Foreground="{DynamicResource DisabledTextBrush}" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ── Tier 3: Footer Bar ────────────────────────────────────────── -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />  <!-- Row 0: Progress Bar -->
+                <RowDefinition Height="Auto" />  <!-- Row 1: Status & Actions -->
+            </Grid.RowDefinitions>
+
+            <!-- Progress Bar (Standard Top Edge of Footer) -->
+            <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,10"
+                         Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100" />
+
+            <!-- Row 1: Live Status & Buttons -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Status Text -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Orientation="Horizontal">
+                    <TextBlock Name="txtStatus" Text="Ready to check for updates." FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <!-- Right: Action Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Check Again Button -->
+                    <Button Name="btnCheck" Height="32" Padding="14,0" Margin="0,0,8,0"
+                            Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" Foreground="#334155"
+                            FontWeight="SemiBold" FontSize="11.5" Cursor="Hand" Click="OnCheckUpdatesClick">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6" />
+                            </Style>
+                        </Button.Resources>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="🔍" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Check Updates" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Update Now Button (Solid Accent Blue) -->
+                    <Button Name="btnUpdate" Height="32" Padding="16,0" Margin="0,0,8,0"
+                            Background="#2563EB" BorderBrush="#1D4ED8" BorderThickness="1" Foreground="#FFFFFF"
+                            FontWeight="SemiBold" FontSize="11.5" Cursor="Hand" IsEnabled="False" Click="OnUpdateClick">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6" />
+                            </Style>
+                        </Button.Resources>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="🚀" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Name="txtUpdateBtnLabel" Text="Update Now" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Close Button -->
+                    <Button Name="btnClose" Height="32" Padding="14,0"
+                            Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" Foreground="#475569"
+                            FontWeight="SemiBold" FontSize="11.5" Cursor="Hand" Click="OnCloseClick">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="6" />
+                            </Style>
+                        </Button.Resources>
+                        <TextBlock Text="Close" VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

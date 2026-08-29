@@ -1,3 +1,6 @@
-﻿title: Management
+title: Management
 background:
   title: '#FEE2E2'
+layout:
+  - Shortcut Manager
+  - Update
