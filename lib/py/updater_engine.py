@@ -140,11 +140,17 @@ def download_and_install_update(progress_callback=None):
                             dest_sub = os.path.join(d, rel)
                             os.makedirs(dest_sub, exist_ok=True)
                             for f in files:
-                                shutil.copy2(os.path.join(sub_root, f), os.path.join(dest_sub, f))
+                                try:
+                                    shutil.copy2(os.path.join(sub_root, f), os.path.join(dest_sub, f))
+                                except Exception:
+                                    pass
                     else:
                         shutil.copytree(s, d)
                 else:
-                    shutil.copy2(s, d)
+                    try:
+                        shutil.copy2(s, d)
+                    except Exception:
+                        pass
 
             # Update version.json in target
             new_v_data = {

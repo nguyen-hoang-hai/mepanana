@@ -7,10 +7,12 @@ __title__ = "Update"
 __doc__   = "Check for updates and synchronize MEPANANA with the latest GitHub release."
 
 # ── 6-LINE GATEKEEPER BOILERPLATE (MANDATORY) ─────────────────────────────
-from py.auth import guard
-if not guard():
-    import sys
-    sys.exit()
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        import sys
+        sys.exit()
 # ──────────────────────────────────────────────────────────────────────────
 
 import os

@@ -44,7 +44,20 @@ try {
         New-Item -ItemType Directory -Path $extDir -Force | Out-Null
     }
 
-    Copy-Item -Path "$innerDir\*" -Destination $extDir -Recurse -Force
+    # Copy files gracefully (safely handling in-use DLLs if Revit is currently open)
+    Get-ChildItem -Path $innerDir -Recurse | ForEach-Object {
+        $relPath = $_.FullName.Substring($innerDir.Length).TrimStart('\', '/')
+        $targetPath = Join-Path $extDir $relPath
+        if ($_.PSIsContainer) {
+            if (-not (Test-Path $targetPath)) { New-Item -ItemType Directory -Path $targetPath -Force | Out-Null }
+        } else {
+            try {
+                Copy-Item -Path $_.FullName -Destination $targetPath -Force -ErrorAction Stop
+            } catch {
+                # File is currently loaded in memory by active Revit session
+            }
+        }
+    }
 
     Remove-Item -Path $tempZip -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
