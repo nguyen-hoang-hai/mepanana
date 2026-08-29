@@ -147,6 +147,15 @@ def check_cloud_version():
         }
 
 
+def safe_makedirs(path):
+    """Safely creates directories in Python 2.7 / IronPython without exist_ok."""
+    if not os.path.exists(path):
+        try:
+            os.makedirs(path)
+        except Exception:
+            pass
+
+
 def download_and_install_update(progress_callback=None):
     """
     Downloads latest repository zip from GitHub, extracts, and updates extension files.
@@ -186,25 +195,24 @@ def download_and_install_update(progress_callback=None):
 
         if progress_callback: progress_callback(80, u"Updating extension files and components...")
         for target_dir in targets:
-            os.makedirs(target_dir, exist_ok=True)
+            safe_makedirs(target_dir)
             for item in os.listdir(inner_dir):
                 if item in [".git"]:
                     continue
                 s = os.path.join(inner_dir, item)
                 d = os.path.join(target_dir, item)
                 if os.path.isdir(s):
-                    if os.path.exists(d):
-                        for sub_root, dirs, files in os.walk(s):
-                            rel = os.path.relpath(sub_root, s)
-                            dest_sub = os.path.join(d, rel)
-                            os.makedirs(dest_sub, exist_ok=True)
-                            for f in files:
-                                try:
-                                    shutil.copy2(os.path.join(sub_root, f), os.path.join(dest_sub, f))
-                                except Exception:
-                                    pass
-                    else:
-                        shutil.copytree(s, d)
+                    for sub_root, dirs, files in os.walk(s):
+                        rel = os.path.relpath(sub_root, s)
+                        dest_sub = os.path.join(d, rel)
+                        safe_makedirs(dest_sub)
+                        for f in files:
+                            try:
+                                src_file = os.path.join(sub_root, f)
+                                dst_file = os.path.join(dest_sub, f)
+                                shutil.copy2(src_file, dst_file)
+                            except Exception:
+                                pass
                 else:
                     try:
                         shutil.copy2(s, d)
