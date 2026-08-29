@@ -53,15 +53,11 @@ class MepananaUpdateWindow(forms.WPFWindow):
 
     def InitDisplay(self):
         """Populates initial local version information."""
-        raw_date = str(self.local_info.get("date", "Unknown"))
-        if "T" in raw_date:
-            parts = raw_date.split("T")
-            raw_date = parts[0] + " · " + parts[1].replace("Z", "")[:5] + " UTC"
-
+        formatted_date = str(self.local_info.get("date", "Unknown"))
         if hasattr(self, 'txtLocalCommit'):
             self.txtLocalCommit.Text = u"Commit: {}".format(self.local_info.get("commit", "Unknown"))
         if hasattr(self, 'txtLocalDate'):
-            self.txtLocalDate.Text = u"Installed: {}".format(raw_date)
+            self.txtLocalDate.Text = u"Installed: {}".format(formatted_date)
 
     def CheckUpdatesAsync(self):
         """Asynchronously checks GitHub for the latest commit on main branch."""
@@ -88,13 +84,7 @@ class MepananaUpdateWindow(forms.WPFWindow):
                     self.cloud_info = res
                     if res.get("success"):
                         sha = res.get("sha", "Unknown")
-                        raw_date = str(res.get("raw_date", res.get("date", "Unknown")))
-                        if "T" in raw_date:
-                            parts = raw_date.split("T")
-                            readable_date = parts[0] + " · " + parts[1].replace("Z", "")[:5] + " UTC"
-                        else:
-                            readable_date = raw_date
-
+                        readable_date = str(res.get("date", "Unknown"))
                         msg = res.get("message", "No release notes provided.")
 
                         if hasattr(self, 'txtCloudCommit'):

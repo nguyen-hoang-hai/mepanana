@@ -24,9 +24,33 @@ try:
 except Exception:
     HAS_DOTNET_NET = False
 
+import datetime
+
 GITHUB_REPO = "nguyen-hoang-hai/mepanana"
 API_URL = "https://api.github.com/repos/{}/commits/main".format(GITHUB_REPO)
 ZIP_URL = "https://github.com/{}/archive/refs/heads/main.zip".format(GITHUB_REPO)
+
+
+def format_vietnam_time(iso_str):
+    """
+    Converts UTC ISO timestamp to Vietnam Time (GMT+7).
+    e.g. '2026-08-29T16:08:09Z' -> '2026-08-29 · 23:08'
+    """
+    if not iso_str or iso_str == "Unknown":
+        return "Unknown"
+    try:
+        clean_str = str(iso_str).replace("Z", "").split(".")[0]
+        if "T" in clean_str:
+            dt_utc = datetime.datetime.strptime(clean_str, "%Y-%m-%dT%H:%M:%S")
+        elif " " in clean_str:
+            dt_utc = datetime.datetime.strptime(clean_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            return str(iso_str)
+
+        dt_vn = dt_utc + datetime.timedelta(hours=7)
+        return dt_vn.strftime("%Y-%m-%d · %H:%M")
+    except Exception:
+        return str(iso_str)
 
 
 def get_extension_root():
@@ -43,10 +67,12 @@ def get_local_version():
         try:
             with open(v_file, "r") as f:
                 data = json.load(f)
+                raw_d = data.get("date", "Unknown")
                 return {
                     "version": data.get("version", "1.0.0"),
                     "commit": data.get("commit", "Unknown"),
-                    "date": data.get("date", "Unknown"),
+                    "date": format_vietnam_time(raw_d),
+                    "raw_date": raw_d,
                     "repo": data.get("repo", "https://github.com/{}".format(GITHUB_REPO))
                 }
         except Exception:
@@ -56,6 +82,7 @@ def get_local_version():
         "version": "1.0.0",
         "commit": "Initial",
         "date": "2026-08-29",
+        "raw_date": "2026-08-29",
         "repo": "https://github.com/{}".format(GITHUB_REPO)
     }
 
@@ -126,16 +153,13 @@ def check_cloud_version():
         date = commit_info.get("author", {}).get("date", "")
         author = commit_info.get("author", {}).get("name", "")
 
-        readable_date = date
-        if "T" in date:
-            parts = date.split("T")
-            readable_date = parts[0] + " " + parts[1].replace("Z", " UTC")
+        vn_date = format_vietnam_time(date)
 
         return {
             "sha": sha,
             "full_sha": full_sha,
             "message": msg,
-            "date": readable_date,
+            "date": vn_date,
             "raw_date": date,
             "author": author,
             "success": True

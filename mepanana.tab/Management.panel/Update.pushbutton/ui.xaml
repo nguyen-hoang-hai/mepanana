@@ -64,7 +64,7 @@
                             </Border>
                         </Grid>
                         <TextBlock Name="txtLocalCommit" Text="Commit: 000c469" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,2" />
-                        <TextBlock Name="txtLocalDate" Text="Installed: 2026-08-29 · 16:04 UTC" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                        <TextBlock Name="txtLocalDate" Text="Installed: Fetching..." FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     </StackPanel>
 
                     <!-- Divider Line -->
