@@ -104,7 +104,10 @@ def generate_mepanana_icon(text, output_path, is_stack=False, squeeze_factor=0.8
     out   = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     out.paste(patch, (paste_x, paste_y), resized)
 
-    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    out_dir = os.path.dirname(os.path.abspath(output_path))
+    if not os.path.exists(out_dir):
+        try: os.makedirs(out_dir)
+        except Exception: pass
     out.save(output_path, "PNG")
 
     final_bb = out.getbbox()

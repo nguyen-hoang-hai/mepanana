@@ -127,7 +127,9 @@ class MepananaInstallerApp(tk.Tk):
             if not os.path.exists(inner_dir):
                 inner_dir = temp_extract
 
-            os.makedirs(TARGET_EXT_DIR, exist_ok=True)
+            if not os.path.exists(TARGET_EXT_DIR):
+                try: os.makedirs(TARGET_EXT_DIR)
+                except Exception: pass
             for item in os.listdir(inner_dir):
                 s = os.path.join(inner_dir, item)
                 d = os.path.join(TARGET_EXT_DIR, item)

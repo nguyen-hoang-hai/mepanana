@@ -29,6 +29,12 @@ from System.Threading import ThreadPool, WaitCallback
 
 from pyrevit import forms, script
 from py.ui import setup_window, show_info, show_success, show_warning, show_error, show_confirm, do_events
+
+import py.updater_engine
+try:
+    reload(py.updater_engine)
+except Exception:
+    pass
 from py.updater_engine import get_local_version, check_cloud_version, download_and_install_update
 
 
