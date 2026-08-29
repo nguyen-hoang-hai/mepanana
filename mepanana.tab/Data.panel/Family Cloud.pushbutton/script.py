@@ -124,7 +124,27 @@ class FamilyCardItem(System.Object):
             self.RevitVersion = local_ver or cloud_ver or "Unknown"
 
         self.FileSize = raw_data.get("file_size", "0 KB")
-        self.Description = raw_data.get("description", "")
+        self.Description = str(raw_data.get("description", "") or "").strip()
+        if self.Description:
+            self.DescriptionVisibility = Visibility.Visible
+        else:
+            self.DescriptionVisibility = Visibility.Collapsed
+
+        # Category-Specific Placeholder Icon
+        cat_lower = self.Category.lower()
+        if any(k in cat_lower for k in ["electric", "light", "power", "panel", "conduit", "cable", "switch", "generator"]):
+            self.CategoryIcon = u"⚡"
+        elif any(k in cat_lower for k in ["air", "duct", "mech", "hvac", "vent", "fan", "terminal"]):
+            self.CategoryIcon = u"💨"
+        elif any(k in cat_lower for k in ["pipe", "plumb", "water", "drain", "pump", "valve", "fixture"]):
+            self.CategoryIcon = u"🚰"
+        elif any(k in cat_lower for k in ["fire", "sprinkler", "alarm", "protect"]):
+            self.CategoryIcon = u"🔥"
+        elif any(k in cat_lower for k in ["door", "window", "wall", "room", "arch"]):
+            self.CategoryIcon = u"🚪"
+        else:
+            self.CategoryIcon = u"📦"
+
         self.DownloadUrl = raw_data.get("download_url", "")
         self.RfaFullPath = raw_data.get("rfa_path", "")
 

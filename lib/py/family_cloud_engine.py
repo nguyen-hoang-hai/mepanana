@@ -90,11 +90,16 @@ _PNG_SIG = b"\x89PNG\r\n\x1a\n"
 _JPEG_SOI = b"\xff\xd8"
 _JPEG_EOI = b"\xff\xd9"
 _PREVIEW_STREAMS = (
+    "RevitPreview7.0",
+    "RevitPreview6.0",
     "RevitPreview5.0",
     "RevitPreview4.0",
     "RevitPreview3.0",
     "RevitPreview2.0",
     "RevitPreview",
+    "Preview",
+    "Thumbnail",
+    "Icon"
 )
 
 _storage_root_type = None
@@ -207,6 +212,30 @@ def _maybe_inflate_truncated_gzip(raw):
     return None
 
 
+def _extract_bmp_from_bytes(data):
+    if not data or len(data) < 40:
+        return None
+    data = _to_bytes(data)
+    if data.startswith(b"BM"):
+        return data
+
+    if data.startswith(b"\x28\x00\x00\x00"):
+        try:
+            import struct
+            header_size, width, height, planes, bpp = struct.unpack("<IIIHH", data[0:16])
+            if header_size == 40 and planes == 1:
+                num_colors = 0
+                if bpp <= 8:
+                    num_colors = 1 << bpp
+                offset = 14 + 40 + (num_colors * 4)
+                file_size = 14 + len(data)
+                file_header = b"BM" + struct.pack("<I", file_size) + b"\x00\x00\x00\x00" + struct.pack("<I", offset)
+                return file_header + data
+        except Exception:
+            pass
+    return None
+
+
 def _extract_image_from_bytes(data):
     if not data:
         return None
@@ -222,6 +251,9 @@ def _extract_image_from_bytes(data):
     jpg = _extract_jpeg_from_bytes(data)
     if jpg:
         return jpg
+    bmp = _extract_bmp_from_bytes(data)
+    if bmp:
+        return bmp
     return None
 
 
@@ -540,14 +572,31 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
 
 def download_file_from_url(url, dest_path):
     try:
-        import urllib.request as urllib_req
-    except ImportError:
-        import urllib2 as urllib_req
-
-    try:
         dest_dir = os.path.dirname(dest_path)
         if not os.path.exists(dest_dir):
-            os.makedirs(dest_dir)
+            try: os.makedirs(dest_dir)
+            except Exception: pass
+
+        # 1. Try .NET WebClient (handles Google Drive TLS 1.2 & redirects seamlessly)
+        try:
+            import clr
+            clr.AddReference("System")
+            from System.Net import WebClient, ServicePointManager, SecurityProtocolType
+            try: ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12
+            except Exception: pass
+            wc = WebClient()
+            wc.Headers.Add("User-Agent", "Mozilla/5.0 MepananaFamilyCloud")
+            wc.DownloadFile(url, dest_path)
+            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+                return True
+        except Exception:
+            pass
+
+        # 2. Python urllib fallback
+        try:
+            import urllib.request as urllib_req
+        except ImportError:
+            import urllib2 as urllib_req
 
         req = urllib_req.Request(url, headers={"User-Agent": "Mozilla/5.0 MepananaFamilyCloud"})
         resp = urllib_req.urlopen(req, timeout=30)

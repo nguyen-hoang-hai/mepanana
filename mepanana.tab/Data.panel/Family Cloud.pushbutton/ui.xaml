@@ -273,7 +273,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <!-- Balanced Family Card (Width 228 for spacious badges) -->
-                                    <Border Width="228" Height="274" Margin="6" Padding="10" CornerRadius="8"
+                                    <Border Width="228" Height="286" Margin="6" Padding="10" CornerRadius="8"
                                             Background="{Binding CardBackground}"
                                             BorderBrush="{Binding CardBorderBrush}"
                                             BorderThickness="{Binding CardBorderThickness}"
@@ -281,17 +281,18 @@
                                             PreviewMouseDown="OnCardPreviewMouseDown">
                                         <Grid>
                                             <Grid.RowDefinitions>
-                                                <RowDefinition Height="148" /> <!-- Thumbnail -->
-                                                <RowDefinition Height="Auto" /> <!-- Title -->
-                                                <RowDefinition Height="Auto" /> <!-- Badges -->
-                                                <RowDefinition Height="*" />    <!-- Spacer -->
-                                                <RowDefinition Height="Auto" /> <!-- Action Buttons -->
+                                                <RowDefinition Height="140" /> <!-- 0: Thumbnail -->
+                                                <RowDefinition Height="Auto" /> <!-- 1: Title -->
+                                                <RowDefinition Height="Auto" /> <!-- 2: Description -->
+                                                <RowDefinition Height="Auto" /> <!-- 3: Badges -->
+                                                <RowDefinition Height="*" />    <!-- 4: Spacer -->
+                                                <RowDefinition Height="Auto" /> <!-- 5: Action Buttons -->
                                             </Grid.RowDefinitions>
 
                                             <!-- Thumbnail Container -->
                                             <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" ClipToBounds="True">
                                                 <Grid>
-                                                    <TextBlock Text="📦" FontSize="36" Opacity="0.2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding CategoryIcon}" FontSize="38" Opacity="0.3" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                     <Image Source="{Binding ThumbnailImage}" Stretch="Uniform" Margin="4" />
 
                                                     <!-- Top-Left Selection Checkbox Pill -->
@@ -320,10 +321,13 @@
                                             </Border>
 
                                             <!-- Family Title -->
-                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,5" />
+                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,3" />
+
+                                            <!-- Family Description (if present) -->
+                                            <TextBlock Grid.Row="2" Text="{Binding Description}" FontSize="10.5" Foreground="#64748B" TextTrimming="CharacterEllipsis" ToolTip="{Binding Description}" Margin="0,0,0,5" Visibility="{Binding DescriptionVisibility}" />
 
                                             <!-- Badges: Category on Left, Version & Size on Right -->
-                                            <Grid Grid.Row="2" Margin="0,0,0,6">
+                                            <Grid Grid.Row="3" Margin="0,0,0,6">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
@@ -346,7 +350,7 @@
                                             </Grid>
 
                                             <!-- Action Buttons: Load & Delete -->
-                                            <Grid Grid.Row="4">
+                                            <Grid Grid.Row="5">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="32" />
