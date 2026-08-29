@@ -69,6 +69,12 @@ try:
         if not require_auth():
             sys.exit()
 
+    try:
+        from py.updater_engine import check_updates_in_background
+        check_updates_in_background()
+    except Exception:
+        pass
+
     doc = get_doc()
     if not doc:
         _fatal_alert("Please open a Revit project before launching CAD Wire.")

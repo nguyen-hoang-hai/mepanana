@@ -39,6 +39,12 @@ if not is_authenticated():
     if not require_auth():
         sys.exit()
 
+try:
+    from py.updater_engine import check_updates_in_background
+    check_updates_in_background()
+except Exception:
+    pass
+
 # ── Imports ──────────────────────────────────────────────────────────────────
 try:
     import clr

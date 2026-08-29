@@ -35,7 +35,7 @@ try:
     reload(py.updater_engine)
 except Exception:
     pass
-from py.updater_engine import get_local_version, check_cloud_version, download_and_install_update
+from py.updater_engine import get_local_version, check_cloud_version, download_and_install_update, set_ribbon_update_badge
 
 
 class MepananaUpdateWindow(forms.WPFWindow):
@@ -95,6 +95,11 @@ class MepananaUpdateWindow(forms.WPFWindow):
                             self.txtChangelog.Text = msg
 
                         is_new_update = (sha.lower() != str(self.local_info.get("commit", "")).lower())
+
+                        try:
+                            set_ribbon_update_badge(is_new_update, res)
+                        except Exception:
+                            pass
 
                         if hasattr(self, 'badgeCloud') and hasattr(self, 'txtCloudBadge'):
                             if is_new_update:
