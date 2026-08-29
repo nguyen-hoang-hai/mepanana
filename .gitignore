@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Temporary / OS
+*.deleted
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build / Scratch
+/scratch/
+/tmp/

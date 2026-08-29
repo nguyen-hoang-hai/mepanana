@@ -1,0 +1,2 @@
+title: CAD Wire
+tooltip: Convert 2D AutoCAD wiring curves (Polylines, Lines, Arcs) into native parametric Revit Wires with intelligent device connector snapping and Home Run arrow detection.
