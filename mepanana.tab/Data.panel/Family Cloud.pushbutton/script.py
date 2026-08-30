@@ -58,6 +58,15 @@ try:
 except Exception:
     pass
 
+import py.ui
+import py.family_cloud_engine
+
+try:
+    reload(py.ui)
+    reload(py.family_cloud_engine)
+except Exception:
+    pass
+
 from py.ui import setup_window, show_info, show_success, show_warning, show_error, show_confirm, do_events
 from py.family_cloud_engine import (
     STANDARD_CATEGORIES,
