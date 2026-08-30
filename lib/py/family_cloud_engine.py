@@ -852,8 +852,18 @@ def get_thumbnail_cache_dir():
 
 
 def get_thumbnail_cache_path(fam_id_or_name):
-    clean_name = re.sub(r'[\\/*?:"<>|]', "_", fam_id_or_name or "thumb")
-    return os.path.join(get_thumbnail_cache_dir(), clean_name + ".png")
+    if not fam_id_or_name:
+        clean_name = u"thumb"
+    elif isinstance(fam_id_or_name, unicode):
+        clean_name = fam_id_or_name
+    else:
+        try: clean_name = fam_id_or_name.decode("utf-8")
+        except Exception: clean_name = unicode(fam_id_or_name)
+
+    for ch in [u"\\", u"/", u"*", u"?", u":", u'"', u"<", u">", u"|"]:
+        clean_name = clean_name.replace(ch, u"_")
+
+    return os.path.join(get_thumbnail_cache_dir(), clean_name + u".png")
 
 
 # ── Local Version Database ────────────────────────────────────────────────────
@@ -861,10 +871,6 @@ def get_thumbnail_cache_path(fam_id_or_name):
 # This is the CLIENT-SIDE source of truth and always overrides cloud data.
 
 def _get_version_db_path():
-    # Store version_db.json inside the extension lib/py folder on OneDrive.
-    # Because the extension lives in OneDrive, this file auto-syncs to ALL
-    # team machines — no webhook, no server, no auth needed.
-    # Fallback: %LOCALAPPDATA% if extension path can't be resolved.
     try:
         this_dir = os.path.dirname(os.path.abspath(__file__))
         db_path = os.path.join(this_dir, "version_db.json")
@@ -897,13 +903,19 @@ def save_local_version(family_name, version):
     """Save locally-detected RFA version for a family. Overrides cloud value."""
     if not family_name or not version:
         return
-    key = os.path.splitext(family_name)[0] if family_name.lower().endswith(".rfa") else family_name
+    if isinstance(family_name, unicode):
+        u_name = family_name
+    else:
+        try: u_name = family_name.decode("utf-8")
+        except Exception: u_name = unicode(family_name)
+
+    key = os.path.splitext(u_name)[0] if u_name.lower().endswith(u".rfa") else u_name
     db = get_all_local_versions()
-    db[key] = version
+    db[key] = unicode(version)
     db_path = _get_version_db_path()
     try:
         with open(db_path, "w") as f:
-            json.dump(db, f, indent=2)
+            json.dump(db, f, indent=2, ensure_ascii=True)
     except Exception:
         pass
 
@@ -912,7 +924,13 @@ def get_local_version(family_name):
     """Get locally-detected RFA version for a family from RAM cache (0ms)."""
     if not family_name:
         return None
-    key = os.path.splitext(family_name)[0] if family_name.lower().endswith(".rfa") else family_name
+    if isinstance(family_name, unicode):
+        u_name = family_name
+    else:
+        try: u_name = family_name.decode("utf-8")
+        except Exception: u_name = unicode(family_name)
+
+    key = os.path.splitext(u_name)[0] if u_name.lower().endswith(u".rfa") else u_name
     db = get_all_local_versions()
     return db.get(key)
 

@@ -926,7 +926,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             fam_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
             fam_cat = item.Category if isinstance(item.Category, unicode) else unicode(item.Category)
 
-            if show_confirm(u"Are you sure you want to permanently delete '{}' from the Cloud Library?".format(fam_name), title="Delete Family"):
+            if show_confirm(u"Are you sure you want to permanently delete '" + fam_name + u"' from the Cloud Library?", title="Delete Family"):
                 success, msg = delete_family_from_cloud(fam_name, fam_cat)
                 if success:
                     # Also clear local thumbnail cache for this family
@@ -941,7 +941,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                 else:
                     show_error(msg, title="Delete Error")
         except Exception as ex:
-            show_error(u"Unexpected error deleting family:\n{}".format(safe_err(ex)), title="Delete Error")
+            show_error(u"Unexpected error deleting family:\n" + safe_err(ex), title="Delete Error")
 
     # ── Upload Workflow with Automatic Category Detection ─────────────────────
 
