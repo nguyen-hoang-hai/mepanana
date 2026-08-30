@@ -76,8 +76,19 @@ from py.family_cloud_engine import (
     extract_preview_png_bytes
 )
 
-doc   = revit.doc
 uidoc = revit.uidoc
+
+
+def safe_err(ex):
+    if ex is None:
+        return u""
+    try:
+        return unicode(ex)
+    except Exception:
+        try:
+            return str(ex).decode("utf-8", "ignore")
+        except Exception:
+            return u"Error occurred"
 
 
 # ── UI Data Item Models ──────────────────────────────────────────────────────
@@ -124,24 +135,24 @@ class FamilyCardItem(System.Object):
         else:
             self.RevitVersion = local_ver or cloud_ver or "Unknown"
 
-        self.FileSize = raw_data.get("file_size", "0 KB")
-        self.Description = str(raw_data.get("description", "") or "").strip()
+        self.FileSize = unicode(raw_data.get("file_size", "0 KB"))
+        self.Description = unicode(raw_data.get("description", "") or "").strip()
         if self.Description:
             self.DescriptionVisibility = Visibility.Visible
         else:
             self.DescriptionVisibility = Visibility.Collapsed
 
         # Category-Specific Placeholder Icon
-        cat_lower = self.Category.lower()
-        if any(k in cat_lower for k in ["electric", "light", "power", "panel", "conduit", "cable", "switch", "generator"]):
+        cat_lower = unicode(self.Category).lower()
+        if any(k in cat_lower for k in [u"electric", u"light", u"power", u"panel", u"conduit", u"cable", u"switch", u"generator"]):
             self.CategoryIcon = u"⚡"
-        elif any(k in cat_lower for k in ["air", "duct", "mech", "hvac", "vent", "fan", "terminal"]):
+        elif any(k in cat_lower for k in [u"air", u"duct", u"mech", u"hvac", u"vent", u"fan", u"terminal"]):
             self.CategoryIcon = u"💨"
-        elif any(k in cat_lower for k in ["pipe", "plumb", "water", "drain", "pump", "valve", "fixture"]):
+        elif any(k in cat_lower for k in [u"pipe", u"plumb", u"water", u"drain", u"pump", u"valve", u"fixture"]):
             self.CategoryIcon = u"🚰"
-        elif any(k in cat_lower for k in ["fire", "sprinkler", "alarm", "protect"]):
+        elif any(k in cat_lower for k in [u"fire", u"sprinkler", u"alarm", u"protect"]):
             self.CategoryIcon = u"🔥"
-        elif any(k in cat_lower for k in ["door", "window", "wall", "room", "arch"]):
+        elif any(k in cat_lower for k in [u"door", u"window", u"wall", u"room", u"arch"]):
             self.CategoryIcon = u"🚪"
         else:
             self.CategoryIcon = u"📦"
@@ -153,7 +164,7 @@ class FamilyCardItem(System.Object):
         self.IsCompatible = True
         self.NumericVersion = None
         try:
-            m = re.search(r"(20[12]\d)", str(self.RevitVersion))
+            m = re.search(r"(20[12]\d)", unicode(self.RevitVersion))
             if m:
                 self.NumericVersion = int(m.group(1))
                 if self.HostYear and self.NumericVersion > self.HostYear:
@@ -904,9 +915,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             else:
                 show_error(msg, title="Load Error")
         except Exception as ex:
-            try: err_txt = unicode(ex)
-            except Exception: err_txt = str(ex)
-            show_error(u"Unexpected error loading family:\n{}".format(err_txt), title="Load Error")
+            show_error(u"Unexpected error loading family:\n{}".format(safe_err(ex)), title="Load Error")
 
     def OnDeleteFamilyClick(self, sender, args):
         try:
@@ -932,9 +941,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                 else:
                     show_error(msg, title="Delete Error")
         except Exception as ex:
-            try: err_txt = unicode(ex)
-            except Exception: err_txt = str(ex)
-            show_error(u"Unexpected error deleting family:\n{}".format(err_txt), title="Delete Error")
+            show_error(u"Unexpected error deleting family:\n{}".format(safe_err(ex)), title="Delete Error")
 
     # ── Upload Workflow with Automatic Category Detection ─────────────────────
 
@@ -1021,11 +1028,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                     if hasattr(self, 'btnExecuteUpload'):
                         self.btnExecuteUpload.IsEnabled = True
                         self.btnExecuteUpload.Content = orig_content
-                    try:
-                        err_msg = unicode(ex)
-                    except Exception:
-                        err_msg = str(ex)
-                    show_error(err_msg, "Upload Error")
+                    show_error(safe_err(ex), "Upload Error")
                 if self.Dispatcher:
                     self.Dispatcher.Invoke(System.Action(on_fail))
 

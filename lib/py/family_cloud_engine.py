@@ -661,96 +661,113 @@ def extract_rfa_category(rfa_path):
     Fallback: 'Generic Models'.
     """
     if not rfa_path:
-        return "Generic Models"
+        return u"Generic Models"
 
-    # ── Layer 1: Parent Directory Hierarchy Inspection ──────────────────────
-    norm_path = os.path.normpath(rfa_path).replace('/', '\\')
-    path_parts = [p.strip() for p in norm_path.split('\\') if p.strip()]
+    try:
+        if not isinstance(rfa_path, unicode):
+            try: u_rfa_path = rfa_path.decode("utf-8")
+            except Exception: u_rfa_path = unicode(rfa_path)
+        else:
+            u_rfa_path = rfa_path
 
-    for part in reversed(path_parts[:-1]):
-        p_clean = part.lower().strip('@').strip('0123456789._ ')
+        # ── Layer 1: Parent Directory Hierarchy Inspection ──────────────────────
+        norm_path = os.path.normpath(u_rfa_path).replace(u"/", u"\\")
+        path_parts = [p.strip() for p in norm_path.split(u"\\") if p.strip()]
+
+        for part in reversed(path_parts[:-1]):
+            p_clean = part.lower().strip(u"@").strip(u"0123456789._ ")
+            for cat in SORTED_CATEGORIES:
+                u_cat = cat if isinstance(cat, unicode) else unicode(cat)
+                cat_l = u_cat.lower()
+                if cat_l == p_clean or cat_l == part.lower():
+                    return u_cat
+                if cat_l.endswith(u"s") and cat_l[:-1] == p_clean:
+                    return u_cat
+
+        # ── Layer 2: Binary Stream Header Scan (ASCII & UTF-16) ──────────────────
+        if os.path.exists(u_rfa_path):
+            try:
+                with open(u_rfa_path, 'rb') as f:
+                    header_data = f.read(512 * 1024)
+                    for cat in SORTED_CATEGORIES:
+                        u_cat = cat if isinstance(cat, unicode) else unicode(cat)
+                        if u_cat == u"Generic Models":
+                            continue
+                        if u_cat.encode('utf-8') in header_data or u_cat.encode('utf-16le') in header_data:
+                            return u_cat
+            except Exception:
+                pass
+
+        # ── Layer 3: Filename Keywords & MEP Domain Abbreviations ────────────────
+        base_name = os.path.splitext(os.path.basename(u_rfa_path))[0].lower()
+        if not isinstance(base_name, unicode):
+            try: base_name = base_name.decode("utf-8")
+            except Exception: base_name = unicode(base_name)
+
+        keyword_map = [
+            ([u"sprinkler", u"pendent", u"upright", u"sidewall"], u"Sprinklers"),
+            ([u"speaker", u"camera", u"cctv", u"mic", u"bell", u"call", u"intercom", u"display", u"tv", u"bc"], u"Communication Devices"),
+            ([u"switch", u"dimmer", u"sensor", u"pir", u"occupancy"], u"Lighting Devices"),
+            ([u"light", u"lamp", u"luminaire", u"downlight", u"troffer", u"led", u"sconce", u"spot"], u"Lighting Fixtures"),
+            ([u"socket", u"receptacle", u"outlet", u"plug", u"power"], u"Electrical Fixtures"),
+            ([u"panel", u"mdb", u"db", u"switchboard", u"transformer", u"ups", u"generator", u"ats", u"substation"], u"Electrical Equipment"),
+            ([u"chiller", u"ahu", u"fcu", u"pump", u"fan", u"boiler", u"cooling tower", u"vav", u"hvac"], u"Mechanical Equipment"),
+            ([u"smoke detector", u"heat detector", u"fire alarm", u"horn", u"strobe", u"manual call"], u"Fire Alarm Devices"),
+            ([u"diffuser", u"grille", u"register", u"louver", u"air terminal"], u"Air Terminals"),
+            ([u"damper", u"attenuator", u"sound attenuator", u"silencer"], u"Duct Accessories"),
+            ([u"duct elbow", u"duct tee", u"duct transition", u"duct bend", u"duct reducer"], u"Duct Fittings"),
+            ([u"valve", u"strainer", u"water meter", u"check valve", u"gate valve", u"butterfly"], u"Pipe Accessories"),
+            ([u"pipe elbow", u"pipe tee", u"pipe reducer", u"flange", u"coupling", u"takeoff"], u"Pipe Fittings"),
+            ([u"tray bend", u"tray tee", u"tray cross", u"tray reducer", u"channel horizontal"], u"Cable Tray Fittings"),
+            ([u"cable tray", u"ladder", u"trunking"], u"Cable Trays"),
+            ([u"conduit fitting", u"conduit box", u"junction box"], u"Conduit Fittings"),
+            ([u"conduit"], u"Conduits"),
+            ([u"wc", u"toilet", u"basin", u"sink", u"urinal", u"shower", u"faucet", u"drain"], u"Plumbing Fixtures"),
+            ([u"door"], u"Doors"),
+            ([u"window"], u"Windows"),
+            ([u"column"], u"Structural Columns"),
+            ([u"beam", u"truss", u"framing"], u"Structural Framing"),
+            ([u"wall"], u"Walls"),
+            ([u"chair", u"table", u"desk", u"sofa", u"bed", u"furniture"], u"Furniture"),
+        ]
+
+        for keywords, target_cat in keyword_map:
+            u_target = target_cat if isinstance(target_cat, unicode) else unicode(target_cat)
+            for kw in keywords:
+                u_kw = kw if isinstance(kw, unicode) else unicode(kw)
+                if u_kw in base_name:
+                    return u_target
+
+        # ── Layer 4: Standard Name Matching on Filename ──────────────────────────
         for cat in SORTED_CATEGORIES:
-            cat_l = cat.lower()
-            if cat_l == p_clean or cat_l == part.lower():
-                return cat
-            if cat_l.endswith('s') and cat_l[:-1] == p_clean:
-                return cat
+            u_cat = cat if isinstance(cat, unicode) else unicode(cat)
+            if u_cat == u"Generic Models":
+                continue
+            c_low = u_cat.lower()
+            if c_low in base_name or (c_low.endswith(u"s") and c_low[:-1] in base_name):
+                return u_cat
 
-    # ── Layer 2: Binary Stream Header Scan (ASCII & UTF-16) ──────────────────
-    if os.path.exists(rfa_path):
-        try:
-            with open(rfa_path, 'rb') as f:
-                header_data = f.read(512 * 1024)
-                for cat in SORTED_CATEGORIES:
-                    if cat == "Generic Models":
-                        continue
-                    if cat.encode('utf-8') in header_data or cat.encode('utf-16le') in header_data:
-                        return cat
-        except Exception:
-            pass
+        # ── Layer 5: Revit API In-Memory Document Inspection (if idle) ───────────
+        if HAS_REVIT_API and os.path.exists(u_rfa_path):
+            try:
+                from pyrevit import revit
+                uiapp = getattr(revit, "uiapp", None)
+                app = uiapp.Application if uiapp else None
+                if app:
+                    fam_doc = app.OpenDocumentFile(u_rfa_path)
+                    try:
+                        if fam_doc.IsFamilyDocument and fam_doc.OwnerFamily and fam_doc.OwnerFamily.FamilyCategory:
+                            cat_name = fam_doc.OwnerFamily.FamilyCategory.Name
+                            if cat_name:
+                                return unicode(cat_name)
+                    finally:
+                        fam_doc.Close(False)
+            except Exception:
+                pass
+    except Exception:
+        pass
 
-    # ── Layer 3: Filename Keywords & MEP Domain Abbreviations ────────────────
-    base_name = os.path.splitext(os.path.basename(rfa_path))[0].lower()
-
-    keyword_map = [
-        (["sprinkler", "pendent", "upright", "sidewall"], "Sprinklers"),
-        (["speaker", "camera", "cctv", "mic", "bell", "call", "intercom", "display", "tv", "bc"], "Communication Devices"),
-        (["switch", "dimmer", "sensor", "pir", "occupancy"], "Lighting Devices"),
-        (["light", "lamp", "luminaire", "downlight", "troffer", "led", "sconce", "spot"], "Lighting Fixtures"),
-        (["socket", "receptacle", "outlet", "plug", "power"], "Electrical Fixtures"),
-        (["panel", "mdb", "db", "switchboard", "transformer", "ups", "generator", "ats", "substation"], "Electrical Equipment"),
-        (["chiller", "ahu", "fcu", "pump", "fan", "boiler", "cooling tower", "vav", "hvac"], "Mechanical Equipment"),
-        (["smoke detector", "heat detector", "fire alarm", "horn", "strobe", "manual call"], "Fire Alarm Devices"),
-        (["diffuser", "grille", "register", "louver", "air terminal"], "Air Terminals"),
-        (["damper", "attenuator", "sound attenuator", "silencer"], "Duct Accessories"),
-        (["duct elbow", "duct tee", "duct transition", "duct bend", "duct reducer"], "Duct Fittings"),
-        (["valve", "strainer", "water meter", "check valve", "gate valve", "butterfly"], "Pipe Accessories"),
-        (["pipe elbow", "pipe tee", "pipe reducer", "flange", "coupling", "takeoff"], "Pipe Fittings"),
-        (["tray bend", "tray tee", "tray cross", "tray reducer", "channel horizontal"], "Cable Tray Fittings"),
-        (["cable tray", "ladder", "trunking"], "Cable Trays"),
-        (["conduit fitting", "conduit box", "junction box"], "Conduit Fittings"),
-        (["conduit"], "Conduits"),
-        (["wc", "toilet", "basin", "sink", "urinal", "shower", "faucet", "drain"], "Plumbing Fixtures"),
-        (["door"], "Doors"),
-        (["window"], "Windows"),
-        (["column"], "Structural Columns"),
-        (["beam", "truss", "framing"], "Structural Framing"),
-        (["wall"], "Walls"),
-        (["chair", "table", "desk", "sofa", "bed", "furniture"], "Furniture"),
-    ]
-
-    for keywords, target_cat in keyword_map:
-        for kw in keywords:
-            if kw in base_name:
-                return target_cat
-
-    # ── Layer 4: Standard Name Matching on Filename ──────────────────────────
-    for cat in SORTED_CATEGORIES:
-        if cat == "Generic Models":
-            continue
-        c_low = cat.lower()
-        if c_low in base_name or (c_low.endswith("s") and c_low[:-1] in base_name):
-            return cat
-
-    # ── Layer 5: Revit API In-Memory Document Inspection (if idle) ───────────
-    if HAS_REVIT_API and os.path.exists(rfa_path):
-        try:
-            from pyrevit import revit
-            uiapp = getattr(revit, "uiapp", None)
-            app = uiapp.Application if uiapp else None
-            if app:
-                fam_doc = app.OpenDocumentFile(rfa_path)
-                try:
-                    if fam_doc.IsFamilyDocument and fam_doc.OwnerFamily and fam_doc.OwnerFamily.FamilyCategory:
-                        cat_name = fam_doc.OwnerFamily.FamilyCategory.Name
-                        if cat_name:
-                            return cat_name
-                finally:
-                    fam_doc.Close(False)
-        except Exception:
-            pass
-
-    return "Generic Models"
+    return u"Generic Models"
 
 
 def extract_rfa_version(rfa_path):
@@ -776,38 +793,38 @@ def extract_rfa_version(rfa_path):
             p32 = b"\x04\x00\x00\x00" + str(yr).encode("utf-16le")
             p16 = b"\x04\x00" + str(yr).encode("utf-16le")
             if p32 in data or p16 in data:
-                return str(yr)
+                return unicode(yr)
 
         # Layer 2: XML PartAtom <A:product-version>20xx</A:product-version>
         m_xml = re.search(r"product-version>(20[12]\d)<", data.decode("latin1", errors="ignore"))
         if m_xml:
-            return str(m_xml.group(1))
+            return unicode(m_xml.group(1))
 
         # Layer 3: 'Autodesk Revit 20xx', 'Format: 20xx', 'Revit Build: 20xx' in UTF-16LE
         u16_text = data.decode("utf-16le", errors="ignore")
         m = re.search(r"(?:Format:|Autodesk Revit|Revit Build:|Revit Version:|Revit)\s*(20[12]\d)", u16_text, re.I)
         if m:
-            return m.group(1)
+            return unicode(m.group(1))
 
         # Layer 4: Latin-1 / ASCII fallback
         latin_text = data.decode("latin1", errors="ignore")
         m = re.search(r"(?:Format:|Autodesk Revit|Revit Build:|Revit Version:|Revit)\s*(20[12]\d)", latin_text, re.I)
         if m:
-            return m.group(1)
+            return unicode(m.group(1))
 
     except Exception:
         pass
 
-    return "Unknown"
+    return u"Unknown"
 
 
 def format_file_size(size_bytes):
     if size_bytes < 1024:
-        return "{} B".format(size_bytes)
+        return u"{} B".format(size_bytes)
     elif size_bytes < 1024 * 1024:
-        return "{:.1f} KB".format(size_bytes / 1024.0)
+        return u"{:.1f} KB".format(size_bytes / 1024.0)
     else:
-        return "{:.1f} MB".format(size_bytes / (1024.0 * 1024.0))
+        return u"{:.1f} MB".format(size_bytes / (1024.0 * 1024.0))
 
 
 # ── Catalog & Upload Operations (100% Cloud Webhook) ─────────────────────────
