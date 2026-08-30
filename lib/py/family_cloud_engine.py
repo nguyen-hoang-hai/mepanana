@@ -154,6 +154,48 @@ def write_file_bytes(file_path, data_bytes):
         return False
 
 
+def safe_file_exists(path):
+    """Safely checks file existence supporting full Unicode / Vietnamese paths in IronPython."""
+    if not path:
+        return False
+    try:
+        if not isinstance(path, unicode):
+            try: u_p = path.decode("utf-8")
+            except Exception: u_p = unicode(path)
+        else:
+            u_p = path
+        try:
+            from System.IO import File as DotNetFile
+            return DotNetFile.Exists(u_p)
+        except Exception:
+            pass
+        return os.path.exists(u_p)
+    except Exception:
+        return False
+
+
+def safe_file_size(path):
+    """Safely gets file size in bytes supporting full Unicode / Vietnamese paths in IronPython."""
+    if not path:
+        return 0
+    try:
+        if not isinstance(path, unicode):
+            try: u_p = path.decode("utf-8")
+            except Exception: u_p = unicode(path)
+        else:
+            u_p = path
+        try:
+            from System.IO import FileInfo as DotNetFileInfo
+            fi = DotNetFileInfo(u_p)
+            if fi.Exists:
+                return int(fi.Length)
+        except Exception:
+            pass
+        return os.path.getsize(u_p) if os.path.exists(u_p) else 0
+    except Exception:
+        return 0
+
+
 # ── RFA Binary & OLE Thumbnail Extraction ────────────────────────────────────
 
 _PNG_SIG = b"\x89PNG\r\n\x1a\n"
@@ -609,7 +651,7 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
     if not webhook_url:
         return False, "Cloud Webhook URL is not configured."
 
-    if not os.path.exists(source_rfa_path):
+    if not safe_file_exists(source_rfa_path):
         return False, "File does not exist."
 
     # 1. Category & Version
@@ -617,9 +659,14 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
         target_category = extract_rfa_category(source_rfa_path)
 
     ver_str = extract_rfa_version(source_rfa_path)
-    file_size_bytes = os.path.getsize(source_rfa_path)
+    file_size_bytes = safe_file_size(source_rfa_path)
     file_size_str = format_file_size(file_size_bytes)
-    base_name = os.path.basename(source_rfa_path)
+
+    if isinstance(source_rfa_path, unicode): u_src = source_rfa_path
+    else:
+        try: u_src = source_rfa_path.decode("utf-8")
+        except Exception: u_src = unicode(source_rfa_path)
+    base_name = os.path.basename(u_src)
 
     # 2. Encode RFA to Base64
     rfa_bytes = read_file_bytes(source_rfa_path)
@@ -698,7 +745,7 @@ def download_file_from_url(url, dest_path):
             wc = WebClient()
             wc.Headers.Add("User-Agent", "Mozilla/5.0 MepananaFamilyCloud")
             wc.DownloadFile(url, dest_path)
-            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+            if safe_file_exists(dest_path) and safe_file_size(dest_path) > 0:
                 return True
         except Exception:
             pass

@@ -82,7 +82,9 @@ from py.family_cloud_engine import (
     extract_rfa_category,
     extract_rfa_version,
     format_file_size,
-    extract_preview_png_bytes
+    extract_preview_png_bytes,
+    safe_file_exists,
+    safe_file_size
 )
 
 doc = revit.doc
@@ -263,7 +265,7 @@ class FamilyCardItem(System.Object):
         disk_thumb_path = get_thumbnail_cache_path(fam_name)
 
         # 1. Check Local Disk Cache first (instant, 0ms)
-        if os.path.exists(disk_thumb_path) and os.path.getsize(disk_thumb_path) > 0:
+        if safe_file_exists(disk_thumb_path) and safe_file_size(disk_thumb_path) > 0:
             try:
                 raw_bytes = File.ReadAllBytes(disk_thumb_path)
                 bmp = self._bytes_to_bitmapimage(raw_bytes)
@@ -291,11 +293,11 @@ class FamilyCardItem(System.Object):
         # 3. Check if local RFA file exists to extract directly
         local_rfa_candidates = []
         rfa_p = raw_data.get("rfa_path", "")
-        if rfa_p and os.path.exists(rfa_p):
+        if rfa_p and safe_file_exists(rfa_p):
             local_rfa_candidates.append(rfa_p)
 
         temp_rfa = os.path.join(tempfile.gettempdir(), "mepanana_families", fam_name + ".rfa")
-        if os.path.exists(temp_rfa):
+        if safe_file_exists(temp_rfa):
             local_rfa_candidates.append(temp_rfa)
 
         for loc_path in local_rfa_candidates:
@@ -318,7 +320,7 @@ class FamilyCardItem(System.Object):
     def try_load_from_disk(self):
         """Try to load thumbnail from disk cache (called after async download completes)."""
         disk_thumb_path = get_thumbnail_cache_path(self.Name)
-        if os.path.exists(disk_thumb_path) and os.path.getsize(disk_thumb_path) > 0:
+        if safe_file_exists(disk_thumb_path) and safe_file_size(disk_thumb_path) > 0:
             try:
                 raw_bytes = File.ReadAllBytes(disk_thumb_path)
                 bmp = self._bytes_to_bitmapimage(raw_bytes)
@@ -965,7 +967,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             # 1. Automatic Exact Category Detection via Revit API / compound inspection
             detected_category = extract_rfa_category(selected_path)
             detected_version = extract_rfa_version(selected_path)
-            file_size_bytes = os.path.getsize(selected_path) if os.path.exists(selected_path) else 0
+            file_size_bytes = safe_file_size(selected_path)
             file_size_str = format_file_size(file_size_bytes)
 
             # 2. Select in ComboBox
@@ -999,7 +1001,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             return
 
         src_path = unicode(self.txtUploadFilePath.Text.strip()) if hasattr(self, 'txtUploadFilePath') else u""
-        if not src_path or not os.path.exists(src_path):
+        if not src_path or not safe_file_exists(src_path):
             show_warning(u"Please select a valid .rfa file to upload!", title="File Required")
             return
 
