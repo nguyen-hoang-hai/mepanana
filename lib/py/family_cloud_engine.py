@@ -303,10 +303,16 @@ def _list_preview_stream_payloads(rfa_path):
     if not _init_storage_api():
         return payloads
     try:
-        from System import Array, Object
+        from System import Array, Object, String
         from System.IO import FileMode, FileAccess, FileShare
 
-        args = Array[Object]([rfa_path, FileMode.Open, FileAccess.Read, FileShare.Read])
+        if not isinstance(rfa_path, unicode):
+            try: u_rfa_path = rfa_path.decode("utf-8")
+            except Exception: u_rfa_path = unicode(rfa_path)
+        else:
+            u_rfa_path = rfa_path
+
+        args = Array[Object]([u_rfa_path, FileMode.Open, FileAccess.Read, FileShare.Read])
         st_info = _storage_root_type.InvokeMember(
             "Open", _storage_open_flags, None, None, args)
         if st_info is None:

@@ -943,7 +943,7 @@ class FamilyCloudWindow(forms.WPFWindow):
         dlg.Filter = "Revit Family Files (*.rfa)|*.rfa|All Files (*.*)|*.*"
         dlg.Title = "Select Revit Family (.rfa) to Upload"
         if dlg.ShowDialog() == DialogResult.OK:
-            selected_path = dlg.FileName
+            selected_path = unicode(dlg.FileName)
             self.txtUploadFilePath.Text = selected_path
 
             # 1. Automatic Exact Category Detection via Revit API / compound inspection
@@ -969,7 +969,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             # 3. Show Live Detection Pill
             if hasattr(self, 'borderDetectInfo') and hasattr(self, 'txtDetectInfo'):
                 self.txtDetectInfo.Text = u"⚡ Auto-detected: Category: {} | Revit {} | {}".format(
-                    detected_category, detected_version, file_size_str
+                    unicode(detected_category), unicode(detected_version), unicode(file_size_str)
                 )
                 self.borderDetectInfo.Visibility = System.Windows.Visibility.Visible
 
@@ -982,7 +982,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             )
             return
 
-        src_path = self.txtUploadFilePath.Text.strip() if hasattr(self, 'txtUploadFilePath') else ""
+        src_path = unicode(self.txtUploadFilePath.Text.strip()) if hasattr(self, 'txtUploadFilePath') else u""
         if not src_path or not os.path.exists(src_path):
             show_warning(u"Please select a valid .rfa file to upload!", title="File Required")
             return
