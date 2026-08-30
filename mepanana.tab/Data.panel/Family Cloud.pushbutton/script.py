@@ -776,17 +776,20 @@ class FamilyCloudWindow(forms.WPFWindow):
         del_count = 0
         try:
             for idx, item in enumerate(selected):
+                fam_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
+                fam_cat = item.Category if isinstance(item.Category, unicode) else unicode(item.Category)
+
                 if hasattr(self, 'progressBar'):
                     self.progressBar.Value = idx
                 if hasattr(self, 'txtLibraryStatus'):
-                    self.txtLibraryStatus.Text = u"🗑️ Deleting ({}/{}): {}...".format(idx + 1, len(selected), item.Name)
+                    self.txtLibraryStatus.Text = u"🗑️ Deleting ({}/{}): {}...".format(idx + 1, len(selected), fam_name)
                 do_events()
 
                 try:
-                    success, msg = delete_family_from_cloud(item.Name, item.Category)
+                    success, msg = delete_family_from_cloud(fam_name, fam_cat)
                     if success:
                         del_count += 1
-                        thumb_path = get_thumbnail_cache_path(item.Name)
+                        thumb_path = get_thumbnail_cache_path(fam_name)
                         if os.path.exists(thumb_path):
                             os.remove(thumb_path)
                 except Exception:
@@ -874,6 +877,8 @@ class FamilyCloudWindow(forms.WPFWindow):
                 show_warning(u"Could not identify the selected family file.", title="Load Notice")
                 return
 
+            fam_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
+
             # Pre-Flight Smart Compatibility Shield Check
             if not getattr(item, 'IsCompatible', True) and getattr(item, 'HostYear', None) and getattr(item, 'NumericVersion', None):
                 show_warning(
@@ -882,7 +887,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                     u"• Your Current Revit: Revit {}\n\n"
                     u"Autodesk Revit does not support loading families saved in a newer version into an older version.\n\n"
                     u"💡 Solution: Please open your project in Revit {} or newer, or ask the author to export/save for Revit {}.".format(
-                        item.Name, item.NumericVersion, item.HostYear, item.NumericVersion, item.HostYear
+                        fam_name, item.NumericVersion, item.HostYear, item.NumericVersion, item.HostYear
                     ),
                     title="Compatibility Shield Blocked"
                 )
@@ -893,13 +898,15 @@ class FamilyCloudWindow(forms.WPFWindow):
                 show_warning(u"File target path or download URL is missing.", title="Load Error")
                 return
 
-            success, msg = load_family_to_revit(doc, target, family_name=item.Name)
+            success, msg = load_family_to_revit(doc, target, family_name=fam_name)
             if success:
                 show_success(msg, title="Family Loaded")
             else:
                 show_error(msg, title="Load Error")
         except Exception as ex:
-            show_error(u"Unexpected error loading family:\n{}".format(str(ex)), title="Load Error")
+            try: err_txt = unicode(ex)
+            except Exception: err_txt = str(ex)
+            show_error(u"Unexpected error loading family:\n{}".format(err_txt), title="Load Error")
 
     def OnDeleteFamilyClick(self, sender, args):
         try:
@@ -907,12 +914,15 @@ class FamilyCloudWindow(forms.WPFWindow):
             if not item:
                 return
 
-            if show_confirm(u"Are you sure you want to permanently delete '{}' from the Cloud Library?".format(item.Name), title="Delete Family"):
-                success, msg = delete_family_from_cloud(item.Name, item.Category)
+            fam_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
+            fam_cat = item.Category if isinstance(item.Category, unicode) else unicode(item.Category)
+
+            if show_confirm(u"Are you sure you want to permanently delete '{}' from the Cloud Library?".format(fam_name), title="Delete Family"):
+                success, msg = delete_family_from_cloud(fam_name, fam_cat)
                 if success:
                     # Also clear local thumbnail cache for this family
                     try:
-                        thumb_path = get_thumbnail_cache_path(item.Name)
+                        thumb_path = get_thumbnail_cache_path(fam_name)
                         if os.path.exists(thumb_path):
                             os.remove(thumb_path)
                     except Exception:
@@ -922,7 +932,9 @@ class FamilyCloudWindow(forms.WPFWindow):
                 else:
                     show_error(msg, title="Delete Error")
         except Exception as ex:
-            show_error(u"Unexpected error deleting family:\n{}".format(str(ex)), title="Delete Error")
+            try: err_txt = unicode(ex)
+            except Exception: err_txt = str(ex)
+            show_error(u"Unexpected error deleting family:\n{}".format(err_txt), title="Delete Error")
 
     # ── Upload Workflow with Automatic Category Detection ─────────────────────
 

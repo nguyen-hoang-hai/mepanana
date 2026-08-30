@@ -966,15 +966,23 @@ def delete_family_from_cloud(fam_name, cat_name):
     if not webhook_url:
         return False, "No Webhook URL configured."
 
+    def _u(s):
+        if s is None: return u""
+        if isinstance(s, unicode): return s
+        try: return s.decode("utf-8")
+        except Exception:
+            try: return unicode(s)
+            except Exception: return s.decode("ascii", "ignore")
+
     payload = {
         "action": "delete",
-        "name": fam_name,
-        "category": cat_name
+        "name": _u(fam_name),
+        "category": _u(cat_name or "Generic Models")
     }
-    payload_json = json.dumps(payload)
+    payload_json = json.dumps(payload, ensure_ascii=True)
     success, res_txt = make_http_request(webhook_url, method="POST", json_body=payload_json, timeout=30)
     if not success:
-        return False, u"Delete request failed:\n{}".format(res_txt)
+        return False, u"Delete request failed:\n{}".format(_u(res_txt))
 
     # Invalidate local disk cache
     cache_path = get_catalog_cache_path()
@@ -984,7 +992,7 @@ def delete_family_from_cloud(fam_name, cat_name):
         except Exception:
             pass
 
-    return True, u"Family '{}' deleted successfully from Cloud Webhook!".format(fam_name)
+    return True, u"Family '{}' deleted successfully from Cloud Webhook!".format(_u(fam_name))
 
 
 def upload_family_file(source_rfa_path, target_category=None, description="", library_root=None):
@@ -1018,15 +1026,20 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
             pass
 
     # Preserve exact family name
-    if family_name and str(family_name).strip():
-        fam_name = str(family_name).strip()
+    if family_name and (isinstance(family_name, unicode) or str(family_name).strip()):
+        if isinstance(family_name, str):
+            try: fam_name = family_name.decode("utf-8")
+            except Exception: fam_name = unicode(family_name)
+        else:
+            fam_name = unicode(family_name)
+        fam_name = fam_name.strip()
         if fam_name.lower().endswith(".rfa"):
             fam_name = fam_name[:-4]
     else:
         fam_base = os.path.basename(rfa_full_path_or_url.split('?')[0])
         fam_name = os.path.splitext(fam_base)[0]
         if fam_name.lower() == "uc" or not fam_name:
-            fam_name = "Cloud_Family"
+            fam_name = u"Cloud_Family"
 
     fam_file_name = fam_name + ".rfa"
     temp_rfa_path = os.path.join(temp_dir, fam_file_name)
