@@ -8,6 +8,7 @@ Part of mepanana.extension.
 """
 import os
 import sys
+import tempfile
 
 # 1. Dynamic Lib Resolution
 cur_dir = os.path.dirname(__file__)
