@@ -975,8 +975,8 @@ class FamilyCloudWindow(forms.WPFWindow):
             show_warning(u"Please select a valid .rfa file to upload!", title="File Required")
             return
 
-        cat = str(self.cmbUploadCategory.SelectedItem) if hasattr(self, 'cmbUploadCategory') and self.cmbUploadCategory.SelectedItem else "Generic Models"
-        desc = self.txtUploadDescription.Text.strip() if hasattr(self, 'txtUploadDescription') else ""
+        cat = unicode(self.cmbUploadCategory.SelectedItem) if hasattr(self, 'cmbUploadCategory') and self.cmbUploadCategory.SelectedItem else u"Generic Models"
+        desc = unicode(self.txtUploadDescription.Text.strip()) if hasattr(self, 'txtUploadDescription') else u""
 
         # Visual feedback during upload
         orig_content = self.btnExecuteUpload.Content if hasattr(self, 'btnExecuteUpload') else "Upload"
@@ -1009,7 +1009,11 @@ class FamilyCloudWindow(forms.WPFWindow):
                     if hasattr(self, 'btnExecuteUpload'):
                         self.btnExecuteUpload.IsEnabled = True
                         self.btnExecuteUpload.Content = orig_content
-                    show_error(str(ex), "Upload Error")
+                    try:
+                        err_msg = unicode(ex)
+                    except Exception:
+                        err_msg = str(ex)
+                    show_error(err_msg, "Upload Error")
                 if self.Dispatcher:
                     self.Dispatcher.Invoke(System.Action(on_fail))
 

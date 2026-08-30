@@ -468,7 +468,12 @@ def make_http_request(url, method="GET", json_body=None, timeout=60):
 
         if json_body and method == "POST":
             req.ContentType = "application/json; charset=utf-8"
-            payload_bytes = System.Text.Encoding.UTF8.GetBytes(json_body)
+            if isinstance(json_body, unicode):
+                json_body_clean = json_body
+            else:
+                try: json_body_clean = json_body.decode("utf-8")
+                except Exception: json_body_clean = unicode(json_body)
+            payload_bytes = System.Text.Encoding.UTF8.GetBytes(json_body_clean)
             req.ContentLength = len(payload_bytes)
             stream = req.GetRequestStream()
             stream.Write(payload_bytes, 0, len(payload_bytes))
@@ -492,7 +497,10 @@ def make_http_request(url, method="GET", json_body=None, timeout=60):
             headers = {"User-Agent": "MepananaFamilyCloud/1.0"}
             if json_body:
                 headers["Content-Type"] = "application/json; charset=utf-8"
-                data = json_body.encode("utf-8")
+                if isinstance(json_body, unicode):
+                    data = json_body.encode("utf-8")
+                else:
+                    data = json_body
                 req = urllib_req.Request(url, data=data, headers=headers)
             else:
                 req = urllib_req.Request(url, headers=headers)
@@ -553,22 +561,30 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
     if img_bytes:
         thumb_b64 = base64.b64encode(img_bytes).decode("ascii")
 
+    def _u(s):
+        if s is None: return u""
+        if isinstance(s, unicode): return s
+        try: return s.decode("utf-8")
+        except Exception:
+            try: return unicode(s)
+            except Exception: return s.decode("ascii", "ignore")
+
     # 4. Construct Payload
     payload = {
-        "name": base_name,
-        "category": target_category or "Generic Models",
-        "revit_version": ver_str,
-        "file_size": file_size_str,
+        "name": _u(base_name),
+        "category": _u(target_category or "Generic Models"),
+        "revit_version": _u(ver_str or "Unknown"),
+        "file_size": _u(file_size_str or "0 KB"),
         "file_size_bytes": file_size_bytes,
-        "description": description or "",
+        "description": _u(description or ""),
         "rfa_base64": rfa_b64,
         "thumb_base64": thumb_b64
     }
 
-    payload_json = json.dumps(payload)
+    payload_json = json.dumps(payload, ensure_ascii=True)
     success, res_txt = make_http_request(webhook_url, method="POST", json_body=payload_json, timeout=90)
     if not success:
-        return False, u"Webhook Upload Failed:\n{}".format(res_txt)
+        return False, u"Webhook Upload Failed:\n{}".format(_u(res_txt) if res_txt else u"")
 
     try:
         res_data = json.loads(res_txt)
