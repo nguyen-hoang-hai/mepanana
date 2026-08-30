@@ -84,6 +84,76 @@ STANDARD_CATEGORIES = [
 SORTED_CATEGORIES = sorted(STANDARD_CATEGORIES, key=len, reverse=True)
 
 
+# ── Unicode-Safe File I/O Helpers for IronPython ─────────────────────────────
+
+def read_file_bytes(file_path, max_bytes=None):
+    """Safely reads binary bytes from a file path supporting full Unicode / Vietnamese characters."""
+    if not file_path:
+        return None
+    try:
+        if not isinstance(file_path, unicode):
+            try: u_path = file_path.decode("utf-8")
+            except Exception: u_path = unicode(file_path)
+        else:
+            u_path = file_path
+
+        # Try .NET File API first (100% Unicode path safe in IronPython)
+        try:
+            from System.IO import File as DotNetFile
+            all_bytes = DotNetFile.ReadAllBytes(u_path)
+            if max_bytes is not None and len(all_bytes) > max_bytes:
+                from System import Array, Byte
+                truncated = Array.CreateInstance(Byte, max_bytes)
+                Array.Copy(all_bytes, truncated, max_bytes)
+                return bytes(bytearray(truncated))
+            return bytes(bytearray(all_bytes))
+        except Exception:
+            pass
+
+        # Fallback to standard Python open
+        with open(u_path, "rb") as f:
+            if max_bytes is not None:
+                return f.read(max_bytes)
+            return f.read()
+    except Exception:
+        return None
+
+
+def write_file_bytes(file_path, data_bytes):
+    """Safely writes binary bytes to a file path supporting full Unicode / Vietnamese characters."""
+    if not file_path or data_bytes is None:
+        return False
+    try:
+        if not isinstance(file_path, unicode):
+            try: u_path = file_path.decode("utf-8")
+            except Exception: u_path = unicode(file_path)
+        else:
+            u_path = file_path
+
+        dest_dir = os.path.dirname(u_path)
+        if dest_dir and not os.path.exists(dest_dir):
+            try: os.makedirs(dest_dir)
+            except Exception: pass
+
+        try:
+            from System.IO import File as DotNetFile
+            from System import Array, Byte
+            if isinstance(data_bytes, Array[Byte]):
+                arr = data_bytes
+            else:
+                arr = Array[Byte](bytearray(data_bytes))
+            DotNetFile.WriteAllBytes(u_path, arr)
+            return True
+        except Exception:
+            pass
+
+        with open(u_path, "wb") as f:
+            f.write(data_bytes)
+        return True
+    except Exception:
+        return False
+
+
 # ── RFA Binary & OLE Thumbnail Extraction ────────────────────────────────────
 
 _PNG_SIG = b"\x89PNG\r\n\x1a\n"
@@ -366,8 +436,8 @@ def extract_preview_png_bytes(rfa_path):
 
     # 2. Raw binary scan fallback
     try:
-        with open(rfa_path, "rb") as f:
-            file_data = f.read()
+        file_data = read_file_bytes(rfa_path)
+        if file_data:
             img_bytes = _extract_image_from_bytes(file_data)
             if img_bytes:
                 return img_bytes
@@ -384,9 +454,7 @@ def extract_and_save_thumbnail(rfa_path, output_png_path):
     try:
         img_bytes = extract_preview_png_bytes(rfa_path)
         if img_bytes:
-            with open(output_png_path, "wb") as f:
-                f.write(img_bytes)
-            return os.path.exists(output_png_path) and os.path.getsize(output_png_path) > 0
+            return write_file_bytes(output_png_path, img_bytes)
     except Exception:
         pass
 
@@ -554,8 +622,9 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
     base_name = os.path.basename(source_rfa_path)
 
     # 2. Encode RFA to Base64
-    with open(source_rfa_path, "rb") as f:
-        rfa_bytes = f.read()
+    rfa_bytes = read_file_bytes(source_rfa_path)
+    if not rfa_bytes:
+        return False, u"Failed to read family file from disk."
     rfa_b64 = base64.b64encode(rfa_bytes).decode("ascii")
 
     # 3. Extract Thumbnail to Base64 (with guaranteed fallback so a PNG is ALWAYS created on Drive)
@@ -642,9 +711,7 @@ def download_file_from_url(url, dest_path):
 
         req = urllib_req.Request(url, headers={"User-Agent": "Mozilla/5.0 MepananaFamilyCloud"})
         resp = urllib_req.urlopen(req, timeout=30)
-        with open(dest_path, "wb") as f:
-            f.write(resp.read())
-        return os.path.exists(dest_path) and os.path.getsize(dest_path) > 0
+        return write_file_bytes(dest_path, resp.read())
     except Exception:
         return False
 
@@ -687,8 +754,8 @@ def extract_rfa_category(rfa_path):
         # ── Layer 2: Binary Stream Header Scan (ASCII & UTF-16) ──────────────────
         if os.path.exists(u_rfa_path):
             try:
-                with open(u_rfa_path, 'rb') as f:
-                    header_data = f.read(512 * 1024)
+                header_data = read_file_bytes(u_rfa_path, max_bytes=512 * 1024)
+                if header_data:
                     for cat in SORTED_CATEGORIES:
                         u_cat = cat if isinstance(cat, unicode) else unicode(cat)
                         if u_cat == u"Generic Models":
@@ -780,11 +847,12 @@ def extract_rfa_version(rfa_path):
     - Layer 3: Text regex scan in Latin-1 / ASCII fallback
     """
     if not rfa_path or not os.path.exists(rfa_path):
-        return "Unknown"
+        return u"Unknown"
 
     try:
-        with open(rfa_path, "rb") as f:
-            data = f.read(2048 * 1024)
+        data = read_file_bytes(rfa_path, max_bytes=2048 * 1024)
+        if not data:
+            return u"Unknown"
 
         # Layer 1: Length-prefixed Pascal year in UTF-16LE
         # 32-bit int: \x04\x00\x00\x00 + '20xx' as UTF-16LE (standard in modern Revit 2018+)
