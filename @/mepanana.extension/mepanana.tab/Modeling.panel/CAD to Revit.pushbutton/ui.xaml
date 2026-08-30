@@ -1,0 +1,235 @@
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CAD to Revit" Width="820" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{DynamicResource WindowBgBrush}"
+        FontFamily="Segoe UI" FontSize="12.5"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.2"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Top Selectors -->
+            <RowDefinition Height="*"/>     <!-- Content -->
+            <RowDefinition Height="Auto"/>  <!-- Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Top Selectors: CAD Link + Level ────────────────────────── -->
+        <Grid Grid.Row="0" Margin="16,16,16,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- CAD Link aligned over left card -->
+            <Grid Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="CAD Link:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Grid.Column="1" Name="cmbCadLink" Height="32"/>
+            </Grid>
+
+            <!-- Level aligned over right card -->
+            <Grid Grid.Column="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="220"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Level:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Grid.Column="1" Name="cmbLevel" Height="32"/>
+            </Grid>
+        </Grid>
+
+        <!-- ── Content: Master (left) + Detail (right) ─────────────────────── -->
+        <Grid Grid.Row="1" Margin="16,14,16,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Rules list ─────────────────────────────────────────── -->
+            <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0" Padding="16">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Mapping Rules"
+                               Style="{DynamicResource SectionTitle}" Margin="0,0,0,10"/>
+
+                    <ListBox Grid.Row="1" Name="lstRules"
+                             DisplayMemberPath="DisplayName"
+                             MinHeight="330"
+                             Margin="0,0,0,12"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+
+                    <!-- Buttons below list -->
+                    <StackPanel Grid.Row="2">
+                        <!-- Add / Remove row -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Name="btnAddRule"
+                                    Style="{DynamicResource GhostButton}" Height="32"
+                                    ToolTip="Add a new mapping rule">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="+" FontWeight="Bold" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Add"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Name="btnRemoveRule"
+                                    Style="{DynamicResource GhostButton}" Height="32"
+                                    ToolTip="Remove selected rule">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="−" FontWeight="Bold" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Remove"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Auto Scan -->
+                        <Button Name="btnAutoScan"
+                                Style="{DynamicResource GhostButton}" Height="32" Margin="0,6,0,0"
+                                ToolTip="Automatically scan layers from CAD link">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="⟳" FontSize="12" Margin="0,0,5,0"/>
+                                <TextBlock Text="Auto Scan Layers"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Save / Load -->
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Name="btnSaveRules"
+                                    Style="{DynamicResource GhostButton}" Height="32"
+                                    ToolTip="Save mapping rules to file">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="💾" FontSize="11" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Save"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="2" Name="btnLoadRules"
+                                    Style="{DynamicResource GhostButton}" Height="32"
+                                    ToolTip="Load mapping rules from file">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📂" FontSize="11" Margin="0,0,4,0"/>
+                                    <TextBlock Text="Load"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Right: Rule Detail ────────────────────────────────────────── -->
+            <Border Grid.Column="2" Style="{DynamicResource CardStyle}" Margin="0" Padding="18,16">
+                <Grid Name="gridRuleDetails" IsEnabled="False">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>  <!-- title -->
+                        <RowDefinition Height="Auto"/>  <!-- layer -->
+                        <RowDefinition Height="Auto"/>  <!-- category + family -->
+                        <RowDefinition Height="Auto"/>  <!-- offset + rotation -->
+                        <RowDefinition Height="*"/>     <!-- spacer -->
+                        <RowDefinition Height="Auto"/>  <!-- preview btn -->
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Rule Detail"
+                               Style="{DynamicResource SectionTitle}" Margin="0,0,0,12"/>
+
+                    <!-- Layer -->
+                    <StackPanel Grid.Row="1" Margin="0,0,0,14">
+                        <TextBlock Text="CAD Layer:" Style="{DynamicResource FieldLabel}"/>
+                        <ComboBox Name="cmbRuleLayer" Height="32"/>
+                    </StackPanel>
+
+                    <!-- Category + Family (side-by-side) -->
+                    <Grid Grid.Row="2" Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Category:" Style="{DynamicResource FieldLabel}"/>
+                            <ComboBox Name="cmbRuleCategory" Height="32"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Family Type:" Style="{DynamicResource FieldLabel}"/>
+                            <ComboBox Name="cmbRuleFamily" Height="32"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Offset + Rotation (side-by-side) -->
+                    <Grid Grid.Row="3" Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="170"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Vertical Offset (mm):" Style="{DynamicResource FieldLabel}"/>
+                            <TextBox Name="txtRuleOffset" Height="32" Text="0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Rotation (°):" Style="{DynamicResource FieldLabel}"/>
+                            <ComboBox Name="cmbRuleRotation" Height="32" IsEditable="False">
+                                <ComboBoxItem Content="0"   IsSelected="True"/>
+                                <ComboBoxItem Content="90"/>
+                                <ComboBoxItem Content="180"/>
+                                <ComboBoxItem Content="270"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Spacer -->
+                    <Border Grid.Row="4" MinHeight="10"/>
+
+                    <!-- Preview Single -->
+                    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Name="btnPreviewSingle"
+                                Content="Preview Rule"
+                                Style="{DynamicResource GhostButton}"
+                                Width="150" Height="32"
+                                ToolTip="Place one sample element to verify mapping"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ── Footer ──────────────────────────────────────────────────────── -->
+        <Border Grid.Row="2" Style="{DynamicResource FooterBar}" Height="56">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <Button Name="btnPlace"
+                        Content="Place All Elements"
+                        Style="{DynamicResource PrimaryButton}"
+                        Width="180" Height="34"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
