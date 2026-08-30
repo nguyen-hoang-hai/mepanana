@@ -504,6 +504,23 @@ def make_http_request(url, method="GET", json_body=None, timeout=60):
             return False, str(ex2)
 
 
+def generate_fallback_png_bytes(width=256, height=256):
+    """Generates a valid 256x256 PNG in pure Python so Google Drive always receives a .png file."""
+    import struct, zlib
+    line = b"\x00" + (b"\xf8\xfa\xfc\xff" * width)
+    raw_data = line * height
+    compressed = zlib.compress(raw_data, 9)
+    ihdr_data = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    def make_chunk(chunk_type, data):
+        crc = zlib.crc32(chunk_type + data) & 0xffffffff
+        return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
+    png = b"\x89PNG\r\n\x1a\n"
+    png += make_chunk(b"IHDR", ihdr_data)
+    png += make_chunk(b"IDAT", compressed)
+    png += make_chunk(b"IEND", b"")
+    return png
+
+
 def upload_family_via_webhook(source_rfa_path, target_category=None, description="", webhook_url=None):
     if not webhook_url:
         webhook_url = get_webhook_url()
@@ -527,9 +544,12 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
         rfa_bytes = f.read()
     rfa_b64 = base64.b64encode(rfa_bytes).decode("ascii")
 
-    # 3. Extract Thumbnail to Base64
-    thumb_b64 = ""
+    # 3. Extract Thumbnail to Base64 (with guaranteed fallback so a PNG is ALWAYS created on Drive)
     img_bytes = extract_preview_png_bytes(source_rfa_path)
+    if not img_bytes:
+        img_bytes = generate_fallback_png_bytes()
+
+    thumb_b64 = ""
     if img_bytes:
         thumb_b64 = base64.b64encode(img_bytes).decode("ascii")
 
