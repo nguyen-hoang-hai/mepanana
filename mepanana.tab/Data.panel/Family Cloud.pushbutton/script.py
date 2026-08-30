@@ -197,6 +197,12 @@ class FamilyCardItem(System.Object):
         # Store thumb_url for async download
         self._thumb_url = raw_data.get("thumb_url", "")
         self.ThumbnailImage = self._load_thumbnail(raw_data)
+        if self.ThumbnailImage is not None:
+            self.ThumbnailVisibility = Visibility.Visible
+            self.PlaceholderVisibility = Visibility.Collapsed
+        else:
+            self.ThumbnailVisibility = Visibility.Collapsed
+            self.PlaceholderVisibility = Visibility.Visible
 
     def set_selected(self, val):
         self.IsSelected = bool(val)
@@ -214,8 +220,12 @@ class FamilyCardItem(System.Object):
         if not raw_bytes:
             return None
         try:
-            arr = System.Array[System.Byte](bytearray(raw_bytes))
+            if isinstance(raw_bytes, System.Array[System.Byte]):
+                arr = raw_bytes
+            else:
+                arr = System.Array[System.Byte](bytearray(raw_bytes))
             ms = MemoryStream(arr)
+            ms.Position = 0
             bmp = BitmapImage()
             bmp.BeginInit()
             bmp.CacheOption = BitmapCacheOption.OnLoad
@@ -230,11 +240,11 @@ class FamilyCardItem(System.Object):
         fam_name = raw_data.get("name", "")
         disk_thumb_path = get_thumbnail_cache_path(fam_name)
 
-        # 1. Check Local Disk Cache first (instant, no network)
+        # 1. Check Local Disk Cache first (instant, 0ms)
         if os.path.exists(disk_thumb_path) and os.path.getsize(disk_thumb_path) > 0:
             try:
                 raw_bytes = File.ReadAllBytes(disk_thumb_path)
-                bmp = self._bytes_to_bitmapimage(bytes(bytearray(raw_bytes)))
+                bmp = self._bytes_to_bitmapimage(raw_bytes)
                 if bmp:
                     return bmp
             except Exception:
@@ -248,7 +258,6 @@ class FamilyCardItem(System.Object):
                 raw_bytes = _b64.b64decode(b64)
                 bmp = self._bytes_to_bitmapimage(raw_bytes)
                 if bmp:
-                    # Persist to disk cache for next time
                     try:
                         File.WriteAllBytes(disk_thumb_path, System.Array[System.Byte](bytearray(raw_bytes)))
                     except Exception:
@@ -257,7 +266,31 @@ class FamilyCardItem(System.Object):
             except Exception:
                 pass
 
-        # 3. No thumbnail available now — will attempt async download from thumb_url later
+        # 3. Check if local RFA file exists to extract directly
+        local_rfa_candidates = []
+        rfa_p = raw_data.get("rfa_path", "")
+        if rfa_p and os.path.exists(rfa_p):
+            local_rfa_candidates.append(rfa_p)
+
+        temp_rfa = os.path.join(tempfile.gettempdir(), "mepanana_families", fam_name + ".rfa")
+        if os.path.exists(temp_rfa):
+            local_rfa_candidates.append(temp_rfa)
+
+        for loc_path in local_rfa_candidates:
+            try:
+                img_bytes = extract_preview_png_bytes(loc_path)
+                if img_bytes:
+                    bmp = self._bytes_to_bitmapimage(img_bytes)
+                    if bmp:
+                        try:
+                            File.WriteAllBytes(disk_thumb_path, System.Array[System.Byte](bytearray(img_bytes)))
+                        except Exception:
+                            pass
+                        return bmp
+            except Exception:
+                pass
+
+        # 4. No thumbnail available now — will attempt async download from thumb_url or RFA later
         return None
 
     def try_load_from_disk(self):
@@ -266,9 +299,11 @@ class FamilyCardItem(System.Object):
         if os.path.exists(disk_thumb_path) and os.path.getsize(disk_thumb_path) > 0:
             try:
                 raw_bytes = File.ReadAllBytes(disk_thumb_path)
-                bmp = self._bytes_to_bitmapimage(bytes(bytearray(raw_bytes)))
+                bmp = self._bytes_to_bitmapimage(raw_bytes)
                 if bmp:
                     self.ThumbnailImage = bmp
+                    self.ThumbnailVisibility = Visibility.Visible
+                    self.PlaceholderVisibility = Visibility.Collapsed
                     return True
             except Exception:
                 pass
@@ -768,38 +803,51 @@ class FamilyCloudWindow(forms.WPFWindow):
 
     def _download_missing_thumbnails_async(self):
         """
-        Background download of thumbnails for cards that have a thumb_url
-        but no cached disk thumbnail and no base64 data in catalog.
+        Background download & extraction of thumbnails for cards that don't have one yet.
         Uses ThreadPool to avoid blocking UI thread.
-        On completion, re-runs ApplyFilter via Dispatcher to refresh bindings.
         """
         cards_to_download = [
             c for c in self.all_families
-            if c.ThumbnailImage is None and c._thumb_url and c._thumb_url.startswith("http")
+            if c.ThumbnailImage is None
         ]
         if not cards_to_download:
             return
 
         dispatcher = self.Dispatcher
-        all_families_ref = self.all_families
 
         def bg_download(state):
             any_loaded = False
             for card in cards_to_download:
                 try:
                     dest = get_thumbnail_cache_path(card.Name)
-                    ok = download_file_from_url(card._thumb_url, dest)
-                    if ok:
-                        card.try_load_from_disk()
-                        any_loaded = True
+
+                    # Option 1: Direct thumb_url
+                    if card._thumb_url and card._thumb_url.startswith("http"):
+                        if download_file_from_url(card._thumb_url, dest) and card.try_load_from_disk():
+                            any_loaded = True
+                            continue
+
+                    # Option 2: Download RFA to temp and extract OLE preview
+                    dl_url = card.DownloadUrl or card.RfaFullPath
+                    if dl_url and dl_url.startswith("http"):
+                        temp_rfa = os.path.join(tempfile.gettempdir(), "mepanana_families", card.Name + ".rfa")
+                        if not os.path.exists(temp_rfa):
+                            download_file_from_url(dl_url, temp_rfa)
+                        if os.path.exists(temp_rfa):
+                            img_bytes = extract_preview_png_bytes(temp_rfa)
+                            if img_bytes:
+                                File.WriteAllBytes(dest, System.Array[System.Byte](bytearray(img_bytes)))
+                                if card.try_load_from_disk():
+                                    any_loaded = True
+                                    continue
                 except Exception:
                     pass
 
             if any_loaded and dispatcher:
                 def on_ui():
                     try:
-                        # Re-apply filter to rebind ItemsSource so WPF picks up new ThumbnailImage values
-                        self.ApplyFilter()
+                        if hasattr(self, 'itemsFamilyCards') and self.itemsFamilyCards:
+                            self.itemsFamilyCards.Items.Refresh()
                     except Exception:
                         pass
                 try:
