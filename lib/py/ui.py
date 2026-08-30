@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 ui.py - Shared WPF UI Utilities & Synchronized Modern Notification Dialogs
 Part of mepanana.extension.
@@ -45,61 +45,31 @@ def setup_window(window):
     window.PreviewKeyDown += on_preview_key_down
 
 
-def do_events():
-    """Pumps the Windows Dispatcher queue to force immediate WPF UI repainting during long operations."""
-    try:
-        from System.Windows.Threading import Dispatcher, DispatcherPriority
-        import System
-        Dispatcher.CurrentDispatcher.Invoke(DispatcherPriority.Background, System.Action(lambda: None))
-    except Exception:
-        pass
-
-
 # ── Synchronized Modern Alert Dialog ─────────────────────────────────────────
-
-def _clean_u(val):
-    if val is None:
-        return u""
-    if isinstance(val, unicode):
-        return val
-    try:
-        return val.decode("utf-8")
-    except Exception:
-        try:
-            return unicode(val)
-        except Exception:
-            try:
-                return val.decode("ascii", "ignore")
-            except Exception:
-                return str(val)
-
 
 def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
     """
     Renders a unified, modern, branded modal dialog with type-specific icon badges and colors.
     """
-    u_title = _clean_u(title) or u"Notification"
-    u_message = _clean_u(message) or u""
-
     try:
         xaml_path = os.path.join(os.path.dirname(__file__), 'alert.xaml')
         if not os.path.exists(xaml_path):
-            return forms.alert(u_message, title=u_title, ok=True, cancel=show_cancel)
+            return forms.alert(message, title=title, ok=True, cancel=show_cancel)
 
         class ModernAlertWindow(forms.WPFWindow):
             def __init__(self):
                 forms.WPFWindow.__init__(self, xaml_path)
                 setup_window(self)
-                self.Title = u_title
+                self.Title = title
                 self.user_result = False
 
                 # Set Title Text
                 if hasattr(self, 'txtAlertTitle'):
-                    self.txtAlertTitle.Text = u_title
+                    self.txtAlertTitle.Text = title or "Notification"
 
                 # Set Message Body
                 if hasattr(self, 'txtMessage'):
-                    self.txtMessage.Text = u_message
+                    self.txtMessage.Text = message or ""
 
                 # Configure Visual Style by Type
                 badge_bg = "#D1FAE5"
@@ -156,7 +126,7 @@ def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
         win.ShowDialog()
         return win.user_result
     except Exception:
-        return forms.alert(u_message, title=u_title, ok=True, cancel=show_cancel)
+        return forms.alert(message, title=title, ok=True, cancel=show_cancel)
 
 
 def show_info(message, title="Information"):

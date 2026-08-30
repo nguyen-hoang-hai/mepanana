@@ -50,15 +50,6 @@ try:
 except Exception:
     pass
 
-import py.ui
-import py.family_cloud_engine
-
-try:
-    reload(py.ui)
-    reload(py.family_cloud_engine)
-except Exception:
-    pass
-
 from py.ui import setup_window, show_info, show_success, show_warning, show_error, show_confirm
 from py.family_cloud_engine import (
     STANDARD_CATEGORIES,
@@ -74,27 +65,11 @@ from py.family_cloud_engine import (
     extract_rfa_category,
     extract_rfa_version,
     format_file_size,
-    extract_preview_png_bytes,
-    safe_file_exists,
-    safe_file_size
+    extract_preview_png_bytes
 )
 
 doc   = revit.doc
 uidoc = revit.uidoc
-
-
-def safe_err(ex):
-    if ex is None:
-        return u""
-    try:
-        if isinstance(ex, unicode):
-            return ex
-        try:
-            return unicode(ex)
-        except Exception:
-            return str(ex).decode("utf-8", "ignore")
-    except Exception:
-        return u"Unknown error"
 
 
 # ── UI Data Item Models ──────────────────────────────────────────────────────
@@ -121,24 +96,25 @@ class VersionDisplayItem(System.Object):
 class FamilyCardItem(System.Object):
     def __init__(self, raw_data, host_year=HOST_REVIT_YEAR):
         self.RawData = raw_data
-        self.Name = unicode(raw_data.get("name", u"Unknown Family"))
-        self.Category = unicode(raw_data.get("category", u"Generic Models"))
+        self.Name = raw_data.get("name", "Unknown Family")
+        self.Category = raw_data.get("category", "Generic Models")
         self.HostYear = host_year
 
         # Priority: local version DB (from RFA binary detection) > cloud version
-        cloud_ver = unicode(raw_data.get("revit_version") or u"")
+        # Cloud version can be wrong/stale — local detection is always authoritative
+        cloud_ver = raw_data.get("revit_version") or ""
         local_ver = get_local_version(self.Name)
-        if local_ver and local_ver not in (u"Unknown", u""):
-            self.RevitVersion = unicode(local_ver)
-        elif cloud_ver and cloud_ver not in (u"Unknown", u""):
+        if local_ver and local_ver not in ("Unknown", ""):
+            self.RevitVersion = local_ver
+        elif cloud_ver and cloud_ver not in ("Unknown", ""):
             self.RevitVersion = cloud_ver
         else:
-            self.RevitVersion = unicode(local_ver or cloud_ver or u"Unknown")
+            self.RevitVersion = local_ver or cloud_ver or "Unknown"
 
-        self.FileSize = unicode(raw_data.get("file_size", u"0 KB"))
-        self.Description = unicode(raw_data.get("description", u""))
-        self.DownloadUrl = unicode(raw_data.get("download_url", u""))
-        self.RfaFullPath = unicode(raw_data.get("rfa_path", u""))
+        self.FileSize = raw_data.get("file_size", "0 KB")
+        self.Description = raw_data.get("description", "")
+        self.DownloadUrl = raw_data.get("download_url", "")
+        self.RfaFullPath = raw_data.get("rfa_path", "")
 
         # ── Smart Compatibility Shield Logic ─────────────────────────────────
         self.IsCompatible = True
@@ -157,9 +133,9 @@ class FamilyCardItem(System.Object):
             self.VersionBadgeFg = "#15803D"  # Dark green
             self.VersionBadgeText = self.RevitVersion
             if self.HostYear:
-                self.VersionToolTip = u"Compatible with your Revit " + unicode(self.HostYear)
+                self.VersionToolTip = u"Compatible with your Revit {}".format(self.HostYear)
             else:
-                self.VersionToolTip = u"Revit Family Version: " + unicode(self.RevitVersion)
+                self.VersionToolTip = u"Revit Family Version: {}".format(self.RevitVersion)
             
             # Action Button Style: Solid Royal Blue Primary
             self.ButtonBg = "#2563EB"
@@ -171,8 +147,10 @@ class FamilyCardItem(System.Object):
         else:
             self.VersionBadgeBg = "#FEE2E2"  # Soft red
             self.VersionBadgeFg = "#B91C1C"  # Dark red
-            self.VersionBadgeText = u"⚠️ " + unicode(self.RevitVersion)
-            self.VersionToolTip = u"⚠️ Incompatible: Created in Revit " + unicode(self.NumericVersion) + u" (Your Revit is " + unicode(self.HostYear) + u")"
+            self.VersionBadgeText = u"⚠️ {}".format(self.RevitVersion)
+            self.VersionToolTip = u"⚠️ Incompatible: Created in Revit {} (Your Revit is {})".format(
+                self.NumericVersion, self.HostYear
+            )
             
             # Action Button Style: Muted Disabled/Warning Gray
             self.ButtonBg = "#F1F5F9"
@@ -180,10 +158,12 @@ class FamilyCardItem(System.Object):
             self.ButtonFg = "#64748B"
             self.ButtonIcon = u"⛔"
             self.ButtonText = u"Incompatible"
-            self.LoadButtonToolTip = u"Cannot load Revit " + unicode(self.NumericVersion) + u" family into Revit " + unicode(self.HostYear) + u".\nRevit does not support backwards compatibility.\nClick for more details."
+            self.LoadButtonToolTip = u"Cannot load Revit {} family into Revit {}.\nRevit does not support backwards compatibility.\nClick for more details.".format(
+                self.NumericVersion, self.HostYear
+            )
 
         # Store thumb_url for async download
-        self._thumb_url = unicode(raw_data.get("thumb_url", u""))
+        self._thumb_url = raw_data.get("thumb_url", "")
 
         self.ThumbnailImage = self._load_thumbnail(raw_data)
 
@@ -209,7 +189,7 @@ class FamilyCardItem(System.Object):
         disk_thumb_path = get_thumbnail_cache_path(fam_name)
 
         # 1. Check Local Disk Cache first (instant, no network)
-        if safe_file_exists(disk_thumb_path) and safe_file_size(disk_thumb_path) > 0:
+        if os.path.exists(disk_thumb_path) and os.path.getsize(disk_thumb_path) > 0:
             try:
                 raw_bytes = File.ReadAllBytes(disk_thumb_path)
                 bmp = self._bytes_to_bitmapimage(bytes(bytearray(raw_bytes)))
@@ -241,7 +221,7 @@ class FamilyCardItem(System.Object):
     def try_load_from_disk(self):
         """Try to load thumbnail from disk cache (called after async download completes)."""
         disk_thumb_path = get_thumbnail_cache_path(self.Name)
-        if safe_file_exists(disk_thumb_path) and safe_file_size(disk_thumb_path) > 0:
+        if os.path.exists(disk_thumb_path) and os.path.getsize(disk_thumb_path) > 0:
             try:
                 raw_bytes = File.ReadAllBytes(disk_thumb_path)
                 bmp = self._bytes_to_bitmapimage(bytes(bytearray(raw_bytes)))
@@ -490,16 +470,16 @@ class FamilyCloudWindow(forms.WPFWindow):
                 show_warning(u"Could not identify the selected family file.", title="Load Notice")
                 return
 
-            fam_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
-
             # Pre-Flight Smart Compatibility Shield Check
             if not getattr(item, 'IsCompatible', True) and getattr(item, 'HostYear', None) and getattr(item, 'NumericVersion', None):
                 show_warning(
                     u"⛔ Incompatible Revit Version!\n\n"
-                    u"• Family: " + fam_name + u" (Revit " + unicode(item.NumericVersion) + u")\n"
-                    u"• Your Current Revit: Revit " + unicode(item.HostYear) + u"\n\n"
+                    u"• Family: {} (Revit {})\n"
+                    u"• Your Current Revit: Revit {}\n\n"
                     u"Autodesk Revit does not support loading families saved in a newer version into an older version.\n\n"
-                    u"💡 Solution: Please open your project in Revit " + unicode(item.NumericVersion) + u" or newer, or ask the author to export/save for Revit " + unicode(item.HostYear) + u".",
+                    u"💡 Solution: Please open your project in Revit {} or newer, or ask the author to export/save for Revit {}.".format(
+                        item.Name, item.NumericVersion, item.HostYear, item.NumericVersion, item.HostYear
+                    ),
                     title="Compatibility Shield Blocked"
                 )
                 return
@@ -509,13 +489,13 @@ class FamilyCloudWindow(forms.WPFWindow):
                 show_warning(u"File target path or download URL is missing.", title="Load Error")
                 return
 
-            success, msg = load_family_to_revit(doc, target, family_name=fam_name)
+            success, msg = load_family_to_revit(doc, target, family_name=item.Name)
             if success:
                 show_success(msg, title="Family Loaded")
             else:
                 show_error(msg, title="Load Error")
         except Exception as ex:
-            show_error(u"Unexpected error loading family:\n" + safe_err(ex), title="Load Error")
+            show_error(u"Unexpected error loading family:\n{}".format(str(ex)), title="Load Error")
 
     def OnDeleteFamilyClick(self, sender, args):
         try:
@@ -523,15 +503,13 @@ class FamilyCloudWindow(forms.WPFWindow):
             if not item:
                 return
 
-            fam_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
-            fam_cat = item.Category if isinstance(item.Category, unicode) else unicode(item.Category)
-
-            if show_confirm(u"Are you sure you want to permanently delete '" + fam_name + u"' from the Cloud Library?", title="Delete Family"):
-                success, msg = delete_family_from_cloud(fam_name, fam_cat)
+            if show_confirm(u"Are you sure you want to permanently delete '{}' from the Cloud Library?".format(item.Name), title="Delete Family"):
+                success, msg = delete_family_from_cloud(item.Name, item.Category)
                 if success:
+                    # Also clear local thumbnail cache for this family
                     try:
-                        thumb_path = get_thumbnail_cache_path(fam_name)
-                        if safe_file_exists(thumb_path):
+                        thumb_path = get_thumbnail_cache_path(item.Name)
+                        if os.path.exists(thumb_path):
                             os.remove(thumb_path)
                     except Exception:
                         pass
@@ -540,7 +518,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                 else:
                     show_error(msg, title="Delete Error")
         except Exception as ex:
-            show_error(u"Unexpected error deleting family:\n" + safe_err(ex), title="Delete Error")
+            show_error(u"Unexpected error deleting family:\n{}".format(str(ex)), title="Delete Error")
 
     # ── Upload Workflow with Automatic Category Detection ─────────────────────
 
@@ -549,13 +527,13 @@ class FamilyCloudWindow(forms.WPFWindow):
         dlg.Filter = "Revit Family Files (*.rfa)|*.rfa|All Files (*.*)|*.*"
         dlg.Title = "Select Revit Family (.rfa) to Upload"
         if dlg.ShowDialog() == DialogResult.OK:
-            selected_path = unicode(dlg.FileName)
+            selected_path = dlg.FileName
             self.txtUploadFilePath.Text = selected_path
 
             # 1. Automatic Exact Category Detection via Revit API / compound inspection
             detected_category = extract_rfa_category(selected_path)
             detected_version = extract_rfa_version(selected_path)
-            file_size_bytes = safe_file_size(selected_path)
+            file_size_bytes = os.path.getsize(selected_path) if os.path.exists(selected_path) else 0
             file_size_str = format_file_size(file_size_bytes)
 
             # 2. Select in ComboBox
@@ -574,7 +552,9 @@ class FamilyCloudWindow(forms.WPFWindow):
 
             # 3. Show Live Detection Pill
             if hasattr(self, 'borderDetectInfo') and hasattr(self, 'txtDetectInfo'):
-                self.txtDetectInfo.Text = u"⚡ Auto-detected: Category: " + unicode(detected_category) + u" | Revit " + unicode(detected_version) + u" | " + unicode(file_size_str)
+                self.txtDetectInfo.Text = u"⚡ Auto-detected: Category: {} | Revit {} | {}".format(
+                    detected_category, detected_version, file_size_str
+                )
                 self.borderDetectInfo.Visibility = System.Windows.Visibility.Visible
 
     def OnExecuteUploadClick(self, sender, args):
@@ -586,13 +566,13 @@ class FamilyCloudWindow(forms.WPFWindow):
             )
             return
 
-        src_path = unicode(self.txtUploadFilePath.Text.strip()) if hasattr(self, 'txtUploadFilePath') else u""
-        if not src_path or not safe_file_exists(src_path):
+        src_path = self.txtUploadFilePath.Text.strip() if hasattr(self, 'txtUploadFilePath') else ""
+        if not src_path or not os.path.exists(src_path):
             show_warning(u"Please select a valid .rfa file to upload!", title="File Required")
             return
 
-        cat = unicode(self.cmbUploadCategory.SelectedItem) if hasattr(self, 'cmbUploadCategory') and self.cmbUploadCategory.SelectedItem else u"Generic Models"
-        desc = unicode(self.txtUploadDescription.Text.strip()) if hasattr(self, 'txtUploadDescription') else u""
+        cat = str(self.cmbUploadCategory.SelectedItem) if hasattr(self, 'cmbUploadCategory') and self.cmbUploadCategory.SelectedItem else "Generic Models"
+        desc = self.txtUploadDescription.Text.strip() if hasattr(self, 'txtUploadDescription') else ""
 
         # Visual feedback during upload
         orig_content = self.btnExecuteUpload.Content if hasattr(self, 'btnExecuteUpload') else "Upload"
@@ -625,7 +605,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                     if hasattr(self, 'btnExecuteUpload'):
                         self.btnExecuteUpload.IsEnabled = True
                         self.btnExecuteUpload.Content = orig_content
-                    show_error(safe_err(ex), "Upload Error")
+                    show_error(str(ex), "Upload Error")
                 if self.Dispatcher:
                     self.Dispatcher.Invoke(System.Action(on_fail))
 
