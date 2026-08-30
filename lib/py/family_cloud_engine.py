@@ -590,7 +590,7 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
     payload_json = json.dumps(payload, ensure_ascii=True)
     success, res_txt = make_http_request(webhook_url, method="POST", json_body=payload_json, timeout=90)
     if not success:
-        return False, u"Webhook Upload Failed:\n{}".format(_u(res_txt) if res_txt else u"")
+        return False, u"Webhook Upload Failed:\n" + (_u(res_txt) if res_txt else u"")
 
     try:
         res_data = json.loads(res_txt)
@@ -601,15 +601,15 @@ def upload_family_via_webhook(source_rfa_path, target_category=None, description
                 save_local_version(base_name, ver_str)
             except Exception:
                 pass
-            return True, res_data.get("message", "Uploaded successfully via Webhook!")
-        return False, res_data.get("message", "Upload rejected by Webhook.")
+            return True, _u(res_data.get("message", u"Uploaded successfully via Webhook!"))
+        return False, _u(res_data.get("message", u"Upload rejected by Webhook."))
     except Exception:
         # Still save local version even on ambiguous response
         try:
             save_local_version(base_name, ver_str)
         except Exception:
             pass
-        return True, "Family uploaded successfully to Cloud Webhook!"
+        return True, u"Family uploaded successfully to Cloud Webhook!"
 
 
 def download_file_from_url(url, dest_path):
@@ -1023,7 +1023,7 @@ def delete_family_from_cloud(fam_name, cat_name):
     payload_json = json.dumps(payload, ensure_ascii=True)
     success, res_txt = make_http_request(webhook_url, method="POST", json_body=payload_json, timeout=30)
     if not success:
-        return False, u"Delete request failed:\n{}".format(_u(res_txt))
+        return False, u"Delete request failed:\n" + _u(res_txt)
 
     # Invalidate local disk cache
     cache_path = get_catalog_cache_path()
@@ -1033,7 +1033,7 @@ def delete_family_from_cloud(fam_name, cat_name):
         except Exception:
             pass
 
-    return True, u"Family '{}' deleted successfully from Cloud Webhook!".format(_u(fam_name))
+    return True, u"Family '" + _u(fam_name) + u"' deleted successfully from Cloud Webhook!"
 
 
 def upload_family_file(source_rfa_path, target_category=None, description="", library_root=None):
@@ -1055,8 +1055,15 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
     Downloads/Copies the RFA file into %TEMP% directory first, then loads into Revit document.
     Supports both local file path and direct cloud download URL!
     """
+    if doc is None:
+        try:
+            from pyrevit import revit
+            doc = revit.doc
+        except Exception:
+            pass
+
     if not doc or not rfa_full_path_or_url:
-        return False, "Invalid document or target."
+        return False, u"No active Revit project found. Please open a Revit project first."
 
     # 1. Copy or Download to %TEMP%\mepanana_families\
     temp_dir = os.path.join(tempfile.gettempdir(), "mepanana_families")
@@ -1074,15 +1081,18 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
         else:
             fam_name = unicode(family_name)
         fam_name = fam_name.strip()
-        if fam_name.lower().endswith(".rfa"):
+        if fam_name.lower().endswith(u".rfa"):
             fam_name = fam_name[:-4]
     else:
         fam_base = os.path.basename(rfa_full_path_or_url.split('?')[0])
         fam_name = os.path.splitext(fam_base)[0]
-        if fam_name.lower() == "uc" or not fam_name:
+        if not isinstance(fam_name, unicode):
+            try: fam_name = fam_name.decode("utf-8")
+            except Exception: fam_name = unicode(fam_name)
+        if fam_name.lower() == u"uc" or not fam_name:
             fam_name = u"Cloud_Family"
 
-    fam_file_name = fam_name + ".rfa"
+    fam_file_name = fam_name + u".rfa"
     temp_rfa_path = os.path.join(temp_dir, fam_file_name)
 
     # If it is a web URL, download it first
@@ -1092,7 +1102,7 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
             return False, "Failed to download family file from Cloud Webhook."
     else:
         if not os.path.exists(rfa_full_path_or_url):
-            return False, "File does not exist on disk:\n{}".format(rfa_full_path_or_url)
+            return False, u"File does not exist on disk:\n" + unicode(rfa_full_path_or_url)
         try:
             shutil.copy2(rfa_full_path_or_url, temp_rfa_path)
         except Exception:
@@ -1115,6 +1125,8 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
             doc.LoadFamily(temp_rfa_path)
 
         t.Commit()
-        return True, u"Family '{}' successfully loaded into project!".format(fam_name)
+        return True, u"Family '" + fam_name + u"' successfully loaded into project!"
     except Exception as ex:
-        return False, u"Error loading family:\n{}".format(str(ex))
+        try: err_txt = unicode(ex)
+        except Exception: err_txt = str(ex).decode("utf-8", "ignore")
+        return False, u"Error loading family:\n" + err_txt

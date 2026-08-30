@@ -76,6 +76,7 @@ from py.family_cloud_engine import (
     extract_preview_png_bytes
 )
 
+doc = revit.doc
 uidoc = revit.uidoc
 
 
@@ -734,16 +735,17 @@ class FamilyCloudWindow(forms.WPFWindow):
 
         try:
             for idx, item in enumerate(to_load):
+                u_item_name = item.Name if isinstance(item.Name, unicode) else unicode(item.Name)
                 if hasattr(self, 'progressBar'):
                     self.progressBar.Value = idx
                 if hasattr(self, 'txtLibraryStatus'):
-                    self.txtLibraryStatus.Text = u"⚡ Loading ({}/{}): {}...".format(idx + 1, len(to_load), item.Name)
+                    self.txtLibraryStatus.Text = u"⚡ Loading ({}/{}): {}...".format(idx + 1, len(to_load), u_item_name)
                 do_events()
 
                 target = getattr(item, "DownloadUrl", "") or getattr(item, "RfaFullPath", "")
                 if target:
                     try:
-                        success, msg = load_family_to_revit(doc, target, family_name=item.Name)
+                        success, msg = load_family_to_revit(doc, target, family_name=u_item_name)
                         if success:
                             loaded_count += 1
                         else:
@@ -894,12 +896,10 @@ class FamilyCloudWindow(forms.WPFWindow):
             if not getattr(item, 'IsCompatible', True) and getattr(item, 'HostYear', None) and getattr(item, 'NumericVersion', None):
                 show_warning(
                     u"⛔ Incompatible Revit Version!\n\n"
-                    u"• Family: {} (Revit {})\n"
-                    u"• Your Current Revit: Revit {}\n\n"
+                    u"• Family: " + fam_name + u" (Revit " + unicode(item.NumericVersion) + u")\n"
+                    u"• Your Current Revit: Revit " + unicode(item.HostYear) + u"\n\n"
                     u"Autodesk Revit does not support loading families saved in a newer version into an older version.\n\n"
-                    u"💡 Solution: Please open your project in Revit {} or newer, or ask the author to export/save for Revit {}.".format(
-                        fam_name, item.NumericVersion, item.HostYear, item.NumericVersion, item.HostYear
-                    ),
+                    u"💡 Solution: Please open your project in Revit " + unicode(item.NumericVersion) + u" or newer, or ask the author to export/save for Revit " + unicode(item.HostYear) + u".",
                     title="Compatibility Shield Blocked"
                 )
                 return
