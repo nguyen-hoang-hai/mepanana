@@ -154,28 +154,98 @@ def set_authenticated(state=True, user=u"User"):
     update_ribbon_state(bool(state), user if state else "")
 
 
-def _get_fail_count():
-    """Returns number of failed attempts this session."""
+LOCKOUT_DURATION_SECONDS = 900  # 15 minutes lockout
+
+def _get_lock_file_path():
+    """Returns path to persistent lockout file in %APPDATA% or %TEMP%."""
     try:
-        from System import AppDomain
-        val = AppDomain.CurrentDomain.GetData("MEPANANA_SESSION_FAIL_COUNT")
-        return int(val) if val is not None else 0
+        appdata = os.environ.get('APPDATA', '')
+        if appdata:
+            p = os.path.join(appdata, "pyRevit", ".mpn_auth_lock.dat")
+            dir_p = os.path.dirname(p)
+            if not os.path.exists(dir_p):
+                try: os.makedirs(dir_p)
+                except Exception: pass
+            return p
     except Exception:
-        return 0
+        pass
+    import tempfile
+    return os.path.join(tempfile.gettempdir(), ".mpn_auth_lock.dat")
+
+
+def _read_lock_state():
+    """Reads persistent lock state from disk. Returns dict: {'fail_count': int, 'locked_until': float}"""
+    try:
+        p = _get_lock_file_path()
+        if os.path.exists(p):
+            with open(p, 'r') as f:
+                content = f.read().strip()
+            if content:
+                import json, base64
+                try:
+                    raw_json = base64.b64decode(content).decode('utf-8')
+                except Exception:
+                    raw_json = content
+                data = json.loads(raw_json)
+                return {
+                    "fail_count": int(data.get("fail_count", 0)),
+                    "locked_until": float(data.get("locked_until", 0.0))
+                }
+    except Exception:
+        pass
+    return {"fail_count": 0, "locked_until": 0.0}
+
+
+def _write_lock_state(fail_count, locked_until=0.0):
+    """Writes persistent lock state to disk encoded with Base64."""
+    try:
+        import json, base64, time
+        data = {
+            "fail_count": int(fail_count),
+            "locked_until": float(locked_until),
+            "updated_at": time.time()
+        }
+        payload = base64.b64encode(json.dumps(data).encode('utf-8')).decode('ascii')
+        p = _get_lock_file_path()
+        with open(p, 'w') as f:
+            f.write(payload)
+    except Exception:
+        pass
+
+
+def get_lockout_remaining_seconds():
+    """Returns remaining lockout seconds (> 0 if currently locked out for 15 mins)."""
+    import time
+    state = _read_lock_state()
+    locked_until = state.get("locked_until", 0.0)
+    now = time.time()
+    if locked_until > now:
+        return int(locked_until - now)
+    return 0
+
+
+def _get_fail_count():
+    """Returns number of failed attempts stored persistently on disk."""
+    state = _read_lock_state()
+    return state.get("fail_count", 0)
 
 
 def _increment_fail_count():
     """
-    Increments the failed attempt counter and applies anti-brute-force progressive delay.
-    Throttles automated attacks (1s -> 2s -> 3s) while keeping human experience smooth.
+    Increments fail counter persistently on disk and enforces 15-minute lock on 5 fails.
+    Applies progressive anti-bot throttling delay.
     """
+    import time
+    state = _read_lock_state()
+    new_count = state.get("fail_count", 0) + 1
+    locked_until = 0.0
+
+    if new_count >= MAX_FAILED_ATTEMPTS:
+        locked_until = time.time() + LOCKOUT_DURATION_SECONDS
+
+    _write_lock_state(new_count, locked_until)
+
     try:
-        from System import AppDomain
-        new_count = _get_fail_count() + 1
-        AppDomain.CurrentDomain.SetData("MEPANANA_SESSION_FAIL_COUNT", new_count)
-        
-        # Progressive anti-bot throttling delay
-        import time
         delay = min(3.0, new_count * 0.6)
         time.sleep(delay)
     except Exception:
@@ -183,17 +253,20 @@ def _increment_fail_count():
 
 
 def _reset_fail_count():
-    """Resets fail counter after successful login."""
-    try:
-        from System import AppDomain
-        AppDomain.CurrentDomain.SetData("MEPANANA_SESSION_FAIL_COUNT", 0)
-    except Exception:
-        pass
+    """Resets fail counter on disk upon successful login."""
+    _write_lock_state(0, 0.0)
 
 
 def is_locked_out():
-    """Returns True if max failed attempts reached."""
-    return _get_fail_count() >= MAX_FAILED_ATTEMPTS
+    """
+    Returns True if user is currently locked out.
+    Strictly persistent across Revit restarts for 15 minutes!
+    """
+    if get_lockout_remaining_seconds() > 0:
+        return True
+    if _get_fail_count() >= MAX_FAILED_ATTEMPTS:
+        return True
+    return False
 
 
 def verify_password(plain_password):
@@ -370,13 +443,15 @@ def show_login_dialog():
         return False
 
     # Pre-check lockout before even showing dialog
-    if is_locked_out():
+    rem_secs = get_lockout_remaining_seconds()
+    if rem_secs > 0:
+        mins = max(1, (rem_secs + 59) // 60)
         try:
             from py.ui import show_error
             show_error(
                 u"Access locked!\n\nToo many failed attempts ({} max).\n"
-                u"Please restart Revit to try again.".format(MAX_FAILED_ATTEMPTS),
-                "Locked Out"
+                u"Security cooldown active. Please wait ~{} minute(s) to retry.".format(MAX_FAILED_ATTEMPTS, mins),
+                "Access Locked"
             )
         except Exception:
             pass
@@ -436,7 +511,9 @@ def show_login_dialog():
                 self.Close()
             else:
                 if is_locked or remaining <= 0:
-                    self.txtError.Text = u"Access locked! Restart Revit to try again."
+                    rem_s = get_lockout_remaining_seconds()
+                    mins = max(1, (rem_s + 59) // 60)
+                    self.txtError.Text = u"⛔ Access locked! Please wait ~{} min(s) to retry.".format(mins)
                     self.btnUnlock.IsEnabled = False
                     self.txtPassword.IsEnabled = False
                     if hasattr(self, 'txtPasswordVisible'):
