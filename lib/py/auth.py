@@ -174,22 +174,31 @@ def _get_lock_file_path():
 
 
 def _read_lock_state():
-    """Reads persistent lock state from disk. Returns dict: {'fail_count': int, 'locked_until': float}"""
+    """Reads persistent lock state from disk. Auto-resets if 15-minute lock has expired."""
     try:
         p = _get_lock_file_path()
         if os.path.exists(p):
             with open(p, 'r') as f:
                 content = f.read().strip()
             if content:
-                import json, base64
+                import json, base64, time
                 try:
                     raw_json = base64.b64decode(content).decode('utf-8')
                 except Exception:
                     raw_json = content
                 data = json.loads(raw_json)
+                fail_count = int(data.get("fail_count", 0))
+                locked_until = float(data.get("locked_until", 0.0))
+                now = time.time()
+                
+                # If a 15-minute lock was active AND it has now expired:
+                if locked_until > 0 and now >= locked_until:
+                    _reset_fail_count()
+                    return {"fail_count": 0, "locked_until": 0.0}
+
                 return {
-                    "fail_count": int(data.get("fail_count", 0)),
-                    "locked_until": float(data.get("locked_until", 0.0))
+                    "fail_count": fail_count,
+                    "locked_until": locked_until
                 }
     except Exception:
         pass
@@ -253,20 +262,16 @@ def _increment_fail_count():
 
 
 def _reset_fail_count():
-    """Resets fail counter on disk upon successful login."""
+    """Resets fail counter on disk upon successful login or timer expiration."""
     _write_lock_state(0, 0.0)
 
 
 def is_locked_out():
     """
-    Returns True if user is currently locked out.
-    Strictly persistent across Revit restarts for 15 minutes!
+    Returns True ONLY if currently within the active 15-minute lockout cooldown.
+    Automatically unlocks when the 15 minutes have passed!
     """
-    if get_lockout_remaining_seconds() > 0:
-        return True
-    if _get_fail_count() >= MAX_FAILED_ATTEMPTS:
-        return True
-    return False
+    return get_lockout_remaining_seconds() > 0
 
 
 def verify_password(plain_password):
