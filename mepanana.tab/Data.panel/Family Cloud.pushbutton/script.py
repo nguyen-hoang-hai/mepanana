@@ -449,12 +449,20 @@ class FamilyCloudWindow(forms.WPFWindow):
         selected = [f for f in self.all_families if getattr(f, 'IsSelected', False)]
         sel_count = len(selected)
 
+        if hasattr(self, 'txtBatchLoadCount'):
+            self.txtBatchLoadCount.Text = u"Load ({})".format(sel_count) if sel_count > 0 else u"Load (0)"
+        elif hasattr(self, 'btnBatchLoad'):
+            self.btnBatchLoad.Content = u"📥 Load ({})".format(sel_count)
+
         if hasattr(self, 'btnBatchLoad'):
-            self.btnBatchLoad.Content = u"📥 Load Selected ({})".format(sel_count)
             self.btnBatchLoad.IsEnabled = (sel_count > 0)
 
+        if hasattr(self, 'txtBatchDeleteCount'):
+            self.txtBatchDeleteCount.Text = u"Delete ({})".format(sel_count) if sel_count > 0 else u"Delete"
+        elif hasattr(self, 'btnBatchDelete'):
+            self.btnBatchDelete.Content = u"🗑️ Delete ({})".format(sel_count) if sel_count > 0 else u"🗑️ Delete"
+
         if hasattr(self, 'btnBatchDelete'):
-            self.btnBatchDelete.Content = u"🗑️ Delete Selected ({})".format(sel_count) if sel_count > 0 else u"🗑️ Delete Selected"
             self.btnBatchDelete.IsEnabled = (sel_count > 0)
 
         # Update Select All checkbox state
