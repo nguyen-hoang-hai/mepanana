@@ -26,24 +26,31 @@ GSHEET_ID = "1xP1AwtlAMnY7kUJ-xpecB6TMS_g91UShTgFDaFO_bkg"
 CLOUD_CREDENTIALS = {}
 
 
+from py.core import safe_unicode
+
 def sync_from_gsheet(sheet_id=GSHEET_ID):
     """
     Fetches latest accounts and passwords in real-time from Google Sheets.
     Maps Column A (Họ và Tên) to Column B (Password / Key).
+    Cross-compatible with IronPython 2.7 and Python 3.x.
     """
     url = "https://docs.google.com/spreadsheets/d/{}/gviz/tq?tqx=out:csv".format(sheet_id)
     try:
-        import urllib2
-        req = urllib2.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        response = urllib2.urlopen(req, timeout=3)
-        csv_text = response.read()
-        if not csv_text:
+        try:
+            import urllib.request as urllib_req
+        except ImportError:
+            import urllib2 as urllib_req
+
+        req = urllib_req.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib_req.urlopen(req, timeout=4)
+        csv_bytes = response.read()
+        if not csv_bytes:
             return False
 
         try:
-            csv_text = csv_text.decode('utf-8')
+            csv_text = csv_bytes.decode('utf-8')
         except Exception:
-            pass
+            csv_text = str(csv_bytes)
 
         lines = [l.strip() for l in csv_text.splitlines() if l.strip()]
         if len(lines) <= 1:
@@ -62,18 +69,10 @@ def sync_from_gsheet(sheet_id=GSHEET_ID):
             if len(row) >= 2:
                 name = row[0].strip()
                 key  = row[1].strip()
-                if isinstance(name, str) and not isinstance(name, unicode):
-                    try:
-                        name = name.decode('utf-8')
-                    except Exception:
-                        pass
-                if isinstance(key, str) and not isinstance(key, unicode):
-                    try:
-                        key = key.decode('utf-8')
-                    except Exception:
-                        pass
-                if name and key:
-                    CLOUD_CREDENTIALS[key] = name
+                name_u = safe_unicode(name)
+                key_u  = safe_unicode(key)
+                if name_u and key_u:
+                    CLOUD_CREDENTIALS[key_u] = name_u
         return True
     except Exception:
         return False
