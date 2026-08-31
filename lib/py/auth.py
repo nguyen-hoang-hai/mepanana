@@ -20,7 +20,7 @@ MAX_FAILED_ATTEMPTS = 5
 
 
 # ── Cloud Auth Configuration (Zero-Exposure Webhook or Google Sheet) ─────────
-AUTH_WEBHOOK_URL    = "" # Paste your deployed Google Apps Script /exec URL here
+AUTH_WEBHOOK_URL    = "https://script.google.com/macros/s/AKfycbw2la7kIP5AbVW8NHkDb4fOzf2pWxvREebzHF_QiVdlZssdEaEMWWaBOMRE_Kla6s31/exec"
 AUTH_SECRET_TOKEN   = "mepanana_auth_sec_2026"
 GSHEET_ID           = "1xP1AwtlAMnY7kUJ-xpecB6TMS_g91UShTgFDaFO_bkg"
 
