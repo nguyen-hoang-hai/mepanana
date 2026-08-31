@@ -4,6 +4,7 @@ core.py - Core Engine Utilities for mepanana.extension
 Leverages pyRevit built-in modules (revit, DB, UI, script, forms).
 """
 import os
+import sys
 import tempfile
 import traceback
 import logging
@@ -53,18 +54,35 @@ def safe_unicode(val):
     """
     if val is None:
         return u""
+    # Python 3
+    if sys.version_info[0] >= 3:
+        if isinstance(val, str):
+            return val
+        if isinstance(val, bytes):
+            try:
+                return val.decode("utf-8", "ignore")
+            except Exception:
+                return str(val)
+        return str(val)
+
+    # Python 2 / IronPython 2.7
     try:
         if isinstance(val, unicode):
             return val
-        try:
-            return unicode(val)
-        except Exception:
-            return str(val).decode("utf-8", "ignore")
+        if isinstance(val, str):
+            try:
+                return val.decode("utf-8")
+            except Exception:
+                try:
+                    return val.decode("cp1252", "ignore")
+                except Exception:
+                    return unicode(val, errors="ignore")
+        return unicode(val)
     except Exception:
         try:
-            return unicode(str(val))
+            return unicode(str(val), errors="ignore")
         except Exception:
-            return u"Unknown error"
+            return u""
 
 
 def get_id_value(elem_or_id):

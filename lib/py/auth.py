@@ -19,27 +19,13 @@ SESSION_USER_KEY = "MEPANANA_SESSION_AUTH_USER"
 MAX_FAILED_ATTEMPTS = 5
 
 
-# ── Cloud Auth Configuration (Zero-Exposure Webhook or Google Sheet) ─────────
+# ── Cloud Auth Configuration (100% Online Real-Time from Google Sheet) ───────
 AUTH_WEBHOOK_URL    = "https://script.google.com/macros/s/AKfycbw2la7kIP5AbVW8NHkDb4fOzf2pWxvREebzHF_QiVdlZssdEaEMWWaBOMRE_Kla6s31/exec"
 AUTH_SECRET_TOKEN   = "mepanana_auth_sec_2026"
 GSHEET_ID           = "1xP1AwtlAMnY7kUJ-xpecB6TMS_g91UShTgFDaFO_bkg"
 
-# Dynamic in-memory dictionary of synced credentials (populated from Google Sheets / Webhook)
+# Dynamic in-memory dictionary of synced credentials (populated 100% from Google Sheets)
 CLOUD_CREDENTIALS = {}
-
-# Offline backup credentials (guarantees access even if internet or cloud is unreachable)
-OFFLINE_BACKUP_CREDENTIALS = {
-    "2412": u"Nguyễn Hoàng Hải",
-    "7555": u"Lê Quốc Thắng",
-    "tatvihuyen": u"Tất Vĩ Huyễn"
-}
-
-if _DLL_LOADED:
-    try:
-        for _k, _v in OFFLINE_BACKUP_CREDENTIALS.items():
-            AuthManager.RegisterPassword(_k, _v)
-    except Exception:
-        pass
 
 
 from py.core import safe_unicode
@@ -251,32 +237,9 @@ def verify_password(plain_password):
                 pass
         return True, matched_user, MAX_FAILED_ATTEMPTS, False
 
-    # 4. Check OFFLINE_BACKUP_CREDENTIALS as safe backup
-    matched_offline = OFFLINE_BACKUP_CREDENTIALS.get(pwd)
-    if not matched_offline:
-        for k, v in OFFLINE_BACKUP_CREDENTIALS.items():
-            if k.lower() == pwd.lower():
-                matched_offline = v
-                break
-
-    if matched_offline:
-        _reset_fail_count()
-        if _DLL_LOADED:
-            try:
-                AuthManager.SetLockState(True, matched_offline)
-            except Exception:
-                pass
-        return True, matched_offline, MAX_FAILED_ATTEMPTS, False
-
-    # 5. Check C# DLL as fallback
-    if _DLL_LOADED:
-        try:
-            res = AuthManager.VerifyPassword(pwd)
-            if res.IsValid:
-                _reset_fail_count()
-                return True, res.User, res.RemainingAttempts, res.IsLockedOut
-        except Exception:
-            pass
+    _increment_fail_count()
+    rem = max(0, MAX_FAILED_ATTEMPTS - _get_fail_count())
+    return False, "", rem, is_locked_out()
 
     _increment_fail_count()
     rem = max(0, MAX_FAILED_ATTEMPTS - _get_fail_count())
