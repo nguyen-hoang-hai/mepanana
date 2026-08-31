@@ -165,10 +165,19 @@ def _get_fail_count():
 
 
 def _increment_fail_count():
-    """Increments the failed attempt counter."""
+    """
+    Increments the failed attempt counter and applies anti-brute-force progressive delay.
+    Throttles automated attacks (1s -> 2s -> 3s) while keeping human experience smooth.
+    """
     try:
         from System import AppDomain
-        AppDomain.CurrentDomain.SetData("MEPANANA_SESSION_FAIL_COUNT", _get_fail_count() + 1)
+        new_count = _get_fail_count() + 1
+        AppDomain.CurrentDomain.SetData("MEPANANA_SESSION_FAIL_COUNT", new_count)
+        
+        # Progressive anti-bot throttling delay
+        import time
+        delay = min(3.0, new_count * 0.6)
+        time.sleep(delay)
     except Exception:
         pass
 
