@@ -26,7 +26,7 @@ try:
 
     from pyrevit import forms, HOST_APP
     from py.auth import require_auth, update_ribbon_state, is_authenticated
-    from py.core import get_doc, get_app
+    from py.core import get_doc, get_app, safe_unicode
     from py.ui   import show_info, show_warning, show_error, setup_window
     from py.shortcut_io import ShortcutDatabase, scan_mepanana_tools
 
@@ -410,7 +410,7 @@ try:
     win.ShowDialog()
 
 except Exception as ex:
-    err_msg = "Shortcut Manager Error:\n{}\n\n{}".format(str(ex), traceback.format_exc())
+    err_msg = u"Shortcut Manager Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc())
     try:
         from py.ui import show_error
         show_error(err_msg, "Shortcut Manager Error")

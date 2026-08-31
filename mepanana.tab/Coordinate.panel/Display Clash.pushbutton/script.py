@@ -516,7 +516,7 @@ try:
                     show_info("Zero hard clashes detected in active view! Everything is clear.", "No Clashes")
 
             except Exception as ex:
-                show_error("Clash Analysis Error:\n{}\n\n{}".format(str(ex), traceback.format_exc()), "Analysis Error")
+                show_error(u"Clash Analysis Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()), "Analysis Error")
             finally:
                 self.progressBar.Visibility = Visibility.Collapsed
                 self.btnAnalyze.IsEnabled = True
@@ -533,7 +533,7 @@ try:
                 self.txtStatus.Text = "Visual analysis display cleared from view."
                 show_info("Clash analysis visual layer and results have been cleared.", "Analysis Cleared")
             except Exception as ex:
-                show_error("Failed to clear analysis: {}".format(str(ex)), "Error")
+                show_error(u"Failed to clear analysis: {}".format(safe_unicode(ex)), "Error")
 
         def on_close(self, sender, e):
             self.Close()
@@ -544,4 +544,4 @@ try:
     win.ShowDialog()
 
 except Exception as ex:
-    _fatal_alert("Display Clash Initialization Error:\n\n{}\n\n{}".format(str(ex), traceback.format_exc()))
+    _fatal_alert(u"Display Clash Initialization Error:\n\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()))

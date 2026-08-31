@@ -41,4 +41,5 @@ def extract_cad_blocks(cad_instance, doc=None):
         cs_blocks = _Extractor.ExtractBlocks(doc, cad_instance)
         return list(cs_blocks), None
     except Exception as ex:
-        return [], "CAD extraction failed: {}".format(ex)
+        from py.core import safe_unicode
+        return [], u"CAD extraction failed: {}".format(safe_unicode(ex))

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Sprinkler Engine for mepanana.extension.
 Unified single-file engine for geometric clustering, hydraulic pipe sizing,
@@ -16,6 +16,7 @@ Full Features:
 """
 import math
 from pyrevit import DB
+from py.core import safe_unicode
 
 # ── Standards & Pipe Schedule Sizing Rules ────────────────────────────────────
 
@@ -329,7 +330,7 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
                     if not first_branch_pipe:
                         first_branch_pipe = curr_incoming_pipe
                 except Exception as ex:
-                    errors.append("Pipe in error head {}: {}".format(i + 1, str(ex)))
+                    errors.append(u"Pipe in error head {}: {}".format(i + 1, safe_unicode(ex)))
 
         pipe_in = curr_incoming_pipe
 
@@ -344,7 +345,7 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
                 drop_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(drop_diameter_ft)
                 created_pipes.append(drop_pipe)
             except Exception as ex:
-                errors.append("Drop pipe error head {}: {}".format(i + 1, str(ex)))
+                errors.append(u"Drop pipe error head {}: {}".format(i + 1, safe_unicode(ex)))
 
         drop_top_conn = get_connector_closest_to(drop_pipe, drop_top_pt) if drop_pipe else None
         drop_bot_conn = get_connector_closest_to(drop_pipe, drop_bot_pt) if drop_pipe else None
@@ -395,7 +396,7 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
                     spool_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_in_ft)
                     created_pipes.append(spool_pipe)
                 except Exception as ex:
-                    errors.append("Spool pipe error: {}".format(str(ex)))
+                    errors.append(u"Spool pipe error: {}".format(safe_unicode(ex)))
 
                 # 2. Create Next Pipe (DN_out) from trans_pt to next_node_pt
                 next_pipe = None
@@ -404,7 +405,7 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
                     next_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_out_ft)
                     created_pipes.append(next_pipe)
                 except Exception as ex:
-                    errors.append("Next pipe error: {}".format(str(ex)))
+                    errors.append(u"Next pipe error: {}".format(safe_unicode(ex)))
 
                 # 3. Connect Equal Tee at node_pt
                 if pipe_in and spool_pipe and drop_top_conn:
@@ -449,7 +450,7 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
                     next_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_out_ft)
                     created_pipes.append(next_pipe)
                 except Exception as ex:
-                    errors.append("Next equal pipe error: {}".format(str(ex)))
+                    errors.append(u"Next equal pipe error: {}".format(safe_unicode(ex)))
 
                 # Connect Normal Equal Tee at node_pt
                 if pipe_in and next_pipe and drop_top_conn:
@@ -524,7 +525,7 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
                 if main_fitting:
                     created_fittings.append(main_fitting)
             except Exception as ex:
-                errors.append("Riser Nipple error: {}".format(str(ex)))
+                errors.append(u"Riser Nipple error: {}".format(safe_unicode(ex)))
 
         # 2. Build Pos Side Branch (Right) with 120mm Compact Spools & Normal Tees
         pos_first_pipe = None

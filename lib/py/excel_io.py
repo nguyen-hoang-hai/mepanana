@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Excel IO module for ScheduleLink.
 Handles exporting to .xlsx (via xlsxwriter) and reading from .xlsx (pure Python zip/XML).
@@ -124,7 +124,7 @@ def export_schedules_to_excel(file_path, schedules_data):
             is_id = h.startswith("_") or "id" in h.lower()
             style = fmt_id_header if is_id else fmt_header
             ws.write(0, col_idx, h, style)
-            col_widths[col_idx] = max(col_widths[col_idx], len(str(h)) + 4)
+            col_widths[col_idx] = max(col_widths[col_idx], len(_unicode(h)) + 4)
 
         # Write Data Rows
         for r_idx, row in enumerate(rows):

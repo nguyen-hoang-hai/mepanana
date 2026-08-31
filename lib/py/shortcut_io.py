@@ -10,6 +10,8 @@ import shutil
 import datetime
 import xml.etree.ElementTree as ET
 
+from py.core import safe_unicode
+
 try:
     _unicode = unicode
 except NameError:
@@ -224,7 +226,7 @@ class ShortcutDatabase(object):
             self.load()
             return True, "Shortcuts saved successfully to Revit."
         except Exception as ex:
-            return False, "Failed to write KeyboardShortcuts.xml:\n{}".format(str(ex))
+            return False, "Failed to write KeyboardShortcuts.xml:\n{}".format(safe_unicode(ex))
 
 
 def scan_mepanana_tools(extension_tab_path=None):

@@ -28,6 +28,7 @@ from System.Windows.Media import SolidColorBrush, Color
 from System.Threading import ThreadPool, WaitCallback
 
 from pyrevit import forms, script
+from py.core import safe_unicode
 from py.ui import setup_window, show_info, show_success, show_warning, show_error, show_confirm, do_events
 
 import py.updater_engine
@@ -199,9 +200,9 @@ class MepananaUpdateWindow(forms.WPFWindow):
                 pass
 
         except Exception as ex:
-            show_error(u"Failed to update MEPANANA:\n{}".format(str(ex)), title="Update Error")
+            show_error(u"Failed to update MEPANANA:\n{}".format(safe_unicode(ex)), title="Update Error")
             if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = u"❌ Update failed: {}".format(str(ex))
+                self.txtStatus.Text = u"❌ Update failed: {}".format(safe_unicode(ex))
         finally:
             self._is_updating = False
             if hasattr(self, 'progressBar'):

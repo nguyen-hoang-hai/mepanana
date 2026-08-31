@@ -111,7 +111,7 @@ def get_cad_links_in_view(doc, active_view):
     collector = FilteredElementCollector(doc, active_view.Id).OfClass(ImportInstance).WhereElementIsNotElementType().ToElements()
     items = []
     for inst in collector:
-        name = "CAD Link " + str(inst.Id.IntegerValue)
+        name = "CAD Link " + str(get_id_value(inst))
         try:
             if inst.Category and inst.Category.Name:
                 name = inst.Category.Name
@@ -499,7 +499,9 @@ def split_paths_by_devices(stitched_paths, devices, snap_radius_ft=mm_to_ft(500)
         d1 = p.StartDevice
         d2 = p.EndDevice
         if d1 and d2 and d1.Id != d2.Id:
-            pair_key = (min(d1.Id.IntegerValue, d2.Id.IntegerValue), max(d1.Id.IntegerValue, d2.Id.IntegerValue))
+            id1 = get_id_value(d1)
+            id2 = get_id_value(d2)
+            pair_key = (min(id1, id2), max(id1, id2))
             if pair_key in seen_pairs:
                 continue
             seen_pairs.add(pair_key)
@@ -536,9 +538,9 @@ def create_revit_wires(doc, active_view, wire_type_id, matched_paths, panel_elem
         d1 = path.StartDevice
         d2 = path.EndDevice
         if d1:
-            chain_groups[c_id][d1.Id.IntegerValue] = d1
+            chain_groups[c_id][get_id_value(d1)] = d1
         if d2:
-            chain_groups[c_id][d2.Id.IntegerValue] = d2
+            chain_groups[c_id][get_id_value(d2)] = d2
 
     # Create a unified Electrical Power Circuit for each continuous connected component
     for c_id, devs_dict in chain_groups.items():

@@ -8,6 +8,7 @@ from py.auth import (
     update_ribbon_state, get_current_user, set_authenticated
 )
 from py.ui import show_info, show_error
+from py.core import safe_unicode
 
 try:
     if is_authenticated():
@@ -34,4 +35,4 @@ try:
         else:
             update_ribbon_state(False)
 except Exception as ex:
-    show_error(u"Unlock Error:\n{}\n\n{}".format(str(ex), traceback.format_exc()), "Error")
+    show_error(u"Unlock Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()), "Error")

@@ -23,7 +23,7 @@ try:
 
     from pyrevit import forms
     from py.auth import require_auth, update_ribbon_state, is_authenticated
-    from py.core import get_doc
+    from py.core import get_doc, safe_unicode
     from py.ui   import show_info, show_warning, show_error, setup_window
     from py.schedule_io import get_all_schedules, extract_schedule_data, preview_schedule_diff, apply_schedule_import
     from py.excel_io import export_schedules_to_excel, read_excel_workbook
@@ -224,7 +224,7 @@ try:
                             pass
 
             except Exception as ex:
-                show_error(u"Error exporting Excel files:\n{}".format(str(ex)), "Error")
+                show_error(u"Error exporting Excel files:\n{}".format(safe_unicode(ex)), "Error")
 
         def on_browse_import(self, sender, args):
             dlg = OpenFileDialog()
@@ -268,7 +268,7 @@ try:
                     show_info(u"No changes detected between Excel file and Revit elements.", "Info")
 
             except Exception as ex:
-                show_error(u"Error reading Excel file:\n{}".format(str(ex)), "Error")
+                show_error(u"Error reading Excel file:\n{}".format(safe_unicode(ex)), "Error")
 
         def on_apply_import(self, sender, args):
             if not self.current_excel_data:
@@ -289,13 +289,13 @@ try:
                 self.on_preview_diff(None, None)
 
             except Exception as ex:
-                show_error(u"Error updating parameters in Revit:\n{}".format(str(ex)), "Error")
+                show_error(u"Error updating parameters in Revit:\n{}".format(safe_unicode(ex)), "Error")
 
     win = ScheduleLinkWindow()
     win.ShowDialog()
 
 except Exception as ex:
-    err_msg = "Schedule Link Error:\n{}\n\n{}".format(str(ex), traceback.format_exc())
+    err_msg = u"Schedule Link Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc())
     try:
         from py.ui import show_error
         show_error(err_msg, "Schedule Link Error")

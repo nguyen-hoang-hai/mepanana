@@ -367,7 +367,7 @@ def run():
             except RevitExceptions.OperationCanceledException:
                 pass
             except Exception as ex:
-                show_warning(u"Main Pipe Selection:\n{}".format(str(ex)), "Selection Notice")
+                show_warning(u"Main Pipe Selection:\n{}".format(safe_unicode(ex)), "Selection Notice")
 
         elif win.action == "SELECT_SPRINKLERS":
             riser_height = win.txtRiserHeight.Text if hasattr(win, 'txtRiserHeight') else "300"
@@ -382,7 +382,7 @@ def run():
             except RevitExceptions.OperationCanceledException:
                 pass
             except Exception as ex:
-                show_warning(u"Sprinkler Selection:\n{}".format(str(ex)), "Selection Notice")
+                show_warning(u"Sprinkler Selection:\n{}".format(safe_unicode(ex)), "Selection Notice")
 
         elif win.action == "GENERATE":
             riser_h_val = 300.0
