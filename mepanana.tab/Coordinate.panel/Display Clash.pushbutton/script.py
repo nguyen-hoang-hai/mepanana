@@ -64,7 +64,7 @@ try:
     from Autodesk.Revit.DB.Analysis import SpatialFieldManager
     from pyrevit import forms, revit
     from py.core import get_doc, get_uidoc, SafeTransaction, get_id_value, safe_unicode
-    from py.ui   import setup_window, show_info, show_warning, show_error, show_success
+    from py.ui   import setup_window, show_info, show_warning, show_error, show_success, do_events
 
     from py.clash_analysis_engine import (
         scan_clashes, render_clashes_avf, clear_clash_analysis, ClashItem
@@ -76,13 +76,6 @@ try:
         sys.exit()
 
     uidoc = get_uidoc()
-
-    def do_events():
-        """Pumps the Windows Dispatcher queue to force immediate WPF UI repainting."""
-        try:
-            Dispatcher.CurrentDispatcher.Invoke(DispatcherPriority.Background, System.Action(lambda: None))
-        except Exception:
-            pass
 
     # ── Category Item Model ──────────────────────────────────────────────────────
 

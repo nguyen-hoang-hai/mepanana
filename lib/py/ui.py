@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 ui.py - Shared WPF UI Utilities & Synchronized Modern Notification Dialogs
 Part of mepanana.extension.
@@ -43,6 +43,19 @@ def setup_window(window):
             sender.Close()
             args.Handled = True
     window.PreviewKeyDown += on_preview_key_down
+
+
+def do_events():
+    """
+    Pumps the Windows Dispatcher queue to force immediate WPF UI repainting
+    and prevent window freezing during background / batch loops.
+    """
+    try:
+        from System import Action
+        from System.Windows.Threading import Dispatcher, DispatcherPriority
+        Dispatcher.CurrentDispatcher.Invoke(DispatcherPriority.Background, Action(lambda: None))
+    except Exception:
+        pass
 
 
 # ── Synchronized Modern Alert Dialog ─────────────────────────────────────────
