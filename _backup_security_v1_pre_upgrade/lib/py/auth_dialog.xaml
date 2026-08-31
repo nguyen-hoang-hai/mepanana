@@ -48,16 +48,9 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Password Field with Show/Hide Toggle -->
+                <!-- Password Field -->
                 <TextBlock Text="Enter Password to Unlock:" Style="{DynamicResource FieldLabel}" Margin="0,0,0,6"/>
-                <Grid Height="36" Margin="0,0,0,0">
-                    <PasswordBox Name="txtPassword" Height="36" Padding="10,4,36,4" FontSize="14" VerticalContentAlignment="Center"/>
-                    <TextBox Name="txtPasswordVisible" Height="36" Padding="10,4,36,4" FontSize="14" VerticalContentAlignment="Center" Visibility="Collapsed"/>
-                    <Button Name="btnTogglePassword" Content="👁"
-                            Width="30" Height="30" HorizontalAlignment="Right" VerticalAlignment="Center"
-                            Margin="0,0,3,0" Background="Transparent" BorderThickness="0"
-                            Cursor="Hand" ToolTip="Show/Hide Password" FontSize="14" Foreground="#64748B"/>
-                </Grid>
+                <PasswordBox Name="txtPassword" Height="36" Padding="10,4" FontSize="14" VerticalContentAlignment="Center"/>
 
                 <!-- Error Text -->
                 <TextBlock Name="txtError"

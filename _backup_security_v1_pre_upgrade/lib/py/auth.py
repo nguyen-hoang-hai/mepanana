@@ -78,17 +78,18 @@ def sync_from_gsheet(sheet_id=GSHEET_ID):
         return False
 
 
-# ── Session Helpers (Fail-Closed Architecture) ───────────────────────────────
+# ── Session Helpers ────────────────────────────────────────────────────────────
 
 def is_authenticated():
-    """
-    Checks if current Revit session is authenticated.
-    Strictly Fail-Closed: Access is only granted if MepananaAuth.dll is verified and active.
-    """
-    if not _DLL_LOADED:
-        return False
+    """Checks if current Revit session is authenticated."""
+    if _DLL_LOADED:
+        try:
+            return AuthManager.IsAuthenticated
+        except Exception:
+            pass
     try:
-        return AuthManager.IsAuthenticated
+        from System import AppDomain
+        return AppDomain.CurrentDomain.GetData(SESSION_KEY) is True
     except Exception:
         return False
 
@@ -100,16 +101,26 @@ def get_current_user():
             return AuthManager.CurrentUser or ""
         except Exception:
             pass
-    return ""
+    try:
+        from System import AppDomain
+        return AppDomain.CurrentDomain.GetData(SESSION_USER_KEY) or ""
+    except Exception:
+        return ""
 
 
 def set_authenticated(state=True, user=u"User"):
-    """Sets session state in C# DLL and updates ribbon accordingly."""
+    """Sets session state and updates ribbon accordingly."""
     if _DLL_LOADED:
         try:
             AuthManager.SetLockState(bool(state), user if state else "")
         except Exception:
             pass
+    try:
+        from System import AppDomain
+        AppDomain.CurrentDomain.SetData(SESSION_KEY, bool(state))
+        AppDomain.CurrentDomain.SetData(SESSION_USER_KEY, user if state else "")
+    except Exception:
+        pass
     update_ribbon_state(bool(state), user if state else "")
 
 
@@ -337,27 +348,7 @@ def show_login_dialog():
             self.txtError.Visibility = System.Windows.Visibility.Collapsed
             self.btnUnlock.Click += self.on_unlock
             self.btnCancel.Click += self.on_cancel
-            if hasattr(self, 'btnTogglePassword'):
-                self.btnTogglePassword.Click += self.on_toggle_pwd
             self.txtPassword.Focus()
-
-        def on_toggle_pwd(self, sender, args):
-            import System.Windows
-            if not hasattr(self, 'txtPasswordVisible'):
-                return
-            if self.txtPassword.Visibility == System.Windows.Visibility.Visible:
-                self.txtPasswordVisible.Text = self.txtPassword.Password
-                self.txtPasswordVisible.Visibility = System.Windows.Visibility.Visible
-                self.txtPassword.Visibility = System.Windows.Visibility.Collapsed
-                self.btnTogglePassword.Content = u"🔒"
-                self.txtPasswordVisible.Focus()
-                self.txtPasswordVisible.CaretIndex = len(self.txtPasswordVisible.Text)
-            else:
-                self.txtPassword.Password = self.txtPasswordVisible.Text
-                self.txtPassword.Visibility = System.Windows.Visibility.Visible
-                self.txtPasswordVisible.Visibility = System.Windows.Visibility.Collapsed
-                self.btnTogglePassword.Content = u"👁"
-                self.txtPassword.Focus()
 
         def on_unlock(self, sender, args):
             import System.Windows
@@ -366,11 +357,9 @@ def show_login_dialog():
                 self.txtError.Visibility = System.Windows.Visibility.Visible
                 self.btnUnlock.IsEnabled = False
                 self.txtPassword.IsEnabled = False
-                if hasattr(self, 'txtPasswordVisible'):
-                    self.txtPasswordVisible.IsEnabled = False
                 return
 
-            pwd = self.txtPassword.Password if self.txtPassword.Visibility == System.Windows.Visibility.Visible else self.txtPasswordVisible.Text
+            pwd = self.txtPassword.Password
             valid, user, remaining, is_locked = verify_password(pwd)
             if valid:
                 self.success = True
@@ -383,18 +372,11 @@ def show_login_dialog():
                     self.txtError.Text = u"Access locked! Restart Revit to try again."
                     self.btnUnlock.IsEnabled = False
                     self.txtPassword.IsEnabled = False
-                    if hasattr(self, 'txtPasswordVisible'):
-                        self.txtPasswordVisible.IsEnabled = False
                 else:
                     self.txtError.Text = u"Incorrect password! {} attempt(s) remaining.".format(remaining)
                 self.txtError.Visibility = System.Windows.Visibility.Visible
                 self.txtPassword.Clear()
-                if hasattr(self, 'txtPasswordVisible'):
-                    self.txtPasswordVisible.Text = u""
-                if self.txtPassword.Visibility == System.Windows.Visibility.Visible:
-                    self.txtPassword.Focus()
-                elif hasattr(self, 'txtPasswordVisible'):
-                    self.txtPasswordVisible.Focus()
+                self.txtPassword.Focus()
 
         def on_cancel(self, sender, args):
             self.Close()
