@@ -14,7 +14,7 @@ from Autodesk.Revit.DB import (
     Level
 )
 from Autodesk.Revit.DB.Structure import StructuralType
-from py.core import get_doc, get_uidoc, SafeTransaction, get_element_name, mm_to_ft
+from py.core import get_doc, get_uidoc, SafeTransaction, get_element_name, mm_to_ft, get_id_value, safe_unicode
 from py.ui   import show_error, show_info, show_warning, setup_window, do_events
 from py.cad  import extract_cad_blocks
 from py.auth import require_auth, update_ribbon_state, is_authenticated
@@ -120,7 +120,7 @@ class CadBlockPlacerWindow(forms.WPFWindow):
 
         cad_names = []
         for cad in imports:
-            name = "CAD_" + str(cad.Id.IntegerValue)
+            name = "CAD_" + str(get_id_value(cad))
             try: name = cad.Category.Name
             except: pass
             if name not in self.cad_map:
@@ -661,6 +661,13 @@ try:
             break
 except Exception as e:
     import traceback
-    with open(r"C:\temp\cbp_error.log", "w") as f:
-        f.write(traceback.format_exc())
-    print("FATAL ERROR: " + str(e))
+    import tempfile
+    from py.core import safe_unicode
+    try:
+        log_path = os.path.join(tempfile.gettempdir(), "cbp_error.log")
+        with open(log_path, "w") as f:
+            f.write(traceback.format_exc())
+    except Exception:
+        pass
+    print("FATAL ERROR: " + safe_unicode(e))
+

@@ -43,6 +43,7 @@ from System.Windows.Controls import Canvas, TextBlock, Border
 from System.Windows.Shapes import Line, Rectangle, Ellipse, Polygon
 from System.Windows.Media import Brushes, SolidColorBrush, Color, PointCollection, DoubleCollection, PenLineCap
 from pyrevit import revit, DB, UI, forms
+from py.core import get_id_value, safe_unicode
 from py.ui import setup_window, show_info, show_warning, show_error
 from py.sprinkler_engine import (
     cluster_sprinklers_by_main_pipe,
@@ -60,7 +61,7 @@ class PipeSelectionFilter(UI.Selection.ISelectionFilter):
     def AllowElement(self, elem):
         try:
             if elem is not None and elem.Category is not None:
-                return elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_PipeCurves)
+                return get_id_value(elem.Category) == int(DB.BuiltInCategory.OST_PipeCurves)
         except Exception:
             pass
         return False
@@ -73,7 +74,7 @@ class SprinklerSelectionFilter(UI.Selection.ISelectionFilter):
     def AllowElement(self, elem):
         try:
             if elem is not None and elem.Category is not None:
-                return elem.Category.Id.IntegerValue == int(DB.BuiltInCategory.OST_Sprinklers)
+                return get_id_value(elem.Category) == int(DB.BuiltInCategory.OST_Sprinklers)
         except Exception:
             pass
         return False
@@ -115,7 +116,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
             try:
                 size_param = self.main_pipe.get_Parameter(DB.BuiltInParameter.RBS_CALCULATED_SIZE)
                 size_str = size_param.AsString() if size_param else "Pipe"
-                self.txtMainPipeStatus.Text = u"Pipe #{} ({})".format(self.main_pipe.Id.IntegerValue, size_str)
+                self.txtMainPipeStatus.Text = u"Pipe #{} ({})".format(get_id_value(self.main_pipe), size_str)
                 self.txtMainPipeStatus.Foreground = Brushes.ForestGreen
             except Exception:
                 pass
@@ -409,8 +410,10 @@ def run():
                 show_warning(u"Could not detect any valid branch alignments with the selected Main Pipe.", "Topology Error")
                 continue
 
-            # 2. Execute in Revit Transaction
-            t = DB.Transaction(doc, "Generate Pendent Sprinkler Network")
+            # 2. Execute in Revit TransactionGroup (Single Undo Step)
+            tg = DB.TransactionGroup(doc, "Generate Pendent Sprinkler Network")
+            tg.Start()
+            t = DB.Transaction(doc, "Create Pendent Pipes & Fittings")
             try:
                 t.Start()
                 created_pipes, created_fittings, errors = generate_sprinkler_network(
@@ -422,6 +425,7 @@ def run():
                     drop_dn=drop_dn
                 )
                 t.Commit()
+                tg.Assimilate()
 
                 msg = u"🎉 Pendent Sprinkler Network Created Successfully!\n\n"
                 msg += u"• Sizing Standard: TCVN 7336:2021\n"
@@ -432,7 +436,7 @@ def run():
                 msg += u"• Fittings placed: {}\n".format(len(created_fittings))
 
                 if errors:
-                    msg += u"\n⚠️ Notices:\n" + u"\n".join(errors[:3])
+                    msg += u"\n⚠️ Notices:\n" + u"\n".join([safe_unicode(e) for e in errors[:3]])
 
                 show_info(msg, "Sprinkler Connector Success")
                 break
@@ -440,7 +444,9 @@ def run():
             except Exception as ex:
                 if t.HasStarted() and not t.HasEnded():
                     t.RollBack()
-                show_error(u"Error while generating network:\n{}".format(str(ex)), "Generation Error")
+                if tg.HasStarted() and not tg.HasEnded():
+                    tg.RollBack()
+                show_error(u"Error while generating network:\n{}".format(safe_unicode(ex)), "Generation Error")
                 break
 
         else:

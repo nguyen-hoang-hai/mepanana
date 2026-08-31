@@ -10,15 +10,15 @@ import os
 import sys
 import traceback
 
+import tempfile
+
 def _fatal_alert(err_str):
-    for log_dir in [os.environ.get("TEMP", r"C:\temp"), r"C:\Users\Public", r"C:\temp"]:
-        try:
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
-            with open(os.path.join(log_dir, "mepanana_cadwire_error.log"), "w") as f:
-                f.write(err_str)
-        except Exception:
-            pass
+    try:
+        log_dir = tempfile.gettempdir()
+        with open(os.path.join(log_dir, "mepanana_cadwire_error.log"), "w") as f:
+            f.write(err_str)
+    except Exception:
+        pass
 
     try:
         import clr
@@ -55,7 +55,7 @@ try:
     from pyrevit import forms, revit, script
 
     from py.auth import require_auth, update_ribbon_state, is_authenticated
-    from py.core import get_doc, get_uidoc, SafeTransaction, mm_to_ft
+    from py.core import get_doc, get_uidoc, SafeTransaction, SafeTransactionGroup, mm_to_ft, safe_unicode
     from py.ui   import setup_window, show_info, show_warning, show_error
     from py.cad_wire_engine import (
         get_cad_links_in_view, get_wire_types, get_electrical_panels,
@@ -232,15 +232,16 @@ try:
                         pct = 70 + int((float(cur) / tot) * 25)
                         self.progressBar.Value = min(98, pct)
 
-                with SafeTransaction(doc, "CAD Wire & Circuit"):
-                    result = create_revit_wires(
-                        doc=doc,
-                        active_view=self.active_view,
-                        wire_type_id=selected_wire_type,
-                        matched_paths=split_paths,
-                        panel_element=selected_panel,
-                        progress_callback=update_prog
-                    )
+                with SafeTransactionGroup(doc, "CAD Wire Conversion"):
+                    with SafeTransaction(doc, "CAD Wire & Circuit"):
+                        result = create_revit_wires(
+                            doc=doc,
+                            active_view=self.active_view,
+                            wire_type_id=selected_wire_type,
+                            matched_paths=split_paths,
+                            panel_element=selected_panel,
+                            progress_callback=update_prog
+                        )
 
                 self.progressBar.Value = 100
                 self.progressBar.Visibility = Visibility.Collapsed
@@ -252,11 +253,11 @@ try:
                     )
                     panel_label = panel_name if selected_panel else "None"
                     summary_msg = (
-                        "CAD Wire & Circuit conversion completed successfully!\n\n"
-                        "• Wires Created: {}\n"
-                        "• Devices Connected: {}\n"
-                        "• Circuits Created: {}\n"
-                        "• Panelboard Assigned: {}"
+                        u"CAD Wire & Circuit conversion completed successfully!\n\n"
+                        u"• Wires Created: {}\n"
+                        u"• Devices Connected: {}\n"
+                        u"• Circuits Created: {}\n"
+                        u"• Panelboard Assigned: {}"
                     ).format(
                         result["wires_created"],
                         result["devices_connected"],
@@ -267,14 +268,14 @@ try:
                     self.action = "SUCCESS"
                     self.Close()
                 else:
-                    err_text = "\n".join(result["errors"][:3]) if result["errors"] else "Unknown error."
-                    show_error("Failed to create wires:\n{}".format(err_text), "Creation Failed")
+                    err_text = "\n".join([safe_unicode(e) for e in result["errors"][:3]]) if result["errors"] else u"Unknown error."
+                    show_error(u"Failed to create wires:\n{}".format(err_text), "Creation Failed")
                     self.txtStatus.Text = "Failed to create wires."
 
             except Exception as ex:
                 self.progressBar.Visibility = Visibility.Collapsed
                 self.btnRun.IsEnabled = True
-                show_error("An error occurred during wire conversion:\n{}".format(str(ex)), "Execution Error")
+                show_error(u"An error occurred during wire conversion:\n{}".format(safe_unicode(ex)), "Execution Error")
                 self.txtStatus.Text = "Error occurred."
 
     # Launch Window
@@ -283,3 +284,4 @@ try:
 
 except Exception as global_ex:
     _fatal_alert("GLOBAL FATAL ERROR in CAD Wire:\n\n" + traceback.format_exc())
+

@@ -27,8 +27,11 @@ try:
 except Exception:
     HAS_DOTNET_NET = False
 
+from py.core import safe_unicode
+
 GITHUB_REPO = "nguyen-hoang-hai/mepanana"
 API_URL = "https://api.github.com/repos/{}/commits/main".format(GITHUB_REPO)
+RAW_VERSION_URL = "https://raw.githubusercontent.com/{}/main/version.json".format(GITHUB_REPO)
 ZIP_URL = "https://github.com/{}/archive/refs/heads/main.zip".format(GITHUB_REPO)
 
 
@@ -137,9 +140,31 @@ def _http_download_file(url, target_path):
 
 def check_cloud_version():
     """
-    Queries GitHub Commits API for latest commit on main branch.
+    Queries GitHub for latest version info.
+    Attempts CDN raw.githubusercontent.com first (Rate-Limit free),
+    falling back to GitHub REST API if necessary.
     Returns dict: {'sha': str, 'full_sha': str, 'message': str, 'date': str, 'author': str}
     """
+    # 1. Try RAW_VERSION_URL first (0 rate limit)
+    try:
+        raw_v_text = _http_get_string(RAW_VERSION_URL)
+        if raw_v_text and len(raw_v_text) > 10:
+            v_data = json.loads(raw_v_text)
+            commit_sha = v_data.get("commit", "latest")
+            raw_d = v_data.get("date", "")
+            return {
+                "sha": commit_sha[:7] if commit_sha else "latest",
+                "full_sha": commit_sha,
+                "message": v_data.get("changelog", "Bản phát hành MEPANANA"),
+                "date": format_vietnam_time(raw_d),
+                "raw_date": raw_d,
+                "author": "MEPANANA Team",
+                "success": True
+            }
+    except Exception:
+        pass
+
+    # 2. Fallback to GitHub Commits API
     try:
         raw_json = _http_get_string(API_URL)
         data = json.loads(raw_json)
@@ -164,7 +189,7 @@ def check_cloud_version():
     except Exception as ex:
         return {
             "success": False,
-            "error": str(ex)
+            "error": safe_unicode(ex)
         }
 
 
@@ -332,6 +357,23 @@ def download_and_install_update(progress_callback=None):
         if os.path.abspath(appdata_ext) not in [os.path.abspath(t) for t in targets] and os.path.exists(appdata_ext):
             targets.append(appdata_ext)
 
+        def _safe_copy_file(src_path, dst_path):
+            try:
+                if os.path.exists(dst_path) and dst_path.lower().endswith(".dll"):
+                    old_bak = dst_path + ".old"
+                    if os.path.exists(old_bak):
+                        try:
+                            os.remove(old_bak)
+                        except Exception:
+                            pass
+                    try:
+                        os.rename(dst_path, old_bak)
+                    except Exception:
+                        pass
+                shutil.copy2(src_path, dst_path)
+            except Exception:
+                pass
+
         if progress_callback: progress_callback(80, u"Updating extension files and components...")
         for target_dir in targets:
             safe_makedirs(target_dir)
@@ -346,17 +388,11 @@ def download_and_install_update(progress_callback=None):
                         dest_sub = os.path.join(d, rel)
                         safe_makedirs(dest_sub)
                         for f in files:
-                            try:
-                                src_file = os.path.join(sub_root, f)
-                                dst_file = os.path.join(dest_sub, f)
-                                shutil.copy2(src_file, dst_file)
-                            except Exception:
-                                pass
+                            src_file = os.path.join(sub_root, f)
+                            dst_file = os.path.join(dest_sub, f)
+                            _safe_copy_file(src_file, dst_file)
                 else:
-                    try:
-                        shutil.copy2(s, d)
-                    except Exception:
-                        pass
+                    _safe_copy_file(s, d)
 
             new_v_data = {
                 "version": "1.0.0",

@@ -63,7 +63,7 @@ try:
     from Autodesk.Revit.DB import BuiltInCategory, ElementId, CategoryType
     from Autodesk.Revit.DB.Analysis import SpatialFieldManager
     from pyrevit import forms, revit
-    from py.core import get_doc, get_uidoc, SafeTransaction
+    from py.core import get_doc, get_uidoc, SafeTransaction, get_id_value, safe_unicode
     from py.ui   import setup_window, show_info, show_warning, show_error, show_success
 
     from py.clash_analysis_engine import (
@@ -216,7 +216,7 @@ try:
             for cat in doc_obj.Settings.Categories:
                 try:
                     if cat.CategoryType == CategoryType.Model:
-                        bic_val = cat.Id.IntegerValue
+                        bic_val = get_id_value(cat)
                         if bic_val < 0:
                             name = cat.Name
                             if not name.startswith("<") and not name.startswith("Analytical") and "Tag" not in name:
@@ -235,7 +235,7 @@ try:
         seen_ids = set()
         unique = []
         for name, cid, is_def in sorted(cats, key=lambda x: x[0]):
-            iid = cid.IntegerValue
+            iid = get_id_value(cid)
             if iid not in seen_ids:
                 seen_ids.add(iid)
                 unique.append((name, cid, is_def))
@@ -249,7 +249,7 @@ try:
 
     def _get_cache_key(doc_obj, view_obj):
         doc_name = os.path.basename(doc_obj.PathName) if doc_obj.PathName else doc_obj.Title
-        return "{}_view_{}".format(doc_name, view_obj.Id.IntegerValue)
+        return "{}_view_{}".format(doc_name, get_id_value(view_obj))
 
     def _save_cache(doc_obj, view_obj, clash_items):
         try:
@@ -265,9 +265,9 @@ try:
             for c in clash_items:
                 serialized.append({
                     "name1": c.Element1.Category.Name if c.Element1.Category else "Element",
-                    "id1": c.Element1.Id.IntegerValue,
+                    "id1": get_id_value(c.Element1),
                     "name2": c.Element2.Category.Name if c.Element2.Category else "Element",
-                    "id2": c.Element2.Id.IntegerValue,
+                    "id2": get_id_value(c.Element2),
                     "is_link": c.IsLink,
                     "link_name": getattr(c, 'LinkName', ''),
                     "overlap_mm": c.OverlapMm,
@@ -441,7 +441,7 @@ try:
             self._update_category_count()
 
         def _get_selected_categories(self):
-            return [c.CatId.IntegerValue if hasattr(c.CatId, "IntegerValue") else int(c.CatId) for c in self.categories if c.IsChecked]
+            return [get_id_value(c.CatId) for c in self.categories if c.IsChecked]
 
         def on_analyze(self, sender, e):
             self._update_category_count()

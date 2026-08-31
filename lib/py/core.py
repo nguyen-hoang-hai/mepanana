@@ -46,6 +46,49 @@ def ft_to_mm(ft):
     """Converts feet to millimeters"""
     return ft * 304.8
 
+def safe_unicode(val):
+    """
+    Safely converts any value (string, exception, object) to Unicode without throwing UnicodeEncodeError.
+    Fully compatible with IronPython 2.7, Python 3, and Vietnamese diacritics.
+    """
+    if val is None:
+        return u""
+    try:
+        if isinstance(val, unicode):
+            return val
+        try:
+            return unicode(val)
+        except Exception:
+            return str(val).decode("utf-8", "ignore")
+    except Exception:
+        try:
+            return unicode(str(val))
+        except Exception:
+            return u"Unknown error"
+
+
+def get_id_value(elem_or_id):
+    """
+    Safely extracts numeric integer ID from an Element or ElementId.
+    Seamlessly supports both Int32 (Revit 2020-2023 via IntegerValue)
+    and Int64 (Revit 2024-2026 via Value) without deprecation warnings.
+    """
+    if elem_or_id is None:
+        return -1
+    eid = elem_or_id.Id if hasattr(elem_or_id, "Id") else elem_or_id
+    if hasattr(eid, "Value"):
+        try:
+            return eid.Value
+        except Exception:
+            pass
+    if hasattr(eid, "IntegerValue"):
+        try:
+            return eid.IntegerValue
+        except Exception:
+            pass
+    return -1
+
+
 def get_element_name(elem):
     """Safely gets the name of an element"""
     if not elem:
@@ -83,7 +126,7 @@ class SafeTransaction(object):
             try:
                 from py.ui import show_error
                 show_error(
-                    "System error in '{}'.\nDetails saved to log:\n{}".format(self.name, get_log_path()),
+                    u"System error in '{}'.\nDetails saved to log:\n{}".format(safe_unicode(self.name), safe_unicode(get_log_path())),
                     "System Error"
                 )
             except Exception:
@@ -92,3 +135,29 @@ class SafeTransaction(object):
         else:
             if self.t.HasStarted() and not self.t.HasEnded():
                 self.t.Commit()
+
+
+class SafeTransactionGroup(object):
+    """
+    Context Manager for Revit TransactionGroup.
+    Assimilates all inner transactions on success into a single 1-Click Undo step.
+    Rolls back everything cleanly if any exception occurs.
+    """
+    def __init__(self, doc, name):
+        self.doc = doc
+        self.name = name
+        self.tg = DB.TransactionGroup(doc, name)
+
+    def __enter__(self):
+        self.tg.Start()
+        return self.tg
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            if self.tg.HasStarted() and not self.tg.HasEnded():
+                self.tg.RollBack()
+            return False
+        else:
+            if self.tg.HasStarted() and not self.tg.HasEnded():
+                self.tg.Assimilate()
+

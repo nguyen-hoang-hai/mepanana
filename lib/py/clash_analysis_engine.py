@@ -30,7 +30,7 @@ from Autodesk.Revit.DB import (
     Color, RevitLinkInstance, BoundingBoxXYZ, Transform, ElementId, Solid, CategoryType
 )
 
-from py.core import SafeTransaction, mm_to_ft, ft_to_mm
+from py.core import SafeTransaction, mm_to_ft, ft_to_mm, get_id_value, safe_unicode
 
 # ── Load Latest Compiled C# AVF Assembly ────────────────────────────────────
 dll_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "MepananaAvf.dll"))
@@ -40,7 +40,7 @@ if os.path.exists(dll_path):
         clr.AddReferenceToFileAndPath(dll_path)
         from Mepanana.Avf import ClashVisualizer, ClashPolygonData, NativeGeometryEngine, NativeClashResult
     except Exception as ex:
-        print("Failed to load AVF assembly: {}".format(ex))
+        print("Failed to load AVF assembly: {}".format(safe_unicode(ex)))
 
 
 # ── Relevant Categories In Linked Models To Scan ────────────────────────────
@@ -111,41 +111,35 @@ ALL_LINKED_CATEGORIES = [
 ]
 
 
-# ── Data Model ───────────────────────────────────────────────────────────────
+# ── Data Models ───────────────────────────────────────────────────────────────
 
-class ClashItem(object):
-    """Represents a detected clash between Host element and another element (Host or Link)."""
-    def __init__(self, elem1, elem2, clash_pt, clash_type="HARD", overlap_mm=0.0, elev_diff_mm=0.0,
-                 width1_ft=1.0, width2_ft=1.0, is_link1=False, is_link2=False, link_name="",
-                 host_polygon_corners=None, host_top_z=0.0,
-                 link_polygon_corners=None, link_top_z=0.0):
+class ClashItem(System.Object):
+    def __init__(self, elem1, elem2, clash_point, overlap_mm, elev_diff_mm, is_link1=False, is_link2=False, link_name="", host_band=None, link_top_z=None):
         self.Element1 = elem1
         self.Element2 = elem2
-        self.ClashPoint = clash_pt
-        self.ClashType = clash_type
+        self.ClashPoint = clash_point
         self.OverlapMm = overlap_mm
         self.ElevDiffMm = elev_diff_mm
-        self.Width1Ft = width1_ft
-        self.Width2Ft = width2_ft
-        self.IsLink = is_link1 or is_link2
+        self.IsLink1 = is_link1
+        self.IsLink2 = is_link2
         self.LinkName = link_name
-        self.HostPolygonCorners = host_polygon_corners  # Localized Red band for Host element
-        self.HostTopZ = host_top_z
-        self.LinkPolygonCorners = link_polygon_corners  # Localized Green band for Link element (or Red for Host 2)
+        self.HostBand = host_band
         self.LinkTopZ = link_top_z
         
         # Display properties (Clean & Compact)
         name1 = elem1.Category.Name if elem1.Category else "Element"
         name2 = elem2.Category.Name if elem2.Category else "Element"
+        id1 = get_id_value(elem1)
+        id2 = get_id_value(elem2)
         
         if is_link2:
-            self.DisplayName = "{} [{}] ⚡ {} [{}] (Link)".format(name1, elem1.Id.IntegerValue, name2, elem2.Id.IntegerValue)
+            self.DisplayName = u"{} [{}] ⚡ {} [{}] (Link)".format(name1, id1, name2, id2)
         elif is_link1:
-            self.DisplayName = "{} [{}] (Link) ⚡ {} [{}]".format(name1, elem1.Id.IntegerValue, name2, elem2.Id.IntegerValue)
+            self.DisplayName = u"{} [{}] (Link) ⚡ {} [{}]".format(name1, id1, name2, id2)
         else:
-            self.DisplayName = "{} [{}] ⚡ {} [{}]".format(name1, elem1.Id.IntegerValue, name2, elem2.Id.IntegerValue)
+            self.DisplayName = u"{} [{}] ⚡ {} [{}]".format(name1, id1, name2, id2)
             
-        self.DetailInfo = "{:.0f} mm".format(overlap_mm)
+        self.DetailInfo = u"{:.0f} mm".format(overlap_mm)
 
 
 # ── MEP Connector & Joint Relationship Inspectors ────────────────────────────
@@ -155,8 +149,8 @@ def are_elements_connected(elem1, elem2):
     if not elem1 or not elem2:
         return False
     try:
-        id1 = elem1.Id.IntegerValue
-        id2 = elem2.Id.IntegerValue
+        id1 = get_id_value(elem1)
+        id2 = get_id_value(elem2)
         if id1 == id2:
             return True
             
@@ -165,7 +159,7 @@ def are_elements_connected(elem1, elem2):
             for c in cm1.Connectors:
                 if c.IsConnected:
                     for ref in c.AllRefs:
-                        if ref.Owner and ref.Owner.Id.IntegerValue == id2:
+                        if ref.Owner and get_id_value(ref.Owner) == id2:
                             return True
 
         cm2 = getattr(elem2, "ConnectorManager", getattr(getattr(elem2, "MEPModel", None), "ConnectorManager", None))
@@ -173,7 +167,7 @@ def are_elements_connected(elem1, elem2):
             for c in cm2.Connectors:
                 if c.IsConnected:
                     for ref in c.AllRefs:
-                        if ref.Owner and ref.Owner.Id.IntegerValue == id1:
+                        if ref.Owner and get_id_value(ref.Owner) == id1:
                             return True
     except Exception:
         pass
@@ -564,8 +558,8 @@ def check_clash_between_elements(data1, data2):
     # ── Tier 3: Skip end-to-end continuous run joints ────────────────────────
     if data1.get("has_curve") and data2.get("has_curve"):
         if is_connected_endpoint_joint(p0, p1, q0, q1, threshold_ft=0.65):
-            cat1 = elem1.Category.Id.IntegerValue if elem1.Category else 0
-            cat2 = elem2.Category.Id.IntegerValue if elem2.Category else 0
+            cat1 = get_id_value(elem1.Category) if elem1.Category else 0
+            cat2 = get_id_value(elem2.Category) if elem2.Category else 0
             if cat1 == cat2 or "Fitting" in str(getattr(elem1.Category, 'Name', '')) or "Fitting" in str(getattr(elem2.Category, 'Name', '')):
                 return None
             
@@ -646,7 +640,7 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
     cat_ints = set()
     for c in categories:
         try:
-            val = c.IntegerValue if hasattr(c, "IntegerValue") else int(c)
+            val = get_id_value(c) if not isinstance(c, int) else int(c)
             cat_ints.add(val)
         except Exception:
             pass
@@ -662,7 +656,7 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
                 cdata = get_mep_curve_data(el, is_link=False)
                 if cdata and cdata.get("solids") and len(cdata["solids"]) > 0:
                     host_data_list.append(cdata)
-                    selected_id_set.add(el.Id.IntegerValue)
+                    selected_id_set.add(get_id_value(el))
     else:
         for cat_int in cat_ints:
             try:
@@ -703,7 +697,7 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
             try:
                 col = FilteredElementCollector(doc, view.Id).OfCategoryId(ElementId(cat_int)).WhereElementIsNotElementType()
                 for el in col:
-                    if el.Id.IntegerValue in selected_id_set:
+                    if get_id_value(el) in selected_id_set:
                         continue
                     bb_local = el.get_BoundingBox(view) or el.get_BoundingBox(None)
                     if not bb_local:
@@ -767,11 +761,11 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
             progress_callback(pct, "Testing Host vs Host solid collisions ({}/{})...".format(i + 1, n_host))
 
         d1 = host_data_list[i]
-        id1 = d1["element"].Id.IntegerValue
+        id1 = get_id_value(d1["element"])
         
         for j in range(i + 1, n_host):
             d2 = host_data_list[j]
-            id2 = d2["element"].Id.IntegerValue
+            id2 = get_id_value(d2["element"])
             
             pair_key = (id1, id2)
             if pair_key in seen_pairs or (id2, id1) in seen_pairs:
@@ -784,7 +778,7 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
 
         # A2: Selected vs other nearby Host elements
         for d2 in other_host_data_list:
-            id2 = d2["element"].Id.IntegerValue
+            id2 = get_id_value(d2["element"])
             pair_key = (id1, id2)
             if pair_key in seen_pairs or (id2, id1) in seen_pairs:
                 continue
@@ -802,11 +796,11 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
             progress_callback(pct, "Testing Host vs Link solid collisions ({}/{})...".format(i + 1, n_host))
 
         d1 = host_data_list[i]
-        id1 = d1["element"].Id.IntegerValue
+        id1 = get_id_value(d1["element"])
         
         for j in range(n_link):
             d2 = link_data_list[j]
-            id2 = d2["element"].Id.IntegerValue
+            id2 = get_id_value(d2["element"])
             
             pair_key = (id1, ("link", id2, d2.get("link_name", "")))
             if pair_key in seen_pairs:

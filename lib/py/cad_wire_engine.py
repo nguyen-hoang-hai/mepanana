@@ -20,6 +20,8 @@ from Autodesk.Revit.DB.Electrical import (
     Wire, WireType, WiringType, ElectricalSystem, ElectricalSystemType
 )
 
+from py.core import get_id_value, safe_unicode
+
 # ── Helper Conversions & Math ────────────────────────────────────────────────
 def mm_to_ft(mm):
     return mm / 304.8
@@ -58,7 +60,7 @@ class CadLinkItem(System.Object):
     def __init__(self, element, display_name):
         self.Element = element
         self.DisplayName = display_name
-        self.Id = element.Id.IntegerValue
+        self.Id = get_id_value(element)
 
     def __repr__(self):
         return self.DisplayName

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Schedule IO module for ScheduleLink.
 Handles querying Revit ViewSchedules, extracting data with _ElementId,
@@ -8,7 +8,7 @@ from Autodesk.Revit.DB import (
     FilteredElementCollector, ViewSchedule, ViewType,
     SectionType, ElementId, StorageType
 )
-from py.core import SafeTransaction
+from py.core import SafeTransaction, get_id_value, safe_unicode
 
 
 def get_all_schedules(doc):
@@ -31,7 +31,7 @@ def get_all_schedules(doc):
         view_type = getattr(vs, "ViewType", None)
         if view_type == ViewType.Schedule or view_type == ViewType.CostReport or view_type == ViewType.ColumnSchedule:
             schedules.append({
-                "id": vs.Id.IntegerValue,
+                "id": get_id_value(vs),
                 "name": name,
                 "view": vs
             })
@@ -81,7 +81,7 @@ def extract_schedule_data(doc, view_schedule, visible_only=True):
     # Check if number of scheduled elements matches body rows (itemized schedule)
     if len(scheduled_elements) == num_rows:
         for r_idx, elem in enumerate(scheduled_elements):
-            row_vals = [str(elem.Id.IntegerValue)]
+            row_vals = [str(get_id_value(elem))]
             for c_idx in range(num_cols):
                 cell_text = view_schedule.GetCellText(SectionType.Body, r_idx, c_idx)
                 row_vals.append(cell_text or "")
@@ -89,7 +89,7 @@ def extract_schedule_data(doc, view_schedule, visible_only=True):
     else:
         # If schedule is grouped or elements don't match 1:1, extract directly from elements
         for elem in scheduled_elements:
-            row_vals = [str(elem.Id.IntegerValue)]
+            row_vals = [str(get_id_value(elem))]
             for f in fields:
                 field_name = f.GetName()
                 param = elem.LookupParameter(field_name)
