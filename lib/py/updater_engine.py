@@ -222,50 +222,31 @@ def check_cloud_version():
 
 def set_ribbon_update_badge(has_update, commit_info=None):
     """
-    Updates the Update pushbutton on the Revit Ribbon with either normal icon or orange dot badge icon.
-    Uses pyRevit native ButtonIcons for 100% DPI and layout compatibility.
+    Toggles pyRevit's native orange notification dot and UPDATED banner on the Update button.
+    Uses native Autodesk.Internal.Windows.HighlightMode (Zero icon replacement needed!).
     """
     try:
         import clr
         clr.AddReference("AdWindows")
-        clr.AddReference("PresentationCore")
         import System
         from Autodesk.Windows import ComponentManager
+        from pyrevit.api import AdInternal
 
         ribbon = ComponentManager.Ribbon
         if not ribbon or not ribbon.Tabs:
             return False
 
-        icon_dir = os.path.join(get_extension_root(), "mepanana.tab", "Management.panel", "Update.pushbutton")
-        icon_normal_path = os.path.join(icon_dir, "icon.png")
-        icon_badge_path = os.path.join(icon_dir, "icon_update.png")
-
-        target_icon_path = icon_badge_path if (has_update and os.path.exists(icon_badge_path)) else icon_normal_path
-
-        if not os.path.exists(target_icon_path):
-            return False
+        # Use native HighlightMode.Updated for orange dot, HighlightMode.None to remove
+        if has_update and hasattr(AdInternal.Windows, "HighlightMode"):
+            target_highlight = AdInternal.Windows.HighlightMode.Updated
+        else:
+            try:
+                target_highlight = getattr(AdInternal.Windows.HighlightMode, "None")
+            except Exception:
+                target_highlight = 0
 
         def _apply():
             try:
-                small_img = None
-                large_img = None
-                try:
-                    from pyrevit.coreutils.ribbon import ButtonIcons
-                    bi = ButtonIcons(target_icon_path)
-                    small_img = bi.small_bitmap
-                    large_img = bi.large_bitmap
-                except Exception:
-                    try:
-                        from pyrevit.framework import Uri, UriKind
-                        from pyrevit.framework.Imaging import BitmapImage
-                        large_img = BitmapImage(Uri(target_icon_path, UriKind.Absolute))
-                        small_img = large_img
-                    except Exception:
-                        pass
-
-                if large_img is None:
-                    return False
-
                 for tab in ribbon.Tabs:
                     tab_id = str(getattr(tab, "Id", "")).lower()
                     tab_title = str(getattr(tab, "Title", "")).lower()
@@ -277,11 +258,8 @@ def set_ribbon_update_badge(has_update, commit_info=None):
                                 item_id = str(getattr(item, "Id", "")).lower()
                                 item_text = str(getattr(item, "Text", "")).lower()
                                 if "update" in item_id or "update" in item_text:
-                                    if large_img is not None:
-                                        item.LargeImage = large_img
-                                    if small_img is not None:
-                                        item.Image = small_img
-                                    item.Text = u"Update"
+                                    if hasattr(item, "Highlight"):
+                                        item.Highlight = target_highlight
                                     if has_update:
                                         sha = commit_info.get("sha", "") if isinstance(commit_info, dict) else ""
                                         if sha:
