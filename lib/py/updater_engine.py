@@ -230,9 +230,14 @@ def set_ribbon_update_badge(has_update, commit_info=None):
         clr.AddReference("AdWindows")
         clr.AddReference("PresentationCore")
         import System
-        from System import Uri
-        from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption, BitmapCreateOptions
         from Autodesk.Windows import ComponentManager
+
+        try:
+            from pyrevit.framework import Uri, UriKind
+            from pyrevit.framework.Imaging import BitmapImage
+        except Exception:
+            from System import Uri, UriKind
+            from System.Windows.Media.Imaging import BitmapImage
 
         ribbon = ComponentManager.Ribbon
         if not ribbon or not ribbon.Tabs:
@@ -249,13 +254,7 @@ def set_ribbon_update_badge(has_update, commit_info=None):
                 if not os.path.exists(target_icon_path):
                     return False
 
-                bmp = BitmapImage()
-                bmp.BeginInit()
-                bmp.UriSource = Uri(target_icon_path)
-                bmp.CacheOption = BitmapCacheOption.OnLoad
-                bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache
-                bmp.EndInit()
-                bmp.Freeze()
+                bmp = BitmapImage(Uri(target_icon_path, UriKind.Absolute))
 
                 for tab in ribbon.Tabs:
                     tab_id = str(getattr(tab, "Id", "")).lower()
@@ -269,16 +268,15 @@ def set_ribbon_update_badge(has_update, commit_info=None):
                                 item_text = str(getattr(item, "Text", "")).lower()
                                 if "update" in item_id or "update" in item_text:
                                     item.LargeImage = bmp
-                                    item.Image = bmp
                                     item.Text = u"Update"
                                     if has_update:
                                         sha = commit_info.get("sha", "") if isinstance(commit_info, dict) else ""
                                         if sha:
-                                            item.ToolTip = u"✨ Bản cập nhật mới ({}) khả dụng trên GitHub! Bấm để nâng cấp ngay.".format(sha)
+                                            item.ToolTip = u"✨ New update ({}) available on GitHub! Click to update now.".format(sha)
                                         else:
-                                            item.ToolTip = u"✨ Có bản cập nhật mới trên GitHub! Bấm để nâng cấp ngay."
+                                            item.ToolTip = u"✨ New update available on GitHub! Click to update now."
                                     else:
-                                        item.ToolTip = u"Kiểm tra và đồng bộ phiên bản MEPANANA mới nhất từ GitHub."
+                                        item.ToolTip = u"Check and synchronize the latest MEPANANA release from GitHub."
                                     ribbon.UpdateLayout()
                                     return True
             except Exception:

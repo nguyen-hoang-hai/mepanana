@@ -1,9 +1,6 @@
 {
-  "version": "1.0.0",
-  "release_tag": "v1.0.0",
-  "repo": "https://github.com/nguyen-hoang-hai/mepanana",
-  "commit": "latest",
-  "date": "2026-08-31T20:30:00Z",
-  "download_url": "https://github.com/nguyen-hoang-hai/mepanana/archive/refs/heads/main.zip",
-  "description": "MEPANANA Revit Extension Official Release v1.0.0"
+  "repo": "https://github.com/nguyen-hoang-hai/mepanana", 
+  "commit": "8e64e97", 
+  "date": "2026-08-31T14:49:21Z", 
+  "version": "1.0.0"
 }

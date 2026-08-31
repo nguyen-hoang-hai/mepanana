@@ -400,10 +400,9 @@ def update_ribbon_state(enable=None, user=None):
 
                         if is_sec:
                             panel.IsEnabled = True
-                            new_title = user if (enable and user) else "Security"
-                            panel.Source.Title = new_title
+                            panel.Source.Title = "Security"
                             try:
-                                panel.Title = new_title
+                                panel.Title = "Security"
                             except Exception:
                                 pass
 
