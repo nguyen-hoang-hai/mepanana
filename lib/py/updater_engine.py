@@ -63,30 +63,52 @@ def get_extension_root():
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+def get_local_git_sha():
+    """Reads local git commit SHA from .git directory if present."""
+    try:
+        root = get_extension_root()
+        git_head = os.path.join(root, ".git", "HEAD")
+        if os.path.exists(git_head):
+            with open(git_head, "r") as f:
+                head_ref = f.read().strip()
+            if head_ref.startswith("ref:"):
+                ref_path = os.path.join(root, ".git", head_ref[4:].strip())
+                if os.path.exists(ref_path):
+                    with open(ref_path, "r") as f:
+                        return f.read().strip()[:7]
+            else:
+                return head_ref[:7]
+    except Exception:
+        pass
+    return None
+
+
 def get_local_version():
-    """Reads current local version and commit hash from version.json."""
+    """Reads current local version and commit hash from version.json and .git."""
     root = get_extension_root()
     v_file = os.path.join(root, "version.json")
+    commit_val = get_local_git_sha() or "latest"
+    ver_val = "1.0.0"
+    date_val = "2026-08-31"
+
     if os.path.exists(v_file):
         try:
             with open(v_file, "r") as f:
                 data = json.load(f)
-                raw_d = data.get("date", "Unknown")
-                return {
-                    "version": data.get("version", "1.0.0"),
-                    "commit": data.get("commit", "Unknown"),
-                    "date": format_vietnam_time(raw_d),
-                    "raw_date": raw_d,
-                    "repo": data.get("repo", "https://github.com/{}".format(GITHUB_REPO))
-                }
+                ver_val = data.get("version", "1.0.0")
+                if not get_local_git_sha() and data.get("commit"):
+                    commit_val = data.get("commit")
+                raw_d = data.get("date", "")
+                if raw_d:
+                    date_val = format_vietnam_time(raw_d)
         except Exception:
             pass
 
     return {
-        "version": "1.0.0",
-        "commit": "Initial",
-        "date": "2026-08-29",
-        "raw_date": "2026-08-29",
+        "version": ver_val,
+        "commit": commit_val,
+        "date": date_val,
+        "raw_date": date_val,
         "repo": "https://github.com/{}".format(GITHUB_REPO)
     }
 
@@ -141,30 +163,10 @@ def _http_download_file(url, target_path):
 def check_cloud_version():
     """
     Queries GitHub for latest version info.
-    Attempts CDN raw.githubusercontent.com first (Rate-Limit free),
-    falling back to GitHub REST API if necessary.
-    Returns dict: {'sha': str, 'full_sha': str, 'message': str, 'date': str, 'author': str}
+    Checks GitHub Commits API for exact commit SHA, with CDN raw.githubusercontent.com fallback.
+    Returns dict: {'sha': str, 'full_sha': str, 'message': str, 'date': str, 'author': str, 'success': bool}
     """
-    # 1. Try RAW_VERSION_URL first (0 rate limit)
-    try:
-        raw_v_text = _http_get_string(RAW_VERSION_URL)
-        if raw_v_text and len(raw_v_text) > 10:
-            v_data = json.loads(raw_v_text)
-            commit_sha = v_data.get("commit", "latest")
-            raw_d = v_data.get("date", "")
-            return {
-                "sha": commit_sha[:7] if commit_sha else "latest",
-                "full_sha": commit_sha,
-                "message": v_data.get("changelog", "Bản phát hành MEPANANA"),
-                "date": format_vietnam_time(raw_d),
-                "raw_date": raw_d,
-                "author": "MEPANANA Team",
-                "success": True
-            }
-    except Exception:
-        pass
-
-    # 2. Fallback to GitHub Commits API
+    # 1. Query GitHub Commits API for latest live commit SHA
     try:
         raw_json = _http_get_string(API_URL)
         data = json.loads(raw_json)
@@ -177,39 +179,84 @@ def check_cloud_version():
 
         vn_date = format_vietnam_time(date)
 
-        return {
-            "sha": sha,
-            "full_sha": full_sha,
-            "message": msg,
-            "date": vn_date,
-            "raw_date": date,
-            "author": author,
-            "success": True
-        }
+        if sha and sha != "Unknown":
+            return {
+                "sha": sha,
+                "full_sha": full_sha,
+                "message": msg,
+                "date": vn_date,
+                "raw_date": date,
+                "author": author,
+                "success": True
+            }
+    except Exception:
+        pass
+
+    # 2. Fallback to RAW_VERSION_URL (CDN)
+    try:
+        raw_v_text = _http_get_string(RAW_VERSION_URL)
+        if raw_v_text and len(raw_v_text) > 10:
+            v_data = json.loads(raw_v_text)
+            commit_sha = v_data.get("commit", "")
+            raw_d = v_data.get("date", "")
+            return {
+                "sha": commit_sha[:7] if commit_sha else "latest",
+                "full_sha": commit_sha,
+                "message": v_data.get("description", "Bản phát hành MEPANANA"),
+                "date": format_vietnam_time(raw_d),
+                "raw_date": raw_d,
+                "author": "MEPANANA Team",
+                "success": True
+            }
     except Exception as ex:
         return {
             "success": False,
             "error": safe_unicode(ex)
         }
 
+    return {
+        "success": False,
+        "error": "Unable to connect to GitHub"
+    }
+
 
 def set_ribbon_update_badge(has_update, commit_info=None):
     """
-    Updates the Update pushbutton on the Revit Ribbon with a visual badge 🔴.
+    Updates the Update pushbutton on the Revit Ribbon with either normal icon or orange dot badge icon.
     Thread-safe and executes on the WPF UI Dispatcher thread.
     """
     try:
         import clr
         clr.AddReference("AdWindows")
+        clr.AddReference("PresentationCore")
         import System
+        from System import Uri
+        from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption, BitmapCreateOptions
         from Autodesk.Windows import ComponentManager
 
         ribbon = ComponentManager.Ribbon
         if not ribbon or not ribbon.Tabs:
             return False
 
+        icon_dir = os.path.join(get_extension_root(), "mepanana.tab", "Management.panel", "Update.pushbutton")
+        icon_normal_path = os.path.join(icon_dir, "icon.png")
+        icon_badge_path = os.path.join(icon_dir, "icon_update.png")
+
+        target_icon_path = icon_badge_path if (has_update and os.path.exists(icon_badge_path)) else icon_normal_path
+
         def _apply():
             try:
+                if not os.path.exists(target_icon_path):
+                    return False
+
+                bmp = BitmapImage()
+                bmp.BeginInit()
+                bmp.UriSource = Uri(target_icon_path)
+                bmp.CacheOption = BitmapCacheOption.OnLoad
+                bmp.CreateOptions = BitmapCreateOptions.IgnoreImageCache
+                bmp.EndInit()
+                bmp.Freeze()
+
                 for tab in ribbon.Tabs:
                     tab_id = str(getattr(tab, "Id", "")).lower()
                     tab_title = str(getattr(tab, "Title", "")).lower()
@@ -221,17 +268,16 @@ def set_ribbon_update_badge(has_update, commit_info=None):
                                 item_id = str(getattr(item, "Id", "")).lower()
                                 item_text = str(getattr(item, "Text", "")).lower()
                                 if "update" in item_id or "update" in item_text:
+                                    item.LargeImage = bmp
+                                    item.Image = bmp
+                                    item.Text = u"Update"
                                     if has_update:
-                                        sha = ""
-                                        if commit_info and isinstance(commit_info, dict):
-                                            sha = commit_info.get("sha", "")
-                                        item.Text = u"Update 🔴"
+                                        sha = commit_info.get("sha", "") if isinstance(commit_info, dict) else ""
                                         if sha:
-                                            item.ToolTip = u"✨ Có bản cập nhật mới (Commit: {})! Bấm để nâng cấp ngay.".format(sha)
+                                            item.ToolTip = u"✨ Bản cập nhật mới ({}) khả dụng trên GitHub! Bấm để nâng cấp ngay.".format(sha)
                                         else:
                                             item.ToolTip = u"✨ Có bản cập nhật mới trên GitHub! Bấm để nâng cấp ngay."
                                     else:
-                                        item.Text = u"Update"
                                         item.ToolTip = u"Kiểm tra và đồng bộ phiên bản MEPANANA mới nhất từ GitHub."
                                     ribbon.UpdateLayout()
                                     return True

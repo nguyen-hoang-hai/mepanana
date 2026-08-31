@@ -25,11 +25,6 @@ if not is_authenticated():
         import sys
         sys.exit()
 
-try:
-    from py.updater_engine import check_updates_in_background
-    check_updates_in_background()
-except Exception:
-    pass
 
 import clr
 clr.AddReference("System")

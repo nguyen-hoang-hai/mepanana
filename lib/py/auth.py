@@ -145,13 +145,21 @@ def get_current_user():
 
 
 def set_authenticated(state=True, user=u"User"):
-    """Sets session state in C# DLL and updates ribbon accordingly."""
+    """Sets session state in C# DLL, updates ribbon, and triggers background update check."""
     if _DLL_LOADED:
         try:
             AuthManager.SetLockState(bool(state), user if state else "")
         except Exception:
             pass
     update_ribbon_state(bool(state), user if state else "")
+
+    # Trigger automatic background GitHub update check upon unlock
+    if state:
+        try:
+            from py.updater_engine import check_updates_in_background
+            check_updates_in_background(force=True)
+        except Exception:
+            pass
 
 
 LOCKOUT_DURATION_SECONDS = 900  # 15 minutes lockout
