@@ -477,7 +477,7 @@ class FamilyCloudWindow(forms.WPFWindow):
         """Batch loads all selected compatible families into active Revit project."""
         selected = [f for f in self.all_families if getattr(f, 'IsSelected', False)]
         if not selected:
-            show_warning(u"Vui lòng chọn ít nhất 1 Family để tải!", title="Chưa chọn Family")
+            show_warning(u"Please select at least 1 family to load!", title="No Family Selected")
             return
 
         # Pre-Flight Smart Compatibility Check for selected families
@@ -488,17 +488,17 @@ class FamilyCloudWindow(forms.WPFWindow):
         if incompatibles:
             incompat_names = u"\n• ".join([u"{} (Revit {})".format(f.Name, f.NumericVersion) for f in incompatibles[:4]])
             if len(incompatibles) > 4:
-                incompat_names += u"\n... và {} Family khác".format(len(incompatibles) - 4)
+                incompat_names += u"\n... and {} more families".format(len(incompatibles) - 4)
 
-            confirm_msg = u"⚠️ Phát hiện {} Family không tương thích với Revit hiện tại (Revit {}):\n\n• {}\n\nCác Family này sẽ bị bỏ qua. Bạn có muốn tiếp tục tải {} Family tương thích còn lại không?".format(
+            confirm_msg = u"⚠️ Detected {} incompatible family file(s) with your current Revit (Revit {}):\n\n• {}\n\nThese incompatible families will be skipped. Do you want to continue loading the remaining {} compatible family file(s)?".format(
                 len(incompatibles), HOST_REVIT_YEAR, incompat_names, len(selected) - len(incompatibles)
             )
-            if not show_confirm(confirm_msg, title="Cảnh báo phiên bản Revit"):
+            if not show_confirm(confirm_msg, title="Revit Version Compatibility Warning"):
                 return
 
         compatibles = [f for f in selected if getattr(f, 'IsCompatible', True)]
         if not compatibles:
-            show_warning(u"Không có Family nào tương thích với phiên bản Revit hiện tại để tải.", title="Không thể tải")
+            show_warning(u"None of the selected families are compatible with your current Revit version.", title="Cannot Load Families")
             return
 
         # 4-Step Lifecycle per GEMINI.md ProgressBar standard
@@ -517,12 +517,12 @@ class FamilyCloudWindow(forms.WPFWindow):
                 pct = int((float(idx) / total) * 100.0)
                 if hasattr(self, 'progressBar'): self.progressBar.Value = pct
                 if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Đang tải ({}/{}): {}...".format(idx + 1, total, item.Name)
+                    self.txtStatus.Text = u"Loading ({}/{}): {}...".format(idx + 1, total, item.Name)
                 do_events()
 
                 target = getattr(item, "DownloadUrl", "") or getattr(item, "RfaFullPath", "")
                 if not target:
-                    failed_items.append(u"{}: Thiếu đường dẫn file".format(item.Name))
+                    failed_items.append(u"{}: Target file path missing".format(item.Name))
                     continue
 
                 success, msg = load_family_to_revit(doc, target, family_name=item.Name)
@@ -536,16 +536,16 @@ class FamilyCloudWindow(forms.WPFWindow):
                 do_events()
 
             if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = u"Hoàn tất tải {}/{} Family vào Project.".format(success_count, total)
+                self.txtStatus.Text = u"Finished loading {}/{} families into project.".format(success_count, total)
 
-            summary = u"🎉 Đã tải thành công {}/{} Family vào dự án Revit!".format(success_count, total)
+            summary = u"🎉 Successfully loaded {}/{} families into active Revit project!".format(success_count, total)
             if failed_items:
-                summary += u"\n\n⚠️ Lỗi ở {} Family:\n• ".format(len(failed_items)) + u"\n• ".join(failed_items[:3])
+                summary += u"\n\n⚠️ Failed to load {} family file(s):\n• ".format(len(failed_items)) + u"\n• ".join(failed_items[:3])
 
-            show_success(summary, title="Tải hàng loạt hoàn tất")
+            show_success(summary, title="Batch Load Complete")
 
         except Exception as ex:
-            show_error(u"Lỗi trong quá trình tải hàng loạt:\n{}".format(safe_unicode(ex)), title="Lỗi tải hàng loạt")
+            show_error(u"Unexpected error during batch load:\n{}".format(safe_unicode(ex)), title="Batch Load Error")
         finally:
             if hasattr(self, 'progressBar'):
                 self.progressBar.Visibility = System.Windows.Visibility.Collapsed
@@ -555,17 +555,17 @@ class FamilyCloudWindow(forms.WPFWindow):
         """Batch deletes all selected families from Cloud Library."""
         selected = [f for f in self.all_families if getattr(f, 'IsSelected', False)]
         if not selected:
-            show_warning(u"Vui lòng chọn ít nhất 1 Family để xóa!", title="Chưa chọn Family")
+            show_warning(u"Please select at least 1 family to delete!", title="No Family Selected")
             return
 
         names_preview = u"\n• ".join([f.Name for f in selected[:5]])
         if len(selected) > 5:
-            names_preview += u"\n... và {} Family khác".format(len(selected) - 5)
+            names_preview += u"\n... and {} more families".format(len(selected) - 5)
 
-        confirm_msg = u"Bạn có chắc chắn muốn XÓA VĨNH VIỄN {} Family sau khỏi Cloud Library không?\n\n• {}\n\n⚠️ Hành động này sẽ xóa file khỏi Cloud Storage và không thể hoàn tác.".format(
+        confirm_msg = u"Are you sure you want to PERMANENTLY DELETE the following {} families from Cloud Library?\n\n• {}\n\n⚠️ This action will delete the files from Cloud Storage and cannot be undone.".format(
             len(selected), names_preview
         )
-        if not show_confirm(confirm_msg, title="Xác nhận xóa hàng loạt"):
+        if not show_confirm(confirm_msg, title="Confirm Batch Delete"):
             return
 
         if hasattr(self, 'btnBatchLoad'): self.btnBatchLoad.IsEnabled = False
@@ -583,7 +583,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                 pct = int((float(idx) / total) * 100.0)
                 if hasattr(self, 'progressBar'): self.progressBar.Value = pct
                 if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Đang xóa ({}/{}): {}...".format(idx + 1, total, item.Name)
+                    self.txtStatus.Text = u"Deleting ({}/{}): {}...".format(idx + 1, total, item.Name)
                 do_events()
 
                 success, msg = delete_family_from_cloud(item.Name, item.Category)
@@ -603,17 +603,17 @@ class FamilyCloudWindow(forms.WPFWindow):
                 do_events()
 
             if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = u"Đã xóa {}/{} Family khỏi Cloud.".format(deleted_count, total)
+                self.txtStatus.Text = u"Successfully deleted {}/{} families from cloud.".format(deleted_count, total)
 
-            summary = u"🗑️ Đã xóa thành công {}/{} Family khỏi Cloud Library!".format(deleted_count, total)
+            summary = u"🗑️ Successfully deleted {}/{} families from Cloud Library!".format(deleted_count, total)
             if failed_items:
-                summary += u"\n\n⚠️ Lỗi ở {} Family:\n• ".format(len(failed_items)) + u"\n• ".join(failed_items[:3])
+                summary += u"\n\n⚠️ Failed to delete {} family file(s):\n• ".format(len(failed_items)) + u"\n• ".join(failed_items[:3])
 
-            show_success(summary, title="Xóa hàng loạt hoàn tất")
+            show_success(summary, title="Batch Delete Complete")
             self.ReloadLibrary(force_online=True)
 
         except Exception as ex:
-            show_error(u"Lỗi trong quá trình xóa hàng loạt:\n{}".format(safe_unicode(ex)), title="Lỗi xóa hàng loạt")
+            show_error(u"Unexpected error during batch delete:\n{}".format(safe_unicode(ex)), title="Batch Delete Error")
         finally:
             if hasattr(self, 'progressBar'):
                 self.progressBar.Visibility = System.Windows.Visibility.Collapsed
@@ -701,7 +701,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                 self.progressBar.Visibility = System.Windows.Visibility.Visible
                 self.progressBar.Value = 30
             if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = u"Đang tải {} vào Project...".format(item.Name)
+                self.txtStatus.Text = u"Loading {} into project...".format(item.Name)
             do_events()
 
             success, msg = load_family_to_revit(doc, target, family_name=item.Name)
@@ -712,11 +712,11 @@ class FamilyCloudWindow(forms.WPFWindow):
 
             if success:
                 if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Đã tải thành công {}.".format(item.Name)
+                    self.txtStatus.Text = u"Successfully loaded {} into project.".format(item.Name)
                 show_success(msg, title="Family Loaded")
             else:
                 if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Lỗi khi tải {}.".format(item.Name)
+                    self.txtStatus.Text = u"Failed to load {} into project.".format(item.Name)
                 show_error(msg, title="Load Error")
         except Exception as ex:
             show_error(u"Unexpected error loading family:\n{}".format(safe_unicode(ex)), title="Load Error")
@@ -735,7 +735,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                     self.progressBar.Visibility = System.Windows.Visibility.Visible
                     self.progressBar.Value = 30
                 if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Đang xóa {} khỏi Cloud...".format(item.Name)
+                    self.txtStatus.Text = u"Deleting {} from cloud...".format(item.Name)
                 do_events()
 
                 success, msg = delete_family_from_cloud(item.Name, item.Category)
@@ -753,12 +753,12 @@ class FamilyCloudWindow(forms.WPFWindow):
                     except Exception:
                         pass
                     if hasattr(self, 'txtStatus'):
-                        self.txtStatus.Text = u"Đã xóa {} khỏi Cloud.".format(item.Name)
+                        self.txtStatus.Text = u"Successfully deleted {} from cloud.".format(item.Name)
                     show_success(msg, title="Family Deleted")
                     self.ReloadLibrary(force_online=True)
                 else:
                     if hasattr(self, 'txtStatus'):
-                        self.txtStatus.Text = u"Lỗi khi xóa {}.".format(item.Name)
+                        self.txtStatus.Text = u"Failed to delete {} from cloud.".format(item.Name)
                     show_error(msg, title="Delete Error")
         except Exception as ex:
             show_error(u"Unexpected error deleting family:\n{}".format(safe_unicode(ex)), title="Delete Error")
@@ -829,7 +829,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             self.progressBar.Visibility = System.Windows.Visibility.Visible
             self.progressBar.IsIndeterminate = True
         if hasattr(self, 'txtStatus'):
-            self.txtStatus.Text = u"Đang tải {} lên Cloud Library...".format(os.path.basename(src_path))
+            self.txtStatus.Text = u"Uploading {} to Cloud Library...".format(os.path.basename(src_path))
 
         def bg_upload(state):
             try:
@@ -843,7 +843,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                         self.progressBar.IsIndeterminate = False
                     if success:
                         if hasattr(self, 'txtStatus'):
-                            self.txtStatus.Text = u"Đã tải lên Cloud thành công."
+                            self.txtStatus.Text = u"Successfully uploaded to Cloud Library."
                         show_success(msg, "Upload Complete")
                         if hasattr(self, 'txtUploadFilePath'): self.txtUploadFilePath.Text = ""
                         if hasattr(self, 'txtUploadDescription'): self.txtUploadDescription.Text = ""
@@ -854,7 +854,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                         self.ReloadLibrary(force_online=True)
                     else:
                         if hasattr(self, 'txtStatus'):
-                            self.txtStatus.Text = u"Lỗi khi tải lên Cloud."
+                            self.txtStatus.Text = u"Failed to upload family to Cloud Library."
                         show_error(msg, "Upload Failed")
                 if self.Dispatcher:
                     self.Dispatcher.Invoke(System.Action(on_done))
@@ -867,7 +867,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                         self.progressBar.Visibility = System.Windows.Visibility.Collapsed
                         self.progressBar.IsIndeterminate = False
                     if hasattr(self, 'txtStatus'):
-                        self.txtStatus.Text = u"Lỗi tải lên: {}".format(safe_unicode(ex))
+                        self.txtStatus.Text = u"Upload error: {}".format(safe_unicode(ex))
                     show_error(safe_unicode(ex), "Upload Error")
                 if self.Dispatcher:
                     self.Dispatcher.Invoke(System.Action(on_fail))
