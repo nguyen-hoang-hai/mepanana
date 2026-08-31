@@ -124,33 +124,61 @@ def sync_from_gsheet(sheet_id=GSHEET_ID):
 def is_authenticated():
     """
     Checks if current Revit session is authenticated.
-    Strictly Fail-Closed: Access is only granted if MepananaAuth.dll is verified and active.
+    Preserves session across pyRevit reloads within the same Revit process.
     """
-    if not _DLL_LOADED:
-        return False
+    if _DLL_LOADED:
+        try:
+            if AuthManager.IsAuthenticated:
+                return True
+        except Exception:
+            pass
+
     try:
-        return AuthManager.IsAuthenticated
+        from System import AppDomain
+        val = AppDomain.CurrentDomain.GetData("MEPANANA_AUTH_STATE")
+        if val is True or str(val).lower() == "true":
+            return True
     except Exception:
-        return False
+        pass
+
+    return False
 
 
 def get_current_user():
     """Gets authenticated username for current session."""
     if _DLL_LOADED:
         try:
-            return AuthManager.CurrentUser or ""
+            u = AuthManager.CurrentUser
+            if u:
+                return u
         except Exception:
             pass
+
+    try:
+        from System import AppDomain
+        val = AppDomain.CurrentDomain.GetData("MEPANANA_AUTH_USER")
+        if val:
+            return str(val)
+    except Exception:
+        pass
     return ""
 
 
 def set_authenticated(state=True, user=u"User"):
-    """Sets session state in C# DLL, updates ribbon, and triggers background update check."""
+    """Sets session state in C# DLL and AppDomain, updates ribbon, and triggers background update check."""
     if _DLL_LOADED:
         try:
             AuthManager.SetLockState(bool(state), user if state else "")
         except Exception:
             pass
+
+    try:
+        from System import AppDomain
+        AppDomain.CurrentDomain.SetData("MEPANANA_AUTH_STATE", bool(state))
+        AppDomain.CurrentDomain.SetData("MEPANANA_AUTH_USER", user if state else "")
+    except Exception:
+        pass
+
     update_ribbon_state(bool(state), user if state else "")
 
     # Trigger automatic background GitHub update check upon unlock

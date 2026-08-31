@@ -15,22 +15,23 @@ def _lock_on_idling(sender, args):
     global _attempt, _success_count
     _attempt += 1
     try:
-        from py.auth import update_ribbon_state, is_authenticated
-        if not is_authenticated():
+        from py.auth import update_ribbon_state, is_authenticated, get_current_user
+        if is_authenticated():
+            user = get_current_user() or "User"
+            update_ribbon_state(True, user)
+            try:
+                HOST_APP.app.Idling -= _lock_on_idling
+            except Exception:
+                pass
+        else:
             count = update_ribbon_state(False)
             if count > 0:
                 _success_count += 1
-            # Maintain lock across 5 Idling ticks so Revit finish all UI loading passes
             if _success_count >= 5 or _attempt >= _max_retries:
                 try:
                     HOST_APP.app.Idling -= _lock_on_idling
                 except Exception:
                     pass
-        else:
-            try:
-                HOST_APP.app.Idling -= _lock_on_idling
-            except Exception:
-                pass
     except Exception:
         if _attempt >= _max_retries:
             try:
@@ -39,9 +40,14 @@ def _lock_on_idling(sender, args):
                 pass
 
 try:
-    from py.auth import set_authenticated, update_ribbon_state
-    set_authenticated(False)
-    update_ribbon_state(False)
-    HOST_APP.app.Idling += _lock_on_idling
+    from py.auth import is_authenticated, update_ribbon_state, get_current_user
+    if is_authenticated():
+        # Session is already unlocked in this Revit process -> Preserve across reload!
+        user = get_current_user() or "User"
+        update_ribbon_state(True, user)
+    else:
+        # Fresh Revit launch -> Lock tools and subscribe to Idling event
+        update_ribbon_state(False)
+        HOST_APP.app.Idling += _lock_on_idling
 except Exception:
     pass
