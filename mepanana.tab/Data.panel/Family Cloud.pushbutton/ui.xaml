@@ -51,9 +51,9 @@
 
             <!-- Right Status & Refresh -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6"
+                <Border Name="borderCloudStatus" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6"
                         Height="32" Padding="12,0" Margin="0,0,8,0" VerticalAlignment="Center"
-                        ToolTip="Mepanana Family Cloud is active and connected">
+                        ToolTip="Mepanana Family Cloud connection status">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Name="dotCloudStatus" Width="7" Height="7" Fill="#16A34A" Margin="0,0,6,0" VerticalAlignment="Center" />
                         <TextBlock Name="txtCloudStatus" Text="Cloud Online" FontSize="12" Foreground="#15803D" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -401,7 +401,8 @@
                         <!-- Empty State Panel (when 0 families found) -->
                         <StackPanel Name="panelEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="20">
                             <Border Width="80" Height="80" Background="#EFF6FF" BorderBrush="#DBEAFE" BorderThickness="1" CornerRadius="40" HorizontalAlignment="Center" Margin="0,0,0,16">
-                                <TextBlock Name="txtEmptyIcon" Text="☁️" FontSize="38" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0"/>
+                                <Path Data="M 19.35,10.04 C 18.67,6.59 15.64,4 12,4 C 9.11,4 6.6,5.64 5.35,8.04 C 2.34,8.36 0,10.91 0,14 C 0,17.31 2.69,20 6,20 L 19,20 C 21.76,20 24,17.76 24,15 C 24,12.36 21.95,10.22 19.35,10.04 Z"
+                                      Fill="#2563EB" Width="38" Height="26" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <TextBlock Name="txtEmptyTitle" Text="Cloud Library is Empty" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
                             <TextBlock Name="txtEmptySubtitle" Text="No Revit families uploaded yet. Upload your first .rfa family to get started!" FontSize="12.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="400" TextWrapping="Wrap" Margin="0,0,0,16"/>
@@ -411,7 +412,8 @@
                         <!-- Syncing / Loading Overlay -->
                         <StackPanel Name="panelSyncingState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="20">
                             <Border Width="80" Height="80" Background="#F0FDF4" BorderBrush="#DCFCE7" BorderThickness="1" CornerRadius="40" HorizontalAlignment="Center" Margin="0,0,0,16">
-                                <TextBlock Text="🔄" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Path Data="M 12,4 V 1 L 8,5 L 12,9 V 6 C 15.31,6 18,8.69 18,12 C 18,13.01 17.75,13.97 17.3,14.8 L 18.76,16.26 C 19.54,15.01 20,13.56 20,12 C 20,7.58 16.42,4 12,4 Z M 12,18 C 8.69,18 6,15.31 6,12 C 6,10.99 6.25,10.03 6.7,9.2 L 5.24,7.74 C 4.46,8.99 4,10.44 4,12 C 4,16.42 7.58,20 12,20 V 23 L 16,19 L 12,15 V 18 Z"
+                                      Fill="#16A34A" Width="34" Height="34" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <TextBlock Text="Syncing with Cloud..." FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
                             <TextBlock Text="Fetching latest Revit families and metadata from cloud storage..." FontSize="12.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="380" TextWrapping="Wrap"/>

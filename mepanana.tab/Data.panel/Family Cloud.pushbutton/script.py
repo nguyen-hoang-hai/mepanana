@@ -299,6 +299,34 @@ class FamilyCloudWindow(forms.WPFWindow):
 
     # ── Library Loading & Filtering ───────────────────────────────────────────
 
+    def _set_cloud_status(self, state):
+        """Updates the top-right status badge (Syncing / Online / Connect Cloud)."""
+        if not hasattr(self, 'txtCloudStatus') or not hasattr(self, 'dotCloudStatus'):
+            return
+
+        from System.Windows.Media import SolidColorBrush, Color
+        if state == "syncing":
+            self.txtCloudStatus.Text = u"Syncing..."
+            self.txtCloudStatus.Foreground = SolidColorBrush(Color.FromRgb(37, 99, 235))
+            self.dotCloudStatus.Fill = SolidColorBrush(Color.FromRgb(37, 99, 235))
+            if hasattr(self, 'borderCloudStatus'):
+                self.borderCloudStatus.Background = SolidColorBrush(Color.FromRgb(239, 246, 255))
+                self.borderCloudStatus.BorderBrush = SolidColorBrush(Color.FromRgb(191, 219, 254))
+        elif state == "online":
+            self.txtCloudStatus.Text = u"Cloud Online"
+            self.txtCloudStatus.Foreground = SolidColorBrush(Color.FromRgb(21, 128, 61))
+            self.dotCloudStatus.Fill = SolidColorBrush(Color.FromRgb(22, 163, 74))
+            if hasattr(self, 'borderCloudStatus'):
+                self.borderCloudStatus.Background = SolidColorBrush(Color.FromRgb(240, 253, 244))
+                self.borderCloudStatus.BorderBrush = SolidColorBrush(Color.FromRgb(187, 247, 208))
+        else: # offline / connect
+            self.txtCloudStatus.Text = u"Connect Cloud"
+            self.txtCloudStatus.Foreground = SolidColorBrush(Color.FromRgb(180, 83, 9))
+            self.dotCloudStatus.Fill = SolidColorBrush(Color.FromRgb(217, 119, 6))
+            if hasattr(self, 'borderCloudStatus'):
+                self.borderCloudStatus.Background = SolidColorBrush(Color.FromRgb(255, 251, 235))
+                self.borderCloudStatus.BorderBrush = SolidColorBrush(Color.FromRgb(253, 230, 138))
+
     def OnEmptyUploadClick(self, sender, args):
         """Switches to the Upload Family tab from the empty state button."""
         if hasattr(self, 'rbTabUpload'):
@@ -306,18 +334,10 @@ class FamilyCloudWindow(forms.WPFWindow):
 
     def ReloadLibrary(self, force_online=False, rebuild_drive=False):
         webhook_url = get_webhook_url()
-
-        # Update Visual Status Badge
-        if hasattr(self, 'txtCloudStatus') and hasattr(self, 'dotCloudStatus'):
-            from System.Windows.Media import SolidColorBrush, Color
-            if not webhook_url:
-                self.txtCloudStatus.Text = u"Connect Cloud"
-                self.txtCloudStatus.Foreground = SolidColorBrush(Color.FromRgb(217, 119, 6))
-                self.dotCloudStatus.Fill = SolidColorBrush(Color.FromRgb(217, 119, 6))
-            else:
-                self.txtCloudStatus.Text = u"Cloud Online"
-                self.txtCloudStatus.Foreground = SolidColorBrush(Color.FromRgb(21, 128, 61))
-                self.dotCloudStatus.Fill = SolidColorBrush(Color.FromRgb(22, 163, 74))
+        if not webhook_url:
+            self._set_cloud_status("connect")
+        else:
+            self._set_cloud_status("syncing")
 
         # Show Syncing state
         if hasattr(self, 'scrollCards'):
@@ -346,6 +366,11 @@ class FamilyCloudWindow(forms.WPFWindow):
         self.PopulateCategoriesList()
         self.PopulateVersionFilter()
         self.ApplyFilter()
+
+        if webhook_url:
+            self._set_cloud_status("online")
+        else:
+            self._set_cloud_status("connect")
 
         # Async download missing thumbnails in background (non-blocking)
         self._download_missing_thumbnails_async()
