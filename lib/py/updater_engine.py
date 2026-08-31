@@ -223,7 +223,7 @@ def check_cloud_version():
 def set_ribbon_update_badge(has_update, commit_info=None):
     """
     Updates the Update pushbutton on the Revit Ribbon with either normal icon or orange dot badge icon.
-    Thread-safe and executes on the WPF UI Dispatcher thread.
+    Uses pyRevit native ButtonIcons for 100% DPI and layout compatibility.
     """
     try:
         import clr
@@ -231,13 +231,6 @@ def set_ribbon_update_badge(has_update, commit_info=None):
         clr.AddReference("PresentationCore")
         import System
         from Autodesk.Windows import ComponentManager
-
-        try:
-            from pyrevit.framework import Uri, UriKind
-            from pyrevit.framework.Imaging import BitmapImage
-        except Exception:
-            from System import Uri, UriKind
-            from System.Windows.Media.Imaging import BitmapImage
 
         ribbon = ComponentManager.Ribbon
         if not ribbon or not ribbon.Tabs:
@@ -249,12 +242,29 @@ def set_ribbon_update_badge(has_update, commit_info=None):
 
         target_icon_path = icon_badge_path if (has_update and os.path.exists(icon_badge_path)) else icon_normal_path
 
+        if not os.path.exists(target_icon_path):
+            return False
+
         def _apply():
             try:
-                if not os.path.exists(target_icon_path):
-                    return False
+                small_img = None
+                large_img = None
+                try:
+                    from pyrevit.coreutils.ribbon import ButtonIcons
+                    bi = ButtonIcons(target_icon_path)
+                    small_img = bi.small_bitmap
+                    large_img = bi.large_bitmap
+                except Exception:
+                    try:
+                        from pyrevit.framework import Uri, UriKind
+                        from pyrevit.framework.Imaging import BitmapImage
+                        large_img = BitmapImage(Uri(target_icon_path, UriKind.Absolute))
+                        small_img = large_img
+                    except Exception:
+                        pass
 
-                bmp = BitmapImage(Uri(target_icon_path, UriKind.Absolute))
+                if large_img is None:
+                    return False
 
                 for tab in ribbon.Tabs:
                     tab_id = str(getattr(tab, "Id", "")).lower()
@@ -267,7 +277,10 @@ def set_ribbon_update_badge(has_update, commit_info=None):
                                 item_id = str(getattr(item, "Id", "")).lower()
                                 item_text = str(getattr(item, "Text", "")).lower()
                                 if "update" in item_id or "update" in item_text:
-                                    item.LargeImage = bmp
+                                    if large_img is not None:
+                                        item.LargeImage = large_img
+                                    if small_img is not None:
+                                        item.Image = small_img
                                     item.Text = u"Update"
                                     if has_update:
                                         sha = commit_info.get("sha", "") if isinstance(commit_info, dict) else ""
