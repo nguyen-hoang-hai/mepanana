@@ -270,131 +270,153 @@
                     <TextBlock Grid.Column="5" Name="txtLibraryStatus" Text="0 Families Found" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}" FontWeight="SemiBold" FontSize="11.5" />
                 </Grid>
 
-                <!-- Balanced Cards Grid ScrollViewer (3 Cards Per Row) -->
+                <!-- Balanced Cards Grid ScrollViewer (3 Cards Per Row) with Empty & Syncing States -->
                 <Border Grid.Row="1" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="6">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <ItemsControl Name="itemsFamilyCards">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- Balanced Family Card (Width 236 for perfect 3-column wrap) -->
-                                    <Border Width="236" Height="274" Margin="5" Style="{DynamicResource CardStyle}" Padding="10">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="148" /> <!-- Thumbnail -->
-                                                <RowDefinition Height="Auto" /> <!-- Title -->
-                                                <RowDefinition Height="Auto" /> <!-- Badges -->
-                                                <RowDefinition Height="*" />    <!-- Spacer -->
-                                                <RowDefinition Height="Auto" /> <!-- Action Buttons -->
-                                            </Grid.RowDefinitions>
+                    <Grid>
+                        <!-- Cards ScrollViewer -->
+                        <ScrollViewer Name="scrollCards" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl Name="itemsFamilyCards">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <!-- Balanced Family Card (Width 236 for perfect 3-column wrap) -->
+                                        <Border Width="236" Height="274" Margin="5" Style="{DynamicResource CardStyle}" Padding="10">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="148" /> <!-- Thumbnail -->
+                                                    <RowDefinition Height="Auto" /> <!-- Title -->
+                                                    <RowDefinition Height="Auto" /> <!-- Badges -->
+                                                    <RowDefinition Height="*" />    <!-- Spacer -->
+                                                    <RowDefinition Height="Auto" /> <!-- Action Buttons -->
+                                                </Grid.RowDefinitions>
 
-                                            <!-- Thumbnail Container -->
-                                            <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" ClipToBounds="True">
-                                                <Grid>
-                                                    <TextBlock Text="📦" FontSize="36" Opacity="0.2" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    <Image Source="{Binding ThumbnailImage}" Stretch="Uniform" Margin="4" />
-                                                    <!-- Selection Checkbox Overlay -->
-                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                              Click="OnCardCheckboxClick"
-                                                              HorizontalAlignment="Left" VerticalAlignment="Top"
-                                                              Margin="7" Cursor="Hand"
-                                                              ToolTip="Select family for batch loading / deletion">
-                                                        <CheckBox.Template>
-                                                            <ControlTemplate TargetType="CheckBox">
-                                                                <Border Name="chkBorder" Width="20" Height="20" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1.5" CornerRadius="5">
-                                                                    <TextBlock Name="chkCheck" Text="✓" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsChecked" Value="True">
-                                                                        <Setter TargetName="chkBorder" Property="Background" Value="#2563EB" />
-                                                                        <Setter TargetName="chkBorder" Property="BorderBrush" Value="#1D4ED8" />
-                                                                        <Setter TargetName="chkCheck" Property="Visibility" Value="Visible" />
-                                                                    </Trigger>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter TargetName="chkBorder" Property="BorderBrush" Value="#2563EB" />
-                                                                    </Trigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </CheckBox.Template>
-                                                    </CheckBox>
-                                                </Grid>
-                                            </Border>
-
-                                            <!-- Family Title -->
-                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,5" />
-
-                                            <!-- Badges: Category on Left, Version & Size on Right -->
-                                            <Grid Grid.Row="2" Margin="0,0,0,6">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <!-- Category Tag -->
-                                                <Border Grid.Column="0" Background="#EEF2FF" CornerRadius="4" Padding="5,1.5" HorizontalAlignment="Left" Margin="0,0,4,0">
-                                                    <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
+                                                <!-- Thumbnail Container -->
+                                                <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" ClipToBounds="True">
+                                                    <Grid>
+                                                        <TextBlock Text="📦" FontSize="36" Opacity="0.2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        <Image Source="{Binding ThumbnailImage}" Stretch="Uniform" Margin="4" />
+                                                        <!-- Selection Checkbox Overlay -->
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  Click="OnCardCheckboxClick"
+                                                                  HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                                  Margin="7" Cursor="Hand"
+                                                                  ToolTip="Select family for batch loading / deletion">
+                                                            <CheckBox.Template>
+                                                                <ControlTemplate TargetType="CheckBox">
+                                                                    <Border Name="chkBorder" Width="20" Height="20" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1.5" CornerRadius="5">
+                                                                        <TextBlock Name="chkCheck" Text="✓" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsChecked" Value="True">
+                                                                            <Setter TargetName="chkBorder" Property="Background" Value="#2563EB" />
+                                                                            <Setter TargetName="chkBorder" Property="BorderBrush" Value="#1D4ED8" />
+                                                                            <Setter TargetName="chkCheck" Property="Visibility" Value="Visible" />
+                                                                        </Trigger>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="chkBorder" Property="BorderBrush" Value="#2563EB" />
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </CheckBox.Template>
+                                                        </CheckBox>
+                                                    </Grid>
                                                 </Border>
 
-                                                <!-- Version & Size Badges -->
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                                    <Border Background="{Binding VersionBadgeBg}" CornerRadius="4" Padding="5,1.5" Margin="0,0,4,0" ToolTip="{Binding VersionToolTip}">
-                                                        <TextBlock Text="{Binding VersionBadgeText}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" FontWeight="Bold" />
-                                                    </Border>
-                                                    <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1.5">
-                                                        <TextBlock Text="{Binding FileSize}" FontSize="9.5" Foreground="#64748B" FontWeight="SemiBold" />
-                                                    </Border>
-                                                </StackPanel>
-                                            </Grid>
+                                                <!-- Family Title -->
+                                                <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,5" />
 
-                                            <!-- Action Buttons: Load & Delete -->
-                                            <Grid Grid.Row="4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="32" />
-                                                </Grid.ColumnDefinitions>
-                                                <Button Grid.Column="0"
-                                                        CommandParameter="{Binding}"
-                                                        Click="OnLoadFamilyClick"
-                                                        Height="28" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0"
-                                                        Background="{Binding ButtonBg}"
-                                                        BorderBrush="{Binding ButtonBorder}"
-                                                        Foreground="{Binding ButtonFg}"
-                                                        Cursor="Hand"
-                                                        ToolTip="{Binding LoadButtonToolTip}">
-                                                    <Button.Resources>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="CornerRadius" Value="6" />
-                                                        </Style>
-                                                    </Button.Resources>
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding ButtonIcon}" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding ButtonText}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" />
+                                                <!-- Badges: Category on Left, Version & Size on Right -->
+                                                <Grid Grid.Row="2" Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Category Tag -->
+                                                    <Border Grid.Column="0" Background="#EEF2FF" CornerRadius="4" Padding="5,1.5" HorizontalAlignment="Left" Margin="0,0,4,0">
+                                                        <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
+                                                    </Border>
+
+                                                    <!-- Version & Size Badges -->
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                        <Border Background="{Binding VersionBadgeBg}" CornerRadius="4" Padding="5,1.5" Margin="0,0,4,0" ToolTip="{Binding VersionToolTip}">
+                                                            <TextBlock Text="{Binding VersionBadgeText}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" FontWeight="Bold" />
+                                                        </Border>
+                                                        <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1.5">
+                                                            <TextBlock Text="{Binding FileSize}" FontSize="9.5" Foreground="#64748B" FontWeight="SemiBold" />
+                                                        </Border>
                                                     </StackPanel>
-                                                </Button>
-                                                <Button Grid.Column="1"
-                                                        CommandParameter="{Binding}"
-                                                        Click="OnDeleteFamilyClick"
-                                                        Height="28" Width="30"
-                                                        Background="#FEE2E2" BorderBrush="#FCA5A5" BorderThickness="1"
-                                                        Cursor="Hand" ToolTip="Delete from Cloud Library">
-                                                    <Button.Resources>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="CornerRadius" Value="6" />
-                                                        </Style>
-                                                    </Button.Resources>
-                                                    <TextBlock Text="✕" FontSize="12" FontWeight="Bold" Foreground="#DC2626" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0"/>
-                                                </Button>
+                                                </Grid>
+
+                                                <!-- Action Buttons: Load & Delete -->
+                                                <Grid Grid.Row="4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="32" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button Grid.Column="0"
+                                                            CommandParameter="{Binding}"
+                                                            Click="OnLoadFamilyClick"
+                                                            Height="28" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0"
+                                                            Background="{Binding ButtonBg}"
+                                                            BorderBrush="{Binding ButtonBorder}"
+                                                            Foreground="{Binding ButtonFg}"
+                                                            Cursor="Hand"
+                                                            ToolTip="{Binding LoadButtonToolTip}">
+                                                        <Button.Resources>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="CornerRadius" Value="6" />
+                                                            </Style>
+                                                        </Button.Resources>
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ButtonIcon}" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding ButtonText}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Grid.Column="1"
+                                                            CommandParameter="{Binding}"
+                                                            Click="OnDeleteFamilyClick"
+                                                            Height="28" Width="30"
+                                                            Background="#FEE2E2" BorderBrush="#FCA5A5" BorderThickness="1"
+                                                            Cursor="Hand" ToolTip="Delete from Cloud Library">
+                                                        <Button.Resources>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="CornerRadius" Value="6" />
+                                                            </Style>
+                                                        </Button.Resources>
+                                                        <TextBlock Text="✕" FontSize="12" FontWeight="Bold" Foreground="#DC2626" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0"/>
+                                                    </Button>
+                                                </Grid>
                                             </Grid>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <!-- Empty State Panel (when 0 families found) -->
+                        <StackPanel Name="panelEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="20">
+                            <Border Width="80" Height="80" Background="#EFF6FF" BorderBrush="#DBEAFE" BorderThickness="1" CornerRadius="40" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                <TextBlock Name="txtEmptyIcon" Text="☁️" FontSize="38" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,0"/>
+                            </Border>
+                            <TextBlock Name="txtEmptyTitle" Text="Cloud Library is Empty" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBlock Name="txtEmptySubtitle" Text="No Revit families uploaded yet. Upload your first .rfa family to get started!" FontSize="12.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="400" TextWrapping="Wrap" Margin="0,0,0,16"/>
+                            <Button Name="btnEmptyUpload" Content="☁️  Upload Family Now" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" HorizontalAlignment="Center" Cursor="Hand" Click="OnEmptyUploadClick"/>
+                        </StackPanel>
+
+                        <!-- Syncing / Loading Overlay -->
+                        <StackPanel Name="panelSyncingState" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="20">
+                            <Border Width="80" Height="80" Background="#F0FDF4" BorderBrush="#DCFCE7" BorderThickness="1" CornerRadius="40" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                <TextBlock Text="🔄" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Syncing with Cloud..." FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBlock Text="Fetching latest Revit families and metadata from cloud storage..." FontSize="12.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="380" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
         </Grid>

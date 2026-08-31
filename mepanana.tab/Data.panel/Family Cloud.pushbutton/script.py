@@ -299,6 +299,11 @@ class FamilyCloudWindow(forms.WPFWindow):
 
     # ── Library Loading & Filtering ───────────────────────────────────────────
 
+    def OnEmptyUploadClick(self, sender, args):
+        """Switches to the Upload Family tab from the empty state button."""
+        if hasattr(self, 'rbTabUpload'):
+            self.rbTabUpload.IsChecked = True
+
     def ReloadLibrary(self, force_online=False, rebuild_drive=False):
         webhook_url = get_webhook_url()
 
@@ -313,6 +318,20 @@ class FamilyCloudWindow(forms.WPFWindow):
                 self.txtCloudStatus.Text = u"Cloud Online"
                 self.txtCloudStatus.Foreground = SolidColorBrush(Color.FromRgb(21, 128, 61))
                 self.dotCloudStatus.Fill = SolidColorBrush(Color.FromRgb(22, 163, 74))
+
+        # Show Syncing state
+        if hasattr(self, 'scrollCards'):
+            self.scrollCards.Visibility = System.Windows.Visibility.Collapsed
+        if hasattr(self, 'panelEmptyState'):
+            self.panelEmptyState.Visibility = System.Windows.Visibility.Collapsed
+        if hasattr(self, 'panelSyncingState'):
+            self.panelSyncingState.Visibility = System.Windows.Visibility.Visible
+        if hasattr(self, 'progressBar'):
+            self.progressBar.Visibility = System.Windows.Visibility.Visible
+            self.progressBar.IsIndeterminate = True
+        if hasattr(self, 'txtStatus'):
+            self.txtStatus.Text = u"Syncing with Cloud Library..."
+        do_events()
 
         catalog_data = load_catalog(force_online=force_online, rebuild_drive=rebuild_drive)
 
@@ -418,6 +437,44 @@ class FamilyCloudWindow(forms.WPFWindow):
 
         if hasattr(self, 'txtLibraryStatus'):
             self.txtLibraryStatus.Text = u"{} Families Found".format(len(filtered))
+
+        # Switch between Cards Grid, Empty State, and Syncing State
+        if hasattr(self, 'panelSyncingState'):
+            self.panelSyncingState.Visibility = System.Windows.Visibility.Collapsed
+        if hasattr(self, 'progressBar'):
+            self.progressBar.Visibility = System.Windows.Visibility.Collapsed
+            self.progressBar.IsIndeterminate = False
+
+        if len(filtered) == 0:
+            if hasattr(self, 'scrollCards'):
+                self.scrollCards.Visibility = System.Windows.Visibility.Collapsed
+            if hasattr(self, 'panelEmptyState'):
+                self.panelEmptyState.Visibility = System.Windows.Visibility.Visible
+
+            if len(self.all_families) == 0:
+                if hasattr(self, 'txtEmptyTitle'):
+                    self.txtEmptyTitle.Text = u"Cloud Library is Empty"
+                if hasattr(self, 'txtEmptySubtitle'):
+                    self.txtEmptySubtitle.Text = u"No Revit families uploaded yet. Upload your first .rfa family to get started!"
+                if hasattr(self, 'btnEmptyUpload'):
+                    self.btnEmptyUpload.Visibility = System.Windows.Visibility.Visible
+            else:
+                if hasattr(self, 'txtEmptyTitle'):
+                    self.txtEmptyTitle.Text = u"No Matching Families Found"
+                if hasattr(self, 'txtEmptySubtitle'):
+                    self.txtEmptySubtitle.Text = u"Try clearing your search query or selecting a different category/version filter."
+                if hasattr(self, 'btnEmptyUpload'):
+                    self.btnEmptyUpload.Visibility = System.Windows.Visibility.Collapsed
+
+            if hasattr(self, 'txtStatus'):
+                self.txtStatus.Text = u"Cloud library is empty." if len(self.all_families) == 0 else u"No families matched your filter."
+        else:
+            if hasattr(self, 'scrollCards'):
+                self.scrollCards.Visibility = System.Windows.Visibility.Visible
+            if hasattr(self, 'panelEmptyState'):
+                self.panelEmptyState.Visibility = System.Windows.Visibility.Collapsed
+            if hasattr(self, 'txtStatus'):
+                self.txtStatus.Text = u"Ready"
 
         self._update_batch_buttons()
 
