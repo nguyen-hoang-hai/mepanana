@@ -19,14 +19,55 @@ SESSION_USER_KEY = "MEPANANA_SESSION_AUTH_USER"
 MAX_FAILED_ATTEMPTS = 5
 
 
-# ── Google Sheets Cloud Configuration ──────────────────────────────────────────
-GSHEET_ID = "1xP1AwtlAMnY7kUJ-xpecB6TMS_g91UShTgFDaFO_bkg"
+# ── Cloud Auth Configuration (Zero-Exposure Webhook or Google Sheet) ─────────
+AUTH_WEBHOOK_URL    = "" # Paste your deployed Google Apps Script /exec URL here
+AUTH_SECRET_TOKEN   = "mepanana_auth_sec_2026"
+GSHEET_ID           = "1xP1AwtlAMnY7kUJ-xpecB6TMS_g91UShTgFDaFO_bkg"
 
 # Dynamic in-memory dictionary of synced credentials (populated 100% from Google Sheets)
 CLOUD_CREDENTIALS = {}
 
 
 from py.core import safe_unicode
+
+def verify_password_via_webhook(pwd):
+    """
+    Sends password to private Google Apps Script Auth Webhook.
+    Returns (success: bool, user: str, msg: str).
+    NEVER downloads full credentials list to client, 100% zero-exposure.
+    """
+    if not AUTH_WEBHOOK_URL or not AUTH_WEBHOOK_URL.startswith("http"):
+        return False, "", "No webhook configured"
+    try:
+        import json
+        try:
+            import urllib.request as urllib_req
+        except ImportError:
+            import urllib2 as urllib_req
+
+        payload = json.dumps({
+            "action": "verify",
+            "password": pwd,
+            "token": AUTH_SECRET_TOKEN
+        })
+
+        req = urllib_req.Request(
+            AUTH_WEBHOOK_URL,
+            data=payload.encode('utf-8') if hasattr(payload, 'encode') else payload,
+            headers={'Content-Type': 'application/json', 'User-Agent': 'MEPANANA-Auth'}
+        )
+        resp = urllib_req.urlopen(req, timeout=5)
+        resp_text = resp.read()
+        if resp_text:
+            if hasattr(resp_text, 'decode'):
+                resp_text = resp_text.decode('utf-8', 'ignore')
+            data = json.loads(resp_text)
+            if data.get("status") == "success":
+                return True, safe_unicode(data.get("user", "User")), "OK"
+        return False, "", "Invalid password"
+    except Exception as ex:
+        return False, "", safe_unicode(ex)
+
 
 def sync_from_gsheet(sheet_id=GSHEET_ID):
     """
@@ -148,7 +189,7 @@ def is_locked_out():
 
 def verify_password(plain_password):
     """
-    Verifies input password against Google Sheets (online) + local credentials (offline).
+    Verifies input password against Webhook (zero-exposure), Google Sheets, and local C# DLL.
     Returns (is_valid: bool, username: str, remaining: int, is_locked: bool)
     """
     if is_locked_out():
@@ -159,15 +200,27 @@ def verify_password(plain_password):
         rem = max(0, MAX_FAILED_ATTEMPTS - _get_fail_count())
         return False, "", rem, is_locked_out()
 
-    # 1. Try syncing latest accounts from Google Sheets
+    pwd = plain_password.strip()
+
+    # 1. Zero-Exposure: Try private Google Apps Script Webhook first (if configured)
+    if AUTH_WEBHOOK_URL and AUTH_WEBHOOK_URL.startswith("http"):
+        ok, user, msg = verify_password_via_webhook(pwd)
+        if ok:
+            _reset_fail_count()
+            if _DLL_LOADED:
+                try:
+                    AuthManager.SetLockState(True, user)
+                except Exception:
+                    pass
+            return True, user, MAX_FAILED_ATTEMPTS, False
+
+    # 2. Try syncing latest accounts from Google Sheets
     try:
         sync_from_gsheet(GSHEET_ID)
     except Exception:
         pass
 
-    pwd = plain_password.strip()
-
-    # 2. Check against CLOUD_CREDENTIALS (synced from Google Sheet)
+    # 3. Check against CLOUD_CREDENTIALS (synced from Google Sheet)
     matched_user = CLOUD_CREDENTIALS.get(pwd)
     if not matched_user:
         for k, v in CLOUD_CREDENTIALS.items():
@@ -184,7 +237,7 @@ def verify_password(plain_password):
                 pass
         return True, matched_user, MAX_FAILED_ATTEMPTS, False
 
-    # 3. Check C# DLL as fallback
+    # 4. Check C# DLL as fallback
     if _DLL_LOADED:
         try:
             res = AuthManager.VerifyPassword(pwd)
