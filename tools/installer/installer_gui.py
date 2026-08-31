@@ -42,7 +42,7 @@ class MepananaInstallerApp(tk.Tk):
         title_lbl.pack(anchor="center")
 
         sub_lbl = tk.Label(
-            header_frame, text="Trình cài đặt & Cập nhật tự động 1-Click (User Level - 0 Quyền Admin)",
+            header_frame, text="1-Click Auto Installer & Updater (User-Level - No Admin Rights)",
             font=("Segoe UI", 10), fg="#94A3B8", bg="#0F172A"
         )
         sub_lbl.pack(anchor="center", pady=(4, 0))
@@ -52,7 +52,7 @@ class MepananaInstallerApp(tk.Tk):
         card_frame.pack(pady=10, padx=24, fill="both", expand=True)
 
         info_title = tk.Label(
-            card_frame, text="📁 Vị trí cài đặt tự động:",
+            card_frame, text="📁 Installation Directory:",
             font=("Segoe UI", 10, "bold"), fg="#E2E8F0", bg="#1E293B"
         )
         info_title.pack(anchor="w", padx=16, pady=(12, 2))
@@ -65,7 +65,7 @@ class MepananaInstallerApp(tk.Tk):
 
         # Status Text
         self.status_lbl = tk.Label(
-            card_frame, text="Sẵn sàng cài đặt phiên bản mới nhất từ GitHub.",
+            card_frame, text="Ready to install the latest release from GitHub.",
             font=("Segoe UI", 9.5), fg="#94A3B8", bg="#1E293B"
         )
         self.status_lbl.pack(anchor="w", padx=16, pady=(0, 6))
@@ -79,7 +79,7 @@ class MepananaInstallerApp(tk.Tk):
         footer_frame.pack(pady=(0, 20), padx=24, fill="x")
 
         self.btn_install = tk.Button(
-            footer_frame, text="🚀 Cài Đặt / Cập Nhật Ngay",
+            footer_frame, text="🚀 Install / Update Now",
             font=("Segoe UI", 11, "bold"), fg="#FFFFFF", bg="#2563EB", activebackground="#1D4ED8",
             activeforeground="#FFFFFF", relief="flat", cursor="hand2", padx=20, pady=8,
             command=self.start_install
@@ -87,7 +87,7 @@ class MepananaInstallerApp(tk.Tk):
         self.btn_install.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         self.btn_close = tk.Button(
-            footer_frame, text="Đóng",
+            footer_frame, text="Close",
             font=("Segoe UI", 10), fg="#94A3B8", bg="#334155", activebackground="#475569",
             activeforeground="#FFFFFF", relief="flat", cursor="hand2", padx=16, pady=8,
             command=self.destroy
@@ -95,9 +95,9 @@ class MepananaInstallerApp(tk.Tk):
         self.btn_close.pack(side="right")
 
     def start_install(self):
-        self.btn_install.config(state="disabled", bg="#64748B", text="⏳ Đang cài đặt...")
+        self.btn_install.config(state="disabled", bg="#64748B", text="⏳ Installing...")
         self.progress["value"] = 10
-        self.status_lbl.config(text="Đang kết nối đến GitHub...", fg="#38BDF8")
+        self.status_lbl.config(text="Connecting to GitHub...", fg="#38BDF8")
 
         thread = threading.Thread(target=self.run_installation, daemon=True)
         thread.start()
@@ -108,13 +108,13 @@ class MepananaInstallerApp(tk.Tk):
 
         try:
             # 1. Download
-            self.set_progress(20, "Đang tải mã nguồn mới nhất từ GitHub...")
+            self.set_progress(20, "Downloading latest release package from GitHub...")
             req = urllib.request.Request(REPO_URL, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req) as resp, open(temp_zip, "wb") as out_f:
                 out_f.write(resp.read())
 
             # 2. Extract
-            self.set_progress(60, "Đang giải nén bộ cài đặt...")
+            self.set_progress(60, "Extracting package...")
             if os.path.exists(temp_extract):
                 shutil.rmtree(temp_extract, ignore_errors=True)
 
@@ -122,7 +122,7 @@ class MepananaInstallerApp(tk.Tk):
                 z.extractall(temp_extract)
 
             # 3. Copy to destination
-            self.set_progress(85, "Đang sao chép vào thư mục pyRevit Extensions...")
+            self.set_progress(85, "Deploying to pyRevit Extensions directory...")
             inner_dir = os.path.join(temp_extract, "mepanana-main")
             if not os.path.exists(inner_dir):
                 inner_dir = temp_extract
@@ -146,19 +146,19 @@ class MepananaInstallerApp(tk.Tk):
             try: shutil.rmtree(temp_extract, ignore_errors=True)
             except: pass
 
-            self.set_progress(100, "🎉 Cài đặt / Cập nhật thành công!", success=True)
+            self.set_progress(100, "🎉 Installation & Update completed successfully!", success=True)
             self.after(200, lambda: messagebox.showinfo(
-                "Thành Công",
-                "🎉 Tiện ích MEPANANA đã được cài đặt thành công vào pyRevit!\n\nHãy khởi động lại Autodesk Revit để sử dụng."
+                "Installation Complete",
+                "🎉 MEPANANA Extension has been installed successfully!\n\nPlease restart Autodesk Revit or click pyRevit -> Reload to start."
             ))
 
         except Exception as ex:
-            self.set_progress(0, "❌ Lỗi: " + str(ex), error=True)
-            self.after(200, lambda: messagebox.showerror("Lỗi Cài Đặt", str(ex)))
+            self.set_progress(0, "❌ Error: " + str(ex), error=True)
+            self.after(200, lambda: messagebox.showerror("Installation Error", str(ex)))
 
         finally:
             self.after(0, lambda: self.btn_install.config(
-                state="normal", bg="#2563EB", text="🚀 Cài Đặt / Cập Nhật Ngay"
+                state="normal", bg="#2563EB", text="🚀 Install / Update Now"
             ))
 
     def set_progress(self, val, msg, success=False, error=False):

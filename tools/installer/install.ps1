@@ -5,10 +5,10 @@
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12 -bor [System.Net.SecurityProtocolType]::Tls13
 
 Write-Host "======================================================================" -ForegroundColor Green
-Write-Host "         MEPANANA REVIT EXTENSION - BO CAI DAT 1-CLICK                " -ForegroundColor Green
+Write-Host "         MEPANANA REVIT EXTENSION - 1-CLICK INSTALLER                 " -ForegroundColor Green
 Write-Host "======================================================================" -ForegroundColor Green
-Write-Host " * Che do: User-Level (Khong can quyen Administrator)" -ForegroundColor Gray
-Write-Host " * Nguon tai: GitHub (https://github.com/nguyen-hoang-hai/mepanana)" -ForegroundColor Gray
+Write-Host " * Mode: User-Level (No Administrator Privileges Required)" -ForegroundColor Gray
+Write-Host " * Source: GitHub (https://github.com/nguyen-hoang-hai/mepanana)" -ForegroundColor Gray
 Write-Host "======================================================================" -ForegroundColor Green
 Write-Host ""
 
@@ -19,16 +19,16 @@ $appData = [Environment]::GetFolderPath([Environment+SpecialFolder]::Application
 $extDir = Join-Path $appData "pyRevit\Extensions\mepanana.extension"
 
 try {
-    Write-Host "[1/3] Dang ket noi GitHub va tai ban moi nhat..." -ForegroundColor Cyan
+    Write-Host "[1/3] Connecting to GitHub & downloading latest release..." -ForegroundColor Cyan
     $wc = New-Object System.Net.WebClient
     $wc.Headers.Add("User-Agent", "MEPANANA-1Click-Installer")
     $wc.DownloadFile($zipUrl, $tempZip)
 
     $fileSize = (Get-Item $tempZip).Length
     $fileSizeKb = [Math]::Round($fileSize / 1024, 1)
-    Write-Host "      Tai ve thanh cong ($fileSizeKb KB)." -ForegroundColor Green
+    Write-Host "      Download completed successfully ($fileSizeKb KB)." -ForegroundColor Green
 
-    Write-Host "[2/3] Dang giai nen va cai dat vao pyRevit Extensions..." -ForegroundColor Cyan
+    Write-Host "[2/3] Extracting and deploying to pyRevit Extensions..." -ForegroundColor Cyan
     if (Test-Path $tempExtract) {
         Remove-Item -Path $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -62,14 +62,14 @@ try {
     Remove-Item -Path $tempZip -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
 
-    Write-Host "[3/3] Dang ky thanh cong tien ich MEPANANA voi pyRevit!" -ForegroundColor Green
+    Write-Host "[3/3] Successfully registered MEPANANA extension with pyRevit!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Vi tri cai dat: $extDir" -ForegroundColor DarkGray
+    Write-Host "Install Destination: $extDir" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "CAI DAT HOAN TAT! Hay mo hoac khoi dong lai Revit de su dung." -ForegroundColor Yellow
+    Write-Host "INSTALLATION COMPLETE! Launch Revit or click pyRevit -> Reload to start." -ForegroundColor Yellow
 }
 catch {
     Write-Host ""
-    Write-Host "Loi cai dat: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Installation Error: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
