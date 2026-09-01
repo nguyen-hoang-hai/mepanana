@@ -590,3 +590,147 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
                     created_fittings.append(neg_main_fit)
 
     return created_pipes, created_fittings, errors
+
+
+# ==============================================================================
+# DUAL-MODE PENDENT SPRINKLER DROP CONNECTIONS (FLEX HOSE & RIGID STEEL DROP)
+# ==============================================================================
+
+def get_sprinkler_piping_connector(sprinkler):
+    """Extracts the DomainPiping connector of a sprinkler family instance."""
+    if not sprinkler:
+        return None
+    try:
+        mep = getattr(sprinkler, "MEPModel", None)
+        if mep and mep.ConnectorManager:
+            for c in mep.ConnectorManager.Connectors:
+                if c.Domain == DB.Domain.DomainPiping:
+                    return c
+    except Exception:
+        pass
+    return None
+
+
+def get_closest_projection_point(main_pipe, target_xyz):
+    """Projects a 3D target point perpendicularly onto the centerline curve of main pipe."""
+    try:
+        loc = getattr(main_pipe, "Location", None)
+        if isinstance(loc, DB.LocationCurve):
+            res = loc.Curve.Project(target_xyz)
+            if res:
+                return res.XYZPoint
+    except Exception:
+        pass
+    return None
+
+
+def create_flex_drop_connection(doc, sprinkler, main_pipe, flex_pipe_type_id, diameter_mm=25, min_drop_mm=150):
+    """
+    Creates an NFPA 13 compliant Flexible Sprinkler Hose (S-Curve 4-Waypoints)
+    connecting from the main pipe down to the Pendent Sprinkler head.
+    Returns: (success: bool, result_element_or_error_str)
+    """
+    import clr
+    clr.AddReference("System")
+    from System.Collections.Generic import List as ClrList
+
+    spk_conn = get_sprinkler_piping_connector(sprinkler)
+    if not spk_conn:
+        return False, u"Sprinkler does not have an active Piping connector."
+
+    p_end = spk_conn.Origin
+    p_start = get_closest_projection_point(main_pipe, p_end)
+    if not p_start:
+        return False, u"Sprinkler is outside the longitudinal bounds of the main pipe."
+
+    delta_z = p_start.Z - p_end.Z
+    min_drop_ft = mm_to_ft(min_drop_mm)
+    if delta_z < min_drop_ft:
+        return False, u"Vertical drop (ΔZ = {:.0f}mm) is too short (< {:.0f}mm) for flexible hose bend radius.".format(
+            ft_to_mm(delta_z), min_drop_mm
+        )
+
+    # Direction vector on horizontal plane
+    dir_xy = DB.XYZ(p_end.X - p_start.X, p_end.Y - p_start.Y, 0.0)
+    if dir_xy.GetLength() < 1e-4:
+        # If perfectly co-axial, introduce slight natural 100mm offset for smooth S-Curve bend
+        dir_xy = DB.XYZ(0.3, 0.3, 0.0).Normalize()
+    else:
+        dir_xy = dir_xy.Normalize()
+
+    # 4 Waypoints for natural S-Curve
+    p_knee1 = p_start + dir_xy.Multiply(mm_to_ft(50.0)) - DB.XYZ(0, 0, delta_z * 0.15)
+    p_knee2 = DB.XYZ(p_end.X, p_end.Y, p_end.Z + delta_z * 0.4)
+
+    points = ClrList[DB.XYZ]()
+    points.Add(p_start)
+    points.Add(p_knee1)
+    points.Add(p_knee2)
+    points.Add(p_end)
+
+    start_tangent = (dir_xy - DB.XYZ(0, 0, 0.4)).Normalize()
+    end_tangent = DB.XYZ(0, 0, -1.0)  # Vertical 90° entry into pendent head
+
+    sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
+    sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
+    level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
+
+    try:
+        from Autodesk.Revit.DB.Plumbing import FlexPipe
+        flex_pipe = FlexPipe.Create(
+            doc,
+            sys_type_id,
+            flex_pipe_type_id,
+            level_id,
+            points,
+            start_tangent,
+            end_tangent
+        )
+        
+        # Set nominal diameter
+        diam_param = flex_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+        if diam_param and not diam_param.IsReadOnly:
+            diam_param.Set(mm_to_ft(diameter_mm))
+
+        # Physical water-tight connector snap
+        for f_conn in flex_pipe.ConnectorManager.Connectors:
+            if f_conn.Origin.DistanceTo(p_end) < mm_to_ft(60.0):
+                try:
+                    f_conn.ConnectTo(spk_conn)
+                except Exception:
+                    pass
+                break
+
+        return True, flex_pipe
+    except Exception as ex:
+        return False, safe_unicode(ex)
+
+
+def create_rigid_drop_connection(doc, sprinkler, main_pipe, pipe_type_id, diameter_mm=25, riser_height_mm=0):
+    """
+    Creates a Rigid Steel Pipe drop connecting main pipe down to Pendent Sprinkler head.
+    Returns: (success: bool, result_element_or_error_str)
+    """
+    spk_conn = get_sprinkler_piping_connector(sprinkler)
+    if not spk_conn:
+        return False, u"Sprinkler does not have an active Piping connector."
+
+    p_end = spk_conn.Origin
+    p_start = get_closest_projection_point(main_pipe, p_end)
+    if not p_start:
+        return False, u"Sprinkler is outside the longitudinal bounds of the main pipe."
+
+    sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
+    sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
+    level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
+
+    try:
+        from Autodesk.Revit.DB.Plumbing import Pipe
+        rigid_drop = Pipe.Create(doc, pipe_type_id, level_id, spk_conn, p_start)
+        diam_param = rigid_drop.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+        if diam_param and not diam_param.IsReadOnly:
+            diam_param.Set(mm_to_ft(diameter_mm))
+
+        return True, rigid_drop
+    except Exception as ex:
+        return False, safe_unicode(ex)

@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Pendent Sprinkler Connector - Controller Script
+Pendent Sprinkler Studio - Dual-Mode Controller Script (Flex Hose & Rigid Drop)
 Part of mepanana.extension.
-Matches exact CAD Detail:
-- Individual Riser Nipple from top of Crossmain for each branch/armover (or horizontal when Riser=0)
-- Stepped hydraulic sizing strictly following TCVN 7336:2021
-- Live Interactive Vector Schematic Preview with Pill Badge Callout System
-- Intermediate Tee drops & Final 90° Elbow drop to Pendent Sprinklers
+- Mode 1 (Flex Hose): NFPA 13 compliant 3D S-Curve Flexible Sprinkler Hose with automatic ΔZ >= 150mm check.
+- Mode 2 (Rigid Drop): TCVN 7336 / NFPA 13 Riser Nipple & Stepped Hydraulic Branchlines.
+- Dynamic Adaptive UI & Live Reactive Vector Schematic Preview.
 """
 import os
 import sys
@@ -40,14 +38,17 @@ import System
 import Autodesk.Revit.Exceptions as RevitExceptions
 from System.Windows import Visibility, Point, FontWeights, Thickness, CornerRadius
 from System.Windows.Controls import Canvas, TextBlock, Border
-from System.Windows.Shapes import Line, Rectangle, Ellipse, Polygon
+from System.Windows.Shapes import Line, Rectangle, Ellipse, Path
 from System.Windows.Media import Brushes, SolidColorBrush, Color, PointCollection, DoubleCollection, PenLineCap
+from Autodesk.Revit.DB.Plumbing import FlexPipeType, PipeType
 from pyrevit import revit, DB, UI, forms
-from py.core import get_id_value, safe_unicode
-from py.ui import setup_window, show_info, show_warning, show_error
+from py.core import get_id_value, safe_unicode, mm_to_ft, ft_to_mm
+from py.ui import setup_window, show_info, show_warning, show_error, do_events
 from py.sprinkler_engine import (
     cluster_sprinklers_by_main_pipe,
     generate_sprinkler_network,
+    create_flex_drop_connection,
+    create_rigid_drop_connection,
     SIZING_STANDARDS
 )
 
@@ -86,7 +87,7 @@ class SprinklerSelectionFilter(UI.Selection.ISelectionFilter):
 # ── WPF Window Controller ─────────────────────────────────────────────────────
 
 class PendentSprinklerWindow(forms.WPFWindow):
-    def __init__(self, main_pipe=None, selected_sprinklers=None, riser_height="300", drop_dn_idx=0):
+    def __init__(self, main_pipe=None, selected_sprinklers=None, is_flex_mode=True, riser_height="300", drop_dn_idx=0):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         setup_window(self)
@@ -95,7 +96,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
         self.main_pipe = main_pipe
         self.selected_sprinklers = selected_sprinklers or []
 
-        # Wire event handlers
+        # Wire UI event handlers
         if hasattr(self, 'btnPickMain'):
             self.btnPickMain.Click += self.OnPickMain
         if hasattr(self, 'btnSelectSprinklers'):
@@ -105,11 +106,24 @@ class PendentSprinklerWindow(forms.WPFWindow):
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += self.OnClose
 
+        # Wire Mode switchers
+        if hasattr(self, 'rbFlex'):
+            self.rbFlex.Checked += self.OnModeChanged
+        if hasattr(self, 'rbRigid'):
+            self.rbRigid.Checked += self.OnModeChanged
+
         # Wire Live Reactivity inputs
         if hasattr(self, 'txtRiserHeight'):
             self.txtRiserHeight.TextChanged += self.OnInputChanged
         if hasattr(self, 'cmbDropSize'):
             self.cmbDropSize.SelectionChanged += self.OnInputChanged
+
+        # Restore Mode
+        if hasattr(self, 'rbFlex') and hasattr(self, 'rbRigid'):
+            if is_flex_mode:
+                self.rbFlex.IsChecked = True
+            else:
+                self.rbRigid.IsChecked = True
 
         # Restore Main Pipe UI state
         if self.main_pipe:
@@ -133,11 +147,35 @@ class PendentSprinklerWindow(forms.WPFWindow):
         if hasattr(self, 'cmbDropSize') and self.cmbDropSize.Items.Count > drop_dn_idx:
             self.cmbDropSize.SelectedIndex = drop_dn_idx
 
-        # Render initial preview cleanly
+        # Update mode UI & initial preview
+        self.SyncModeUI()
         try:
             self.UpdatePreview()
         except Exception:
             pass
+
+    def OnModeChanged(self, sender, args):
+        self.SyncModeUI()
+        try:
+            self.UpdatePreview()
+        except Exception:
+            pass
+
+    def SyncModeUI(self):
+        is_flex = hasattr(self, 'rbFlex') and (self.rbFlex.IsChecked == True)
+        if hasattr(self, 'panelRiser'):
+            self.panelRiser.Opacity = 0.35 if is_flex else 1.0
+        if hasattr(self, 'txtRiserHeight'):
+            self.txtRiserHeight.IsEnabled = not is_flex
+        if hasattr(self, 'lblRiserHeight'):
+            self.lblRiserHeight.Opacity = 0.4 if is_flex else 1.0
+        if hasattr(self, 'txtModeNote'):
+            if is_flex:
+                self.txtModeNote.Text = u"* Tự động kiểm tra độ cao thả Z >= 150mm để chống gập ống mềm (NFPA 13)"
+            else:
+                self.txtModeNote.Text = u"* Phân bổ cỡ ống theo TCVN 7336 & tạo khớp Nipple ống thép đứng"
+        if hasattr(self, 'txtPreviewTag'):
+            self.txtPreviewTag.Text = u"⚡ Mode: Flex Hose S-Curve" if is_flex else u"⚡ Mode: Rigid Steel Drop"
 
     def OnInputChanged(self, sender, args):
         try:
@@ -146,22 +184,28 @@ class PendentSprinklerWindow(forms.WPFWindow):
             pass
 
     def UpdatePreview(self):
-        """Renders high-clarity CAD blueprint schematic with Pill Badge Callouts."""
+        """Renders high-clarity CAD blueprint schematic for both Flex Hose and Rigid Pipe."""
         if not hasattr(self, 'canvasPreview') or not self.canvasPreview:
             return
 
         canvas = self.canvasPreview
         canvas.Children.Clear()
 
+        is_flex = hasattr(self, 'rbFlex') and (self.rbFlex.IsChecked == True)
+
         # Elegant color palette
-        pipe_brush = SolidColorBrush(Color.FromRgb(239, 68, 68))      # Crimson Red
-        fitting_brush = SolidColorBrush(Color.FromRgb(51, 65, 85))   # Slate Dark
-        accent_blue = SolidColorBrush(Color.FromRgb(37, 99, 235))    # Royal Blue
-        dim_gray = SolidColorBrush(Color.FromRgb(100, 116, 139))     # Slate Dim
-        head_gold = SolidColorBrush(Color.FromRgb(245, 158, 11))     # Amber Head
+        pipe_brush = SolidColorBrush(Color.FromRgb(239, 68, 68))        # Crimson Red
+        rigid_blue = SolidColorBrush(Color.FromRgb(59, 130, 246))       # Sky Blue
+        fitting_brush = SolidColorBrush(Color.FromRgb(51, 65, 85))     # Slate Dark
+        dim_gray = SolidColorBrush(Color.FromRgb(100, 116, 139))       # Slate Dim
+        head_gold = SolidColorBrush(Color.FromRgb(245, 158, 11))       # Amber Head
         spray_blue = SolidColorBrush(Color.FromArgb(160, 59, 130, 246)) # Translucent Spray
 
         # Pill Badge Brushes
+        badge_red_bg = SolidColorBrush(Color.FromRgb(254, 242, 242))
+        badge_red_border = SolidColorBrush(Color.FromRgb(254, 202, 202))
+        badge_red_fg = SolidColorBrush(Color.FromRgb(220, 38, 38))
+
         badge_blue_bg = SolidColorBrush(Color.FromRgb(239, 246, 255))
         badge_blue_border = SolidColorBrush(Color.FromRgb(191, 219, 254))
         badge_blue_fg = SolidColorBrush(Color.FromRgb(29, 78, 216))
@@ -170,14 +214,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
         badge_gray_border = SolidColorBrush(Color.FromRgb(226, 232, 240))
         badge_gray_fg = SolidColorBrush(Color.FromRgb(71, 85, 105))
 
-        # Parse inputs
-        riser_h_val = 300.0
-        try:
-            if hasattr(self, 'txtRiserHeight') and self.txtRiserHeight.Text:
-                riser_h_val = float(self.txtRiserHeight.Text.strip())
-        except Exception:
-            riser_h_val = 300.0
-
+        # Parse drop size
         drop_str = "DN25"
         if hasattr(self, 'cmbDropSize') and self.cmbDropSize.SelectedItem:
             txt = str(self.cmbDropSize.SelectedItem.Content)
@@ -236,78 +273,84 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_line(cx, cy + 11, cx, cy + 19, spray_blue, 1.2)
             add_line(cx + 6, cy + 11, cx + 10, cy + 18, spray_blue, 1.2)
 
-        if riser_h_val > 30.0:
-            # ── MODE A: Elevated Branch with Riser Nipple ──
+        if is_flex:
+            # ── MODE 1: FLEXIBLE SPRINKLER HOSE (S-CURVE) ─────────────────────
+            # 1. Main pipe at top
+            add_line(25, 26, 145, 26, pipe_brush, 9)
+            add_badge("Main Pipe", 38, 8, badge_gray_bg, badge_gray_border, badge_gray_fg)
+
+            # 2. Direct Takeoff Fitting
+            add_circle(85, 26, 6, fitting_brush, pipe_brush, 1.5)
+            add_badge("Takeoff", 100, 36, badge_gray_bg, badge_gray_border, badge_gray_fg)
+
+            # 3. Smooth S-Curve Flex Hose Drawing (Approximated 8-segment smooth curve)
+            s_points = [
+                (85, 26),
+                (95, 38),
+                (115, 52),
+                (150, 60),
+                (200, 62),
+                (245, 68),
+                (280, 80),
+                (280, 102)
+            ]
+            for i in range(len(s_points) - 1):
+                p_a = s_points[i]
+                p_b = s_points[i+1]
+                add_line(p_a[0], p_a[1], p_b[0], p_b[1], pipe_brush, 4.5, rounded=True)
+
+            # 4. Sprinkler Head at bottom
+            add_sprinkler_head(280, 103)
+
+            # 5. Badges & Annotations
+            add_badge("🌀 S-Curve Flex Hose (" + drop_str + ")", 145, 14, badge_red_bg, badge_red_border, badge_red_fg)
+            add_badge("90° Vertical Entry", 295, 78, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge("NFPA 13: R ≥ 250mm", 140, 84, badge_gray_bg, badge_gray_border, badge_gray_fg)
+
+            # Ceiling grid line
+            add_line(230, 103, 330, 103, dim_gray, 1, dash=True)
+            add_badge("Ceiling Level", 335, 96, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
+
+        else:
+            # ── MODE 2: RIGID STEEL PIPE DROP (RISER NIPPLE) ──────────────────
+            riser_h_val = 300.0
+            try:
+                if hasattr(self, 'txtRiserHeight') and self.txtRiserHeight.Text:
+                    riser_h_val = float(self.txtRiserHeight.Text.strip())
+            except Exception:
+                riser_h_val = 300.0
+
             # 1. Main Pipe at bottom
-            add_line(25, 116, 135, 116, pipe_brush, 9)
+            add_line(25, 116, 135, 116, rigid_blue, 9)
             add_badge("Main Pipe", 42, 126, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
             # 2. Riser Nipple going up
-            add_line(80, 116, 80, 42, pipe_brush, 6)
-
-            # Dimension on Riser
-            add_line(48, 116, 48, 42, accent_blue, 1, dash=True)
-            add_line(43, 42, 53, 42, accent_blue, 1.5)
-            add_line(43, 116, 53, 116, accent_blue, 1.5)
+            add_line(80, 116, 80, 42, rigid_blue, 6)
             add_badge("H = {}mm".format(int(riser_h_val)), 6, 72, badge_blue_bg, badge_blue_border, badge_blue_fg)
 
             # 3. Top Tee Fitting
-            add_circle(80, 42, 6.5, fitting_brush, pipe_brush, 1.5)
+            add_circle(80, 42, 6.5, fitting_brush, rigid_blue, 1.5)
 
-            # 4. Spool Pipe (120mm) + Reducer
-            add_line(86, 42, 138, 42, pipe_brush, 5.5)
-            add_circle(138, 42, 5, fitting_brush, pipe_brush, 1)
-            add_badge("120mm Spool + Reducer", 92, 16, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_line(135, 27, 138, 38, badge_blue_border, 1) # Leader line
+            # 4. Spool Pipe + Reducer
+            add_line(86, 42, 138, 42, rigid_blue, 5.5)
+            add_circle(138, 42, 5, fitting_brush, rigid_blue, 1)
 
             # 5. Stepped Branch Pipe (DN32) to Sprinkler 1
-            add_line(143, 42, 252, 42, pipe_brush, 4)
-            add_circle(252, 42, 5, fitting_brush, pipe_brush, 1)
+            add_line(143, 42, 252, 42, rigid_blue, 4)
+            add_circle(252, 42, 5, fitting_brush, rigid_blue, 1)
 
             # Drop Pipe 1
             drop_w = 3.5 if drop_str == "DN32" else 2.5
-            add_line(252, 47, 252, 94, pipe_brush, drop_w)
+            add_line(252, 47, 252, 94, rigid_blue, drop_w)
             add_sprinkler_head(252, 95)
             add_badge("Drop " + drop_str, 260, 68, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
             # 6. Branch to Final Sprinkler 2 (DN25)
-            add_line(257, 42, 350, 42, pipe_brush, 2.8)
-            add_circle(350, 42, 5, fitting_brush, pipe_brush, 1)
-            add_line(350, 47, 350, 94, pipe_brush, drop_w)
+            add_line(257, 42, 350, 42, rigid_blue, 2.8)
+            add_circle(350, 42, 5, fitting_brush, rigid_blue, 1)
+            add_line(350, 47, 350, 94, rigid_blue, drop_w)
             add_sprinkler_head(350, 95)
             add_badge("End 90° Elbow", 295, 16, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_line(338, 27, 350, 38, badge_gray_border, 1) # Leader line
-
-        else:
-            # ── MODE B: Horizontal Branch (Riser = 0) ──
-            add_line(25, 82, 105, 82, pipe_brush, 9)
-            add_badge("Main Pipe", 35, 96, badge_gray_bg, badge_gray_border, badge_gray_fg)
-
-            # Horizontal Tee on Main
-            add_circle(105, 82, 7.5, fitting_brush, pipe_brush, 1.8)
-            add_badge("Horizontal Tee (Riser = 0)", 16, 16, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_line(95, 28, 105, 75, badge_blue_border, 1) # Clear leader line to Tee
-
-            # 120mm Spool + Reducer
-            add_line(112, 82, 162, 82, pipe_brush, 5.5)
-            add_circle(162, 82, 5, fitting_brush, pipe_brush, 1)
-            add_badge("120mm Spool + Reducer", 145, 42, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_line(160, 54, 162, 75, badge_blue_border, 1) # Clear leader line to Spool
-
-            # Branch to Drop 1
-            add_line(167, 82, 258, 82, pipe_brush, 4)
-            add_circle(258, 82, 5, fitting_brush, pipe_brush, 1)
-
-            drop_w = 3.5 if drop_str == "DN32" else 2.5
-            add_line(258, 87, 258, 114, pipe_brush, drop_w)
-            add_sprinkler_head(258, 115)
-            add_badge("Drop " + drop_str, 266, 92, badge_gray_bg, badge_gray_border, badge_gray_fg)
-
-            # Branch to Drop 2 (End)
-            add_line(263, 82, 350, 82, pipe_brush, 2.8)
-            add_circle(350, 82, 5, fitting_brush, pipe_brush, 1)
-            add_line(350, 87, 350, 114, pipe_brush, drop_w)
-            add_sprinkler_head(350, 115)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"
@@ -339,6 +382,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
 def run():
     main_pipe = None
     selected_sprinklers = []
+    is_flex_mode = True
     riser_height = "300"
     drop_dn_idx = 0
 
@@ -346,14 +390,18 @@ def run():
         win = PendentSprinklerWindow(
             main_pipe=main_pipe,
             selected_sprinklers=selected_sprinklers,
+            is_flex_mode=is_flex_mode,
             riser_height=riser_height,
             drop_dn_idx=drop_dn_idx
         )
         win.ShowDialog()
 
+        # Capture user choices
+        is_flex_mode = hasattr(win, 'rbFlex') and (win.rbFlex.IsChecked == True)
+        riser_height = win.txtRiserHeight.Text if hasattr(win, 'txtRiserHeight') else "300"
+        drop_dn_idx = win.cmbDropSize.SelectedIndex if hasattr(win, 'cmbDropSize') else 0
+
         if win.action == "PICK_MAIN":
-            riser_height = win.txtRiserHeight.Text if hasattr(win, 'txtRiserHeight') else "300"
-            drop_dn_idx = win.cmbDropSize.SelectedIndex if hasattr(win, 'cmbDropSize') else 0
             try:
                 ref = uidoc.Selection.PickObject(
                     UI.Selection.ObjectType.Element,
@@ -370,8 +418,6 @@ def run():
                 show_warning(u"Main Pipe Selection:\n{}".format(safe_unicode(ex)), "Selection Notice")
 
         elif win.action == "SELECT_SPRINKLERS":
-            riser_height = win.txtRiserHeight.Text if hasattr(win, 'txtRiserHeight') else "300"
-            drop_dn_idx = win.cmbDropSize.SelectedIndex if hasattr(win, 'cmbDropSize') else 0
             try:
                 elems = uidoc.Selection.PickElementsByRectangle(
                     SprinklerSelectionFilter(),
@@ -385,69 +431,123 @@ def run():
                 show_warning(u"Sprinkler Selection:\n{}".format(safe_unicode(ex)), "Selection Notice")
 
         elif win.action == "GENERATE":
-            riser_h_val = 300.0
-            try:
-                if hasattr(win, 'txtRiserHeight') and win.txtRiserHeight.Text:
-                    riser_h_val = float(win.txtRiserHeight.Text.strip())
-            except Exception:
-                riser_h_val = 300.0
+            drop_dn = 25 if drop_dn_idx == 0 else 32
 
-            selected_std = "TCVN 7336:2021 (Vietnam Standard)"
+            if is_flex_mode:
+                # ── EXECUTE CHẾ ĐỘ ỐNG MỀM (FLEXIBLE SPRINKLER HOSE) ──────────
+                flex_types = list(DB.FilteredElementCollector(doc).OfClass(FlexPipeType).ToElements())
+                if not flex_types:
+                    show_error(
+                        u"Dự án chưa có loại Ống Mềm (FlexPipeType) nào.\n\n"
+                        u"Vui lòng nạp hoặc tạo ít nhất 1 loại Ống Mềm trong Revit (Hệ thống Piping) trước khi chạy!",
+                        "Missing FlexPipeType"
+                    )
+                    continue
 
-            drop_dn = 25
-            if hasattr(win, 'cmbDropSize') and win.cmbDropSize.SelectedItem:
-                txt = str(win.cmbDropSize.SelectedItem.Content)
-                if "32" in txt:
-                    drop_dn = 32
+                selected_type_id = flex_types[0].Id
 
-            # 1. Analyze and Cluster
-            branches = cluster_sprinklers_by_main_pipe(
-                main_pipe,
-                selected_sprinklers,
-                tolerance_mm=300.0
-            )
-            if not branches:
-                show_warning(u"Could not detect any valid branch alignments with the selected Main Pipe.", "Topology Error")
-                continue
-
-            # 2. Execute in Revit TransactionGroup (Single Undo Step)
-            tg = DB.TransactionGroup(doc, "Generate Pendent Sprinkler Network")
-            tg.Start()
-            t = DB.Transaction(doc, "Create Pendent Pipes & Fittings")
-            try:
+                # Run in TransactionGroup
+                tg = DB.TransactionGroup(doc, "MEPANANA - Flex Sprinkler Drop Connections")
+                tg.Start()
+                t = DB.Transaction(doc, "Create S-Curve Flex Drops")
                 t.Start()
-                created_pipes, created_fittings, errors = generate_sprinkler_network(
-                    doc,
+
+                success_count = 0
+                errors = []
+
+                try:
+                    for spk in selected_sprinklers:
+                        ok, res = create_flex_drop_connection(
+                            doc, spk, main_pipe, selected_type_id,
+                            diameter_mm=drop_dn, min_drop_mm=150
+                        )
+                        if ok:
+                            success_count += 1
+                        else:
+                            errors.append(u"Sprinkler #{}: {}".format(get_id_value(spk), safe_unicode(res)))
+
+                    t.Commit()
+                    tg.Assimilate()
+
+                    msg = u"🎉 Đã kết nối thành công {}/{} đầu phun bằng Ống Mềm (Flex Hose)!\n\n".format(
+                        success_count, len(selected_sprinklers)
+                    )
+                    msg += u"• Tiêu chuẩn: NFPA 13 (Uốn S-Curve tự nhiên)\n"
+                    msg += u"• Cỡ ống mềm: DN{}\n".format(drop_dn)
+                    msg += u"• Kiểm tra cao độ: ΔZ ≥ 150mm\n"
+
+                    if errors:
+                        msg += u"\n⚠️ Cảnh báo ({}/{} đầu chưa kết nối được):\n• ".format(
+                            len(errors), len(selected_sprinklers)
+                        ) + u"\n• ".join(errors[:4])
+
+                    show_info(msg, "Pendent Sprinkler Studio - Hoàn Tất")
+                    break
+
+                except Exception as ex:
+                    if t.HasStarted() and not t.HasEnded():
+                        t.RollBack()
+                    if tg.HasStarted() and not tg.HasEnded():
+                        tg.RollBack()
+                    show_error(u"Lỗi trong quá trình tạo ống mềm:\n{}".format(safe_unicode(ex)), "Lỗi Khởi Tạo")
+                    break
+
+            else:
+                # ── EXECUTE CHẾ ĐỘ ỐNG CỨNG (RIGID STEEL PIPE DROP) ───────────
+                riser_h_val = 300.0
+                try:
+                    riser_h_val = float(riser_height.strip())
+                except Exception:
+                    riser_h_val = 300.0
+
+                selected_std = "TCVN 7336:2021 (Vietnam Standard)"
+
+                branches = cluster_sprinklers_by_main_pipe(
                     main_pipe,
-                    branches,
-                    selected_std,
-                    riser_height_mm=riser_h_val,
-                    drop_dn=drop_dn
+                    selected_sprinklers,
+                    tolerance_mm=300.0
                 )
-                t.Commit()
-                tg.Assimilate()
+                if not branches:
+                    show_warning(u"Could not detect any valid branch alignments with the selected Main Pipe.", "Topology Error")
+                    continue
 
-                msg = u"🎉 Pendent Sprinkler Network Created Successfully!\n\n"
-                msg += u"• Sizing Standard: TCVN 7336:2021\n"
-                msg += u"• Riser Nipple Height: {} mm\n".format(int(riser_h_val))
-                msg += u"• Branch lines / Arm-overs created: {}\n".format(len(branches))
-                msg += u"• Total Sprinklers connected: {}\n".format(len(selected_sprinklers))
-                msg += u"• Pipe segments created: {}\n".format(len(created_pipes))
-                msg += u"• Fittings placed: {}\n".format(len(created_fittings))
+                tg = DB.TransactionGroup(doc, "Generate Pendent Sprinkler Network")
+                tg.Start()
+                t = DB.Transaction(doc, "Create Pendent Pipes & Fittings")
+                try:
+                    t.Start()
+                    created_pipes, created_fittings, errors = generate_sprinkler_network(
+                        doc,
+                        main_pipe,
+                        branches,
+                        selected_std,
+                        riser_height_mm=riser_h_val,
+                        drop_dn=drop_dn
+                    )
+                    t.Commit()
+                    tg.Assimilate()
 
-                if errors:
-                    msg += u"\n⚠️ Notices:\n" + u"\n".join([safe_unicode(e) for e in errors[:3]])
+                    msg = u"🎉 Pendent Sprinkler Network Created Successfully!\n\n"
+                    msg += u"• Sizing Standard: TCVN 7336:2021\n"
+                    msg += u"• Riser Nipple Height: {} mm\n".format(int(riser_h_val))
+                    msg += u"• Branch lines / Arm-overs created: {}\n".format(len(branches))
+                    msg += u"• Total Sprinklers connected: {}\n".format(len(selected_sprinklers))
+                    msg += u"• Pipe segments created: {}\n".format(len(created_pipes))
+                    msg += u"• Fittings placed: {}\n".format(len(created_fittings))
 
-                show_info(msg, "Sprinkler Connector Success")
-                break
+                    if errors:
+                        msg += u"\n⚠️ Notices:\n" + u"\n".join([safe_unicode(e) for e in errors[:3]])
 
-            except Exception as ex:
-                if t.HasStarted() and not t.HasEnded():
-                    t.RollBack()
-                if tg.HasStarted() and not tg.HasEnded():
-                    tg.RollBack()
-                show_error(u"Error while generating network:\n{}".format(safe_unicode(ex)), "Generation Error")
-                break
+                    show_info(msg, "Sprinkler Connector Success")
+                    break
+
+                except Exception as ex:
+                    if t.HasStarted() and not t.HasEnded():
+                        t.RollBack()
+                    if tg.HasStarted() and not tg.HasEnded():
+                        tg.RollBack()
+                    show_error(u"Error while generating network:\n{}".format(safe_unicode(ex)), "Generation Error")
+                    break
 
         else:
             break
@@ -455,4 +555,4 @@ def run():
 
 # ── Launch Entry ──────────────────────────────────────────────────────────────
 
-run()
+run()
