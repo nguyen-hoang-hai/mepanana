@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CAD Blocks" Width="840" Height="620" MinWidth="760" MinHeight="480"
-        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        Title="CAD Blocks" Width="820" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{DynamicResource WindowBgBrush}"
         FontFamily="Segoe UI" FontSize="12.5"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
@@ -21,12 +21,12 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- Top Selectors -->
-            <RowDefinition Height="*"/>     <!-- Scrollable Content -->
+            <RowDefinition Height="*"/>     <!-- Content Cards -->
             <RowDefinition Height="Auto"/>  <!-- Fixed Footer -->
         </Grid.RowDefinitions>
 
         <!-- ── Top Selectors: CAD Link + Level ────────────────────────── -->
-        <Grid Grid.Row="0" Margin="16,16,16,6">
+        <Grid Grid.Row="0" Margin="16,16,16,2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280"/>
                 <ColumnDefinition Width="14"/>
@@ -54,14 +54,13 @@
             </Grid>
         </Grid>
 
-        <!-- ── Content: Master (left) + Detail (right) Scrollable ───────────── -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <Grid Margin="16,6,16,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="280"/>
-                    <ColumnDefinition Width="14"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+        <!-- ── Content: Master (left) + Detail (right) ─────────────────────── -->
+        <Grid Grid.Row="1" Margin="16,14,16,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="14"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
             <!-- Left: Rules list ─────────────────────────────────────────── -->
             <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0" Padding="16">
@@ -220,8 +219,7 @@
                     </StackPanel>
                 </Grid>
             </Border>
-            </Grid>
-        </ScrollViewer>
+        </Grid>
 
         <!-- ── Footer ──────────────────────────────────────────────────────── -->
         <Border Grid.Row="2" Style="{DynamicResource FooterBar}" MinHeight="66">

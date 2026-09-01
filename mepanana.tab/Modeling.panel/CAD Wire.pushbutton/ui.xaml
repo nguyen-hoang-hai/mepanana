@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CAD Wire to Revit" Width="740" Height="500" MinWidth="680" MinHeight="420"
-        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        Title="CAD Wire to Revit" Width="720" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{DynamicResource WindowBgBrush}"
         FontFamily="Segoe UI" FontSize="12.5"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
@@ -21,7 +21,7 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- 0: CAD Link Selector -->
-            <RowDefinition Height="*"/>     <!-- 1: Scrollable Two Column Settings & Device Summary -->
+            <RowDefinition Height="Auto"/>  <!-- 1: Two Column Settings & Device Summary -->
             <RowDefinition Height="Auto"/>  <!-- 2: Footer Action Bar -->
         </Grid.RowDefinitions>
 
@@ -38,63 +38,61 @@
             </Grid>
         </Border>
 
-        <!-- ── Two Column Configuration & Auto-Detection Cards (Scrollable) ── -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+        <!-- ── Two Column Configuration & Auto-Detection Cards ─────────────── -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <!-- Left Card: Wire Settings -->
-                <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0" Padding="16">
-                    <StackPanel>
-                        <TextBlock Text="Wire Settings" Style="{DynamicResource SectionTitle}" Margin="0,0,0,12"/>
+            <!-- Left Card: Wire Settings -->
+            <Border Grid.Column="0" Style="{DynamicResource CardStyle}" Margin="0" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="Wire Settings" Style="{DynamicResource SectionTitle}" Margin="0,0,0,12"/>
 
-                        <!-- Wire Type -->
-                        <TextBlock Text="Revit Wire Type:" Style="{DynamicResource FieldLabel}"/>
-                        <ComboBox Name="cmbWireType" Height="32" Margin="0,0,0,14"/>
+                    <!-- Wire Type -->
+                    <TextBlock Text="Revit Wire Type:" Style="{DynamicResource FieldLabel}"/>
+                    <ComboBox Name="cmbWireType" Height="32" Margin="0,0,0,14"/>
 
-                        <!-- Wiring Style: Auto-detect -->
-                        <TextBlock Text="Wiring Style:" Style="{DynamicResource FieldLabel}"/>
-                        <Border Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
-                            <TextBlock Text="✨ Auto-Detect (Arc / Chamfer by CAD line)" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
-                        </Border>
+                    <!-- Wiring Style: Auto-detect -->
+                    <TextBlock Text="Wiring Style:" Style="{DynamicResource FieldLabel}"/>
+                    <Border Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
+                        <TextBlock Text="✨ Auto-Detect (Arc / Chamfer by CAD line)" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                    </Border>
 
-                        <!-- Snap Radius -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="90"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="Device Snap Radius:" Style="{DynamicResource FieldLabel}" Margin="0"/>
-                                <TextBlock Text="Tolerance to connect devices" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
-                            </StackPanel>
-                            <TextBox Name="txtSnapRadius" Grid.Column="1" Text="600" Height="32" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                    <!-- Snap Radius -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="90"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Device Snap Radius:" Style="{DynamicResource FieldLabel}" Margin="0"/>
+                            <TextBlock Text="Tolerance to connect devices" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
+                        </StackPanel>
+                        <TextBox Name="txtSnapRadius" Grid.Column="1" Text="600" Height="32" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
 
-                <!-- Right Card: Circuit, Panel & Auto-Detected Devices -->
-                <Border Grid.Column="2" Style="{DynamicResource CardStyle}" Margin="0" Padding="16">
-                    <StackPanel>
-                        <TextBlock Text="Circuit &amp; Devices" Style="{DynamicResource SectionTitle}" Margin="0,0,0,12"/>
+            <!-- Right Card: Circuit, Panel & Auto-Detected Devices -->
+            <Border Grid.Column="2" Style="{DynamicResource CardStyle}" Margin="0" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="Circuit &amp; Devices" Style="{DynamicResource SectionTitle}" Margin="0,0,0,12"/>
 
-                        <!-- Panelboard -->
-                        <TextBlock Text="Assign to Panelboard:" Style="{DynamicResource FieldLabel}"/>
-                        <ComboBox Name="cmbPanel" Height="32" Margin="0,0,0,14"/>
+                    <!-- Panelboard -->
+                    <TextBlock Text="Assign to Panelboard:" Style="{DynamicResource FieldLabel}"/>
+                    <ComboBox Name="cmbPanel" Height="32" Margin="0,0,0,14"/>
 
-                        <!-- Auto-Detected Categories & Elements Box -->
-                        <TextBlock Text="Active View Elements:" Style="{DynamicResource FieldLabel}"/>
-                        <Border Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" MinHeight="68">
-                            <TextBlock Name="txtDeviceStatus" Text="Scanning active view categories..." FontSize="11.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" LineHeight="17"/>
-                        </Border>
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </ScrollViewer>
+                    <!-- Auto-Detected Categories & Elements Box -->
+                    <TextBlock Text="Active View Elements:" Style="{DynamicResource FieldLabel}"/>
+                    <Border Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" MinHeight="68">
+                        <TextBlock Name="txtDeviceStatus" Text="Scanning active view categories..." FontSize="11.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" LineHeight="17"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!-- ── Footer Action Bar ───────────────────────────────────────────── -->
         <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0" Padding="14,10">
