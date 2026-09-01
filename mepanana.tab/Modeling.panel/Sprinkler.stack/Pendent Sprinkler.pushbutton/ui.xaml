@@ -124,7 +124,7 @@
                 </Grid>
 
                 <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="4">
-                    <Canvas x:Name="canvasPreview" Height="145" ClipToBounds="True" Background="Transparent" />
+                    <Canvas x:Name="canvasPreview" Height="150" ClipToBounds="True" Background="Transparent" />
                 </Border>
             </StackPanel>
         </Border>
