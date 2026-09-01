@@ -1,6 +1,7 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
-Upright Sprinkler Connector - Under Development
+Upright Sprinkler Connector - Controller Script
 Part of mepanana.extension.
 """
 import os

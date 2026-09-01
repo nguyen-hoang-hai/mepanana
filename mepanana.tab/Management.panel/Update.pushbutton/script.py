@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 """
 Update.pushbutton - MEPANANA Extension In-App Auto-Updater

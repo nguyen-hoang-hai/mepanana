@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 __title__ = "Schedule Link"
 __doc__   = "Export and Import Revit Schedules to/from Excel (.xlsx)."

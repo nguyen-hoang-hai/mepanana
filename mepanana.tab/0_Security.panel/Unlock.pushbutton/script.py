@@ -1,3 +1,4 @@
+#! python3
 # -*- coding: utf-8 -*-
 __title__ = "Unlock"
 __doc__   = "Unlock or Lock mepanana tools for the current Revit session."

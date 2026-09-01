@@ -47,6 +47,28 @@ def ft_to_mm(ft):
     """Converts feet to millimeters"""
     return ft * 304.8
 
+def get_revit_year():
+    """Returns the host Revit release year as integer (e.g. 2024, 2025, 2026)."""
+    try:
+        from pyrevit import HOST_APP
+        return int(HOST_APP.version)
+    except Exception:
+        try:
+            app = get_app()
+            if app:
+                return int(app.VersionNumber)
+        except Exception:
+            pass
+    return 2024
+
+def is_net_core():
+    """Returns True if running under .NET 8 / .NET Core runtime (Revit 2025+)."""
+    try:
+        import System
+        return System.Environment.Version.Major >= 8
+    except Exception:
+        return False
+
 def safe_unicode(val):
     """
     Safely converts any value (string, exception, object) to Unicode without throwing UnicodeEncodeError.
