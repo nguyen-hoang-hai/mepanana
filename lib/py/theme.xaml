@@ -25,6 +25,20 @@
     <SolidColorBrush x:Key="SelectedRowBrush"           Color="#EFF6FF"/>
     <SolidColorBrush x:Key="AltRowBrush"                Color="#F8FAFC"/>
 
+    <!-- Status Badges & Alerts -->
+    <SolidColorBrush x:Key="SuccessBgBrush"             Color="#F0FDF4"/>
+    <SolidColorBrush x:Key="SuccessBorderBrush"         Color="#BBF7D0"/>
+    <SolidColorBrush x:Key="SuccessTextBrush"           Color="#15803D"/>
+    <SolidColorBrush x:Key="WarningBgBrush"             Color="#FEF3C7"/>
+    <SolidColorBrush x:Key="WarningBorderBrush"         Color="#FCD34D"/>
+    <SolidColorBrush x:Key="WarningTextBrush"           Color="#B45309"/>
+    <SolidColorBrush x:Key="DangerBgBrush"              Color="#FEF2F2"/>
+    <SolidColorBrush x:Key="DangerBorderBrush"          Color="#FECACA"/>
+    <SolidColorBrush x:Key="DangerTextBrush"            Color="#DC2626"/>
+    <SolidColorBrush x:Key="InfoBgBrush"                Color="#EFF6FF"/>
+    <SolidColorBrush x:Key="InfoBorderBrush"            Color="#BFDBFE"/>
+    <SolidColorBrush x:Key="InfoTextBrush"              Color="#1D4ED8"/>
+
     <!-- ── Card ────────────────────────────────────────────────────────────── -->
     <Style x:Key="CardStyle" TargetType="Border">
         <Setter Property="Background"       Value="{StaticResource CardBgBrush}"/>
@@ -108,6 +122,10 @@
         <Setter Property="Background"      Value="White"/>
         <Setter Property="Foreground"      Value="{StaticResource TextBrush}"/>
         <Setter Property="FontSize"        Value="12.5"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        <Setter Property="ScrollViewer.IsDeferredScrollingEnabled" Value="False"/>
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
     </Style>
 
     <Style TargetType="ListBoxItem">
@@ -281,6 +299,27 @@
     </Style>
 
     <!-- ── DataGrid ─────────────────────────────────────────────────────────── -->
+    <Style TargetType="DataGrid">
+        <Setter Property="EnableRowVirtualization"          Value="True"/>
+        <Setter Property="EnableColumnVirtualization"       Value="True"/>
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling"/>
+        <Setter Property="ScrollViewer.IsDeferredScrollingEnabled" Value="False"/>
+        <Setter Property="ScrollViewer.CanContentScroll"    Value="True"/>
+        <Setter Property="Background"                       Value="White"/>
+        <Setter Property="BorderBrush"                      Value="{StaticResource BorderBrush}"/>
+        <Setter Property="BorderThickness"                  Value="1"/>
+        <Setter Property="GridLinesVisibility"              Value="Horizontal"/>
+        <Setter Property="HorizontalGridLinesBrush"         Value="{StaticResource GridLineBrush}"/>
+        <Setter Property="VerticalGridLinesBrush"           Value="Transparent"/>
+        <Setter Property="RowHeaderWidth"                   Value="0"/>
+        <Setter Property="AutoGenerateColumns"              Value="False"/>
+        <Setter Property="CanUserAddRows"                   Value="False"/>
+        <Setter Property="CanUserDeleteRows"                Value="False"/>
+        <Setter Property="CanUserResizeRows"                Value="False"/>
+        <Setter Property="FontSize"                         Value="12.5"/>
+    </Style>
+
     <Style TargetType="DataGridColumnHeader">
         <Setter Property="Background"               Value="{StaticResource WindowBgBrush}"/>
         <Setter Property="Foreground"               Value="{StaticResource MutedTextBrush}"/>

@@ -132,11 +132,11 @@
 
                     <!-- Update Now Button (Solid Accent Blue) -->
                     <Button Name="btnUpdate" Style="{DynamicResource PrimaryButton}" Height="32" Padding="16,0" Margin="0,0,8,0"
-                            Content="🚀 Update Now" Cursor="Hand" IsEnabled="False" Click="OnUpdateClick" />
+                            Content="🚀 Update Now" Cursor="Hand" IsEnabled="False" Click="OnUpdateClick" IsDefault="True" />
 
                     <!-- Close Button -->
                     <Button Name="btnClose" Style="{DynamicResource GhostButton}" Height="32" Padding="14,0"
-                            Content="Close" Cursor="Hand" Click="OnCloseClick" />
+                            Content="Close" Cursor="Hand" Click="OnCloseClick" IsCancel="True" />
                 </StackPanel>
             </Grid>
         </Grid>

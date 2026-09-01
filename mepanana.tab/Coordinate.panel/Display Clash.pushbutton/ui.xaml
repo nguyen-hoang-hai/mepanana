@@ -90,9 +90,12 @@
                         <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="24" MinWidth="44" Padding="8,0" FontSize="11"/>
                     </Grid>
 
-                    <!-- Scrollable Category ListBox -->
+                    <!-- Scrollable Category ListBox with Virtualization -->
                     <Border Grid.Row="2" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4">
                         <ListBox Name="lstCategories" BorderThickness="0" Background="Transparent"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 ScrollViewer.IsDeferredScrollingEnabled="False"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
@@ -122,9 +125,12 @@
                         <TextBlock Name="txtClashCount" Grid.Column="1" Text="0 clashes detected" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
                     </Grid>
 
-                    <!-- Clashes ListBox (Clean, single-line rows) -->
+                    <!-- Clashes ListBox with Virtualization -->
                     <Border Grid.Row="1" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4">
                         <ListBox Name="lstClashes" BorderThickness="0" Background="Transparent"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 ScrollViewer.IsDeferredScrollingEnabled="False"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
@@ -169,8 +175,8 @@
 
                     <TextBlock Name="txtStatus" Grid.Column="1" Text="Ready" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" Margin="14,0" TextTrimming="CharacterEllipsis"/>
 
-                    <Button Name="btnClose" Grid.Column="2" Content="Close" Style="{DynamicResource GhostButton}" Height="32" MinWidth="80" Margin="0,0,8,0"/>
-                    <Button Name="btnAnalyze" Grid.Column="3" Content="⚡ Analyze Clashes" Style="{DynamicResource PrimaryButton}" Height="32" MinWidth="140"/>
+                    <Button Name="btnClose" Grid.Column="2" Content="Close" Style="{DynamicResource GhostButton}" Height="32" MinWidth="80" Margin="0,0,8,0" IsCancel="True"/>
+                    <Button Name="btnAnalyze" Grid.Column="3" Content="⚡ Analyze Clashes" Style="{DynamicResource PrimaryButton}" Height="32" MinWidth="140" IsDefault="True"/>
                 </Grid>
             </Grid>
         </Border>

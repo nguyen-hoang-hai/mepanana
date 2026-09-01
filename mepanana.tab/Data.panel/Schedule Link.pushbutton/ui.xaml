@@ -96,9 +96,12 @@
                                    VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,4,0"/>
                     </Grid>
 
-                    <!-- Schedules ListBox -->
+                    <!-- Schedules ListBox with Virtualization -->
                     <ListBox Grid.Row="2" Name="lstExportSchedules"
                              Margin="0,0,0,12"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.IsDeferredScrollingEnabled="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"/>
 
@@ -215,8 +218,11 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- ListView for Diff Results -->
+                    <!-- ListView for Diff Results with Virtualization -->
                     <ListView Grid.Row="1" Name="lvDiff"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              ScrollViewer.IsDeferredScrollingEnabled="False"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
                               ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListView.View>
