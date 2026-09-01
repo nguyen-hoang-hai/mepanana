@@ -275,40 +275,41 @@ class PendentSprinklerWindow(forms.WPFWindow):
 
         if is_flex:
             # ── MODE 1: FLEXIBLE SPRINKLER HOSE (S-CURVE) ─────────────────────
-            # 1. Main pipe at top
+            # 1. Branch pipe at top (Red pipe)
             add_line(25, 26, 145, 26, pipe_brush, 9)
-            add_badge("Main Pipe", 38, 8, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge("Branch Line", 38, 8, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-            # 2. Direct Takeoff Fitting
+            # 2. Horizontal 90° Takeoff / Nipple
             add_circle(85, 26, 6, fitting_brush, pipe_brush, 1.5)
-            add_badge("Takeoff", 100, 36, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_line(85, 26, 135, 26, pipe_brush, 5.5, rounded=True)
+            add_circle(135, 26, 4.5, fitting_brush, pipe_brush, 1.2)
+            add_badge("90° Horizontal Takeoff", 92, 8, badge_blue_bg, badge_blue_border, badge_blue_fg)
 
-            # 3. Smooth S-Curve Flex Hose Drawing (Approximated 8-segment smooth curve)
+            # 3. Smooth G-FLEX25N Arched Hose Drawing (Horizontal takeoff -> Arch down -> Vertical entry)
             s_points = [
-                (85, 26),
-                (95, 38),
-                (115, 52),
-                (150, 60),
-                (200, 62),
-                (245, 68),
-                (280, 80),
-                (280, 102)
+                (135, 26),
+                (175, 26),
+                (210, 32),
+                (240, 48),
+                (260, 68),
+                (268, 88),
+                (268, 103)
             ]
             for i in range(len(s_points) - 1):
                 p_a = s_points[i]
                 p_b = s_points[i+1]
                 add_line(p_a[0], p_a[1], p_b[0], p_b[1], pipe_brush, 4.5, rounded=True)
 
-            # 4. Sprinkler Head at bottom
-            add_sprinkler_head(280, 103)
+            # 4. Sprinkler Head at bottom with ceiling bracket
+            add_sprinkler_head(268, 104)
 
             # 5. Badges & Annotations
-            add_badge("🌀 S-Curve Flex Hose (" + drop_str + ")", 145, 14, badge_red_bg, badge_red_border, badge_red_fg)
-            add_badge("90° Vertical Entry", 295, 78, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge("🌀 G-FLEX Hose (" + drop_str + ")", 145, 52, badge_red_bg, badge_red_border, badge_red_fg)
+            add_badge("90° Vertical Entry", 280, 80, badge_blue_bg, badge_blue_border, badge_blue_fg)
             add_badge("NFPA 13: R ≥ 250mm", 140, 84, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-            # Ceiling grid line
-            add_line(230, 103, 330, 103, dim_gray, 1, dash=True)
+            # Ceiling grid line & bracket
+            add_line(210, 104, 330, 104, dim_gray, 1, dash=True)
             add_badge("Ceiling Level", 335, 96, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
 
         else:

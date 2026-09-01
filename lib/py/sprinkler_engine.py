@@ -346,15 +346,23 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
         drop_bot_conn = None
 
         if is_flex_mode and flex_pipe_type_id:
-            # ── ỐNG MỀM (FLEXIBLE SPRINKLER HOSE S-CURVE) ──
+            # ── ỐNG MỀM (G-FLEX25N GS FIRE SAFETY: XOAY NGANG 90° CHUẨN NFPA 13) ──
             p_start = node_pt
             p_end = sp_conn.Origin if sp_conn else DB.XYZ(node_pt.X, node_pt.Y, sp_pt.Z)
             delta_z = p_start.Z - p_end.Z
 
-            # Natural S-Curve lateral offset (150mm perpendicular to branch line)
-            offset_dir = perp_vec if (i % 2 == 0) else -perp_vec
-            p_knee1 = p_start + offset_dir.Multiply(mm_to_ft(120.0)) - DB.XYZ(0, 0, delta_z * 0.15)
-            p_knee2 = DB.XYZ(p_end.X, p_end.Y, p_end.Z + delta_z * 0.35)
+            # Xác định hướng vươn ngang 90° vuông góc ống nhánh (theo phía đầu phun hoặc mặc định)
+            sp_rel = sp_pt - node_pt
+            dot = sp_rel.DotProduct(perp_vec)
+            offset_dir = perp_vec if dot >= 0 else -perp_vec
+
+            # 4 Điểm uốn tạo hình G-FLEX25N-T700: Vươn ngang 90° -> Uốn cong vòng cung -> Cắm thẳng 90°
+            # P1: Tim ống nhánh
+            # P2: Vươn ngang 90° ra khỏi thân ống (khoảng cách 180mm giữ nguyên cao độ Z)
+            p_knee1 = p_start + offset_dir.Multiply(mm_to_ft(180.0)) - DB.XYZ(0, 0, delta_z * 0.05)
+            # P3: Đỉnh vòng cung uốn lượn phía trên thanh treo trần
+            p_knee2 = DB.XYZ(p_end.X + offset_dir.X * mm_to_ft(40.0), p_end.Y + offset_dir.Y * mm_to_ft(40.0), p_end.Z + delta_z * 0.45)
+            # P4: Đầu nối ren thẳng đứng tại đầu phun
 
             points = ClrList[DB.XYZ]()
             points.Add(p_start)
@@ -362,7 +370,9 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
             points.Add(p_knee2)
             points.Add(p_end)
 
-            start_tangent = (offset_dir - DB.XYZ(0, 0, 0.4)).Normalize()
+            # Tiếp tuyến xuất phát: BẮT BUỘC VUÔNG GÓC NGANG 90° (Z = 0)
+            start_tangent = offset_dir
+            # Tiếp tuyến kết thúc: BẮT BUỘC THẲNG ĐỨNG 90° XUỐNG DƯỚI
             end_tangent = DB.XYZ(0, 0, -1.0)
 
             try:
