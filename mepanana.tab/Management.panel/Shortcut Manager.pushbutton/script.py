@@ -1,4 +1,3 @@
-#! python3
 # -*- coding: utf-8 -*-
 __title__ = "Shortcut Manager"
 __doc__   = "Assign and manage custom keyboard shortcuts for mepanana tools."

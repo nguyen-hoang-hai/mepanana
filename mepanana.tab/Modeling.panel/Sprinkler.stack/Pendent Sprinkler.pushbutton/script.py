@@ -1,4 +1,3 @@
-#! python3
 # -*- coding: utf-8 -*-
 """
 Pendent Sprinkler Connector - Controller Script

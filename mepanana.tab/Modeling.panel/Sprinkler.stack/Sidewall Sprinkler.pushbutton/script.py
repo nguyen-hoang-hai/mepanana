@@ -1,7 +1,6 @@
-#! python3
 # -*- coding: utf-8 -*-
 """
-Sidewall Sprinkler Connector - Controller Script
+Sidewall Sprinkler Connector - Under Development
 Part of mepanana.extension.
 """
 import os

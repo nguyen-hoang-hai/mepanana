@@ -1,4 +1,3 @@
-#! python3
 # -*- coding: utf-8 -*-
 """
 Display Clash - Transient Visual Clash Analysis for MEP Elements, Architecture & Structure

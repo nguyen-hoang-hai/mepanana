@@ -32,25 +32,10 @@ from Autodesk.Revit.DB import (
 
 from py.core import SafeTransaction, mm_to_ft, ft_to_mm, get_id_value, safe_unicode
 
-# ── Load Latest Compiled C# AVF Assembly (Multi-Targeting Aware) ──────────
-lib_dir = os.path.dirname(__file__)
-dll_candidates = []
-try:
-    from py.core import is_net_core
-    if is_net_core():
-        dll_candidates.append(os.path.join(lib_dir, "bin", "net8.0-windows", "MepananaAvf.dll"))
-except Exception:
-    pass
-dll_candidates.append(os.path.join(lib_dir, "bin", "net48", "MepananaAvf.dll"))
-dll_candidates.append(os.path.join(lib_dir, "MepananaAvf.dll"))
+# ── Load Latest Compiled C# AVF Assembly ────────────────────────────────────
+dll_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "MepananaAvf.dll"))
 
-dll_path = None
-for candidate in dll_candidates:
-    if os.path.exists(candidate):
-        dll_path = candidate
-        break
-
-if dll_path and os.path.exists(dll_path):
+if os.path.exists(dll_path):
     try:
         clr.AddReferenceToFileAndPath(dll_path)
         from Mepanana.Avf import ClashVisualizer, ClashPolygonData, NativeGeometryEngine, NativeClashResult

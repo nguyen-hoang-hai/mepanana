@@ -1,4 +1,3 @@
-#! python3
 # -*- coding: utf-8 -*-
 __title__ = "CAD Blocks"
 __doc__   = "Place Revit families at CAD block positions based on layer mapping rules."
