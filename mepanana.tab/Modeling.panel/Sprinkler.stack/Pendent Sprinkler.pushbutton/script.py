@@ -274,43 +274,93 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_line(cx + 6, cy + 11, cx + 10, cy + 18, spray_blue, 1.2)
 
         if is_flex:
-            # ── MODE 1: FLEXIBLE SPRINKLER HOSE (G-FLEX25N-T700 GS FIRE SAFETY) ──
-            # 1. Branch pipe at top (Red pipe)
-            add_line(25, 24, 135, 24, pipe_brush, 9)
-            add_badge("Branchline", 28, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            # ── MODE 1: MASTERPIECE G-FLEX25N-T700 GS FIRE SAFETY SCHEMATIC ──
+            brass_brush = SolidColorBrush(Color.FromRgb(217, 119, 6))      # Amber/Brass #D97706
+            brass_dark = SolidColorBrush(Color.FromRgb(180, 83, 9))        # Dark Brass #B45309
+            hose_core = SolidColorBrush(Color.FromRgb(248, 113, 113))      # Vibrant Coral Red #F87171
+            hose_border = SolidColorBrush(Color.FromRgb(185, 28, 28))      # Deep Red #B91C1C
+            corrugation_brush = SolidColorBrush(Color.FromArgb(180, 71, 85, 105)) # Steel Ribs #475569
+            steel_bracket = SolidColorBrush(Color.FromRgb(148, 163, 184))  # Bracket Slate #94A3B8
 
-            # 2. Horizontal 90° Takeoff / Nipple
-            add_circle(75, 24, 6, fitting_brush, pipe_brush, 1.5)
-            add_line(75, 24, 125, 24, pipe_brush, 5.5, rounded=True)
-            add_circle(125, 24, 4.5, fitting_brush, pipe_brush, 1.2)
-            add_badge("90° Takeoff", 135, 6, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            # 1. Branchline Supply (Horizontal Red Pipe)
+            add_line(15, 25, 95, 25, pipe_brush, 10)
+            add_circle(15, 25, 5, fitting_brush, pipe_brush, 1.2)
+            add_circle(95, 25, 5, fitting_brush, pipe_brush, 1.2)
+            add_badge("Branch Supply", 16, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-            # 3. Smooth G-FLEX25N Arched Hose Drawing (Horizontal takeoff -> Arch down -> Vertical entry)
-            s_points = [
-                (125, 24),
-                (165, 24),
-                (205, 30),
-                (240, 48),
-                (262, 70),
-                (270, 90),
-                (270, 106)
-            ]
-            for i in range(len(s_points) - 1):
-                p_a = s_points[i]
-                p_b = s_points[i+1]
-                add_line(p_a[0], p_a[1], p_b[0], p_b[1], pipe_brush, 4.5, rounded=True)
+            # 2. Mechanical Tee & Brass Takeoff Nipple (Shoots 90° horizontally)
+            add_circle(55, 25, 7.5, fitting_brush, brass_dark, 1.8)
+            add_line(55, 25, 90, 25, brass_brush, 6, rounded=False)
+            add_circle(90, 25, 5, brass_dark, brass_brush, 1.5)
+            add_badge("90° Takeoff", 70, 6, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_line(82, 17, 82, 21, badge_blue_border, 1)
 
-            # 4. Sprinkler Head at bottom with ceiling bracket
-            add_sprinkler_head(270, 107)
+            # 3. Parametric Bézier G-FLEX Corrugated Hose
+            p0 = (90.0, 25.0)
+            p1 = (195.0, 25.0)
+            p2 = (255.0, 42.0)
+            p3 = (255.0, 102.0)
 
-            # 5. Badges & Annotations (Non-overlapping positions)
-            add_badge("🌀 G-FLEX Hose (" + drop_str + ")", 140, 46, badge_red_bg, badge_red_border, badge_red_fg)
-            add_badge("90° Vertical Entry", 286, 78, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_badge("NFPA 13: R ≥ 250mm", 135, 78, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            sample_pts = []
+            sample_normals = []
+            num_samples = 32
+            for s_idx in range(num_samples + 1):
+                t = float(s_idx) / float(num_samples)
+                bx = (1-t)**3 * p0[0] + 3*(1-t)**2 * t * p1[0] + 3*(1-t) * t**2 * p2[0] + t**3 * p3[0]
+                by = (1-t)**3 * p0[1] + 3*(1-t)**2 * t * p1[1] + 3*(1-t) * t**2 * p2[1] + t**3 * p3[1]
+                sample_pts.append((bx, by))
 
-            # Ceiling grid line & bracket
-            add_line(205, 107, 335, 107, dim_gray, 1, dash=True)
-            add_badge("Ceiling Level", 340, 99, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
+                dx = 3*(1-t)**2 * (p1[0]-p0[0]) + 6*(1-t)*t * (p2[0]-p1[0]) + 3*t**2 * (p3[0]-p2[0])
+                dy = 3*(1-t)**2 * (p1[1]-p0[1]) + 6*(1-t)*t * (p2[1]-p1[1]) + 3*t**2 * (p3[1]-p2[1])
+                l = (dx*dx + dy*dy)**0.5
+                if l < 1e-6:
+                    sample_normals.append((0.0, 1.0))
+                else:
+                    sample_normals.append((-dy/l, dx/l))
+
+            # Outer hose contour
+            for i in range(len(sample_pts) - 1):
+                pa = sample_pts[i]; pb = sample_pts[i+1]
+                add_line(pa[0], pa[1], pb[0], pb[1], hose_border, 5.8, rounded=True)
+            # Inner hose core
+            for i in range(len(sample_pts) - 1):
+                pa = sample_pts[i]; pb = sample_pts[i+1]
+                add_line(pa[0], pa[1], pb[0], pb[1], hose_core, 3.8, rounded=True)
+
+            # Corrugation metallic ribs across the hose
+            for i in range(2, len(sample_pts) - 2, 2):
+                c_pt = sample_pts[i]
+                c_n = sample_normals[i]
+                r_x1 = c_pt[0] - c_n[0] * 3.0
+                r_y1 = c_pt[1] - c_n[1] * 3.0
+                r_x2 = c_pt[0] + c_n[0] * 3.0
+                r_y2 = c_pt[1] + c_n[1] * 3.0
+                add_line(r_x1, r_y1, r_x2, r_y2, corrugation_brush, 1.2, rounded=False)
+
+            # 4. Ceiling Grid & Mounting Bracket
+            add_line(170, 106, 340, 106, dim_gray, 1, dash=True)
+            add_line(210, 103, 300, 103, steel_bracket, 3.5, rounded=True)
+            add_circle(215, 103, 2.5, brass_brush, brass_dark, 1)
+            add_circle(295, 103, 2.5, brass_brush, brass_dark, 1)
+
+            # Reducer Nipple into bracket
+            add_line(255, 96, 255, 106, brass_brush, 6, rounded=False)
+            add_circle(255, 105, 4.5, brass_dark, brass_brush, 1.2)
+
+            # 5. Sprinkler Pendent Head
+            add_sprinkler_head(255, 106)
+
+            # 6. Badges & Technical Callouts with crisp leader lines
+            add_badge("🌀 G-FLEX Hose (" + drop_str + ")", 125, 46, badge_red_bg, badge_red_border, badge_red_fg)
+            add_line(180, 50, 185, 34, badge_red_border, 1)
+
+            add_badge("NFPA 13: R ≥ 250mm", 115, 76, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_line(175, 78, 220, 52, badge_gray_border, 1)
+
+            add_badge("90° Vertical Entry", 270, 76, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_line(270, 80, 258, 98, badge_blue_border, 1)
+
+            add_badge("Ceiling & Bracket", 315, 98, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
 
         else:
             # ── MODE 2: RIGID STEEL PIPE DROP (RISER NIPPLE) ──────────────────
