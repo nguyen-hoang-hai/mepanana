@@ -171,9 +171,9 @@ class PendentSprinklerWindow(forms.WPFWindow):
             self.lblRiserHeight.Opacity = 0.4 if is_flex else 1.0
         if hasattr(self, 'txtModeNote'):
             if is_flex:
-                self.txtModeNote.Text = u"* Tự động kiểm tra độ cao thả Z >= 150mm để chống gập ống mềm (NFPA 13)"
+                self.txtModeNote.Text = u"* Automatic minimum drop check (ΔZ ≥ 150mm / R ≥ 250mm per NFPA 13)"
             else:
-                self.txtModeNote.Text = u"* Phân bổ cỡ ống theo TCVN 7336 & tạo khớp Nipple ống thép đứng"
+                self.txtModeNote.Text = u"* Stepped hydraulic pipe schedule & riser nipple (TCVN 7336 / NFPA 13)"
         if hasattr(self, 'txtPreviewTag'):
             self.txtPreviewTag.Text = u"⚡ Mode: Flex Hose S-Curve" if is_flex else u"⚡ Mode: Rigid Steel Drop"
 
@@ -274,26 +274,26 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_line(cx + 6, cy + 11, cx + 10, cy + 18, spray_blue, 1.2)
 
         if is_flex:
-            # ── MODE 1: FLEXIBLE SPRINKLER HOSE (S-CURVE) ─────────────────────
+            # ── MODE 1: FLEXIBLE SPRINKLER HOSE (G-FLEX25N-T700 GS FIRE SAFETY) ──
             # 1. Branch pipe at top (Red pipe)
-            add_line(25, 26, 145, 26, pipe_brush, 9)
-            add_badge("Branch Line", 38, 8, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_line(25, 24, 135, 24, pipe_brush, 9)
+            add_badge("Branchline", 28, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
             # 2. Horizontal 90° Takeoff / Nipple
-            add_circle(85, 26, 6, fitting_brush, pipe_brush, 1.5)
-            add_line(85, 26, 135, 26, pipe_brush, 5.5, rounded=True)
-            add_circle(135, 26, 4.5, fitting_brush, pipe_brush, 1.2)
-            add_badge("90° Horizontal Takeoff", 92, 8, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_circle(75, 24, 6, fitting_brush, pipe_brush, 1.5)
+            add_line(75, 24, 125, 24, pipe_brush, 5.5, rounded=True)
+            add_circle(125, 24, 4.5, fitting_brush, pipe_brush, 1.2)
+            add_badge("90° Takeoff", 135, 6, badge_blue_bg, badge_blue_border, badge_blue_fg)
 
             # 3. Smooth G-FLEX25N Arched Hose Drawing (Horizontal takeoff -> Arch down -> Vertical entry)
             s_points = [
-                (135, 26),
-                (175, 26),
-                (210, 32),
+                (125, 24),
+                (165, 24),
+                (205, 30),
                 (240, 48),
-                (260, 68),
-                (268, 88),
-                (268, 103)
+                (262, 70),
+                (270, 90),
+                (270, 106)
             ]
             for i in range(len(s_points) - 1):
                 p_a = s_points[i]
@@ -301,16 +301,16 @@ class PendentSprinklerWindow(forms.WPFWindow):
                 add_line(p_a[0], p_a[1], p_b[0], p_b[1], pipe_brush, 4.5, rounded=True)
 
             # 4. Sprinkler Head at bottom with ceiling bracket
-            add_sprinkler_head(268, 104)
+            add_sprinkler_head(270, 107)
 
-            # 5. Badges & Annotations
-            add_badge("🌀 G-FLEX Hose (" + drop_str + ")", 145, 52, badge_red_bg, badge_red_border, badge_red_fg)
-            add_badge("90° Vertical Entry", 280, 80, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_badge("NFPA 13: R ≥ 250mm", 140, 84, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            # 5. Badges & Annotations (Non-overlapping positions)
+            add_badge("🌀 G-FLEX Hose (" + drop_str + ")", 140, 46, badge_red_bg, badge_red_border, badge_red_fg)
+            add_badge("90° Vertical Entry", 286, 78, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge("NFPA 13: R ≥ 250mm", 135, 78, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
             # Ceiling grid line & bracket
-            add_line(210, 104, 330, 104, dim_gray, 1, dash=True)
-            add_badge("Ceiling Level", 335, 96, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
+            add_line(205, 107, 335, 107, dim_gray, 1, dash=True)
+            add_badge("Ceiling Level", 340, 99, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
 
         else:
             # ── MODE 2: RIGID STEEL PIPE DROP (RISER NIPPLE) ──────────────────
@@ -457,8 +457,8 @@ def run():
                 flex_types = list(DB.FilteredElementCollector(doc).OfClass(FlexPipeType).ToElements())
                 if not flex_types:
                     show_error(
-                        u"Dự án chưa có loại Ống Mềm (FlexPipeType) nào.\n\n"
-                        u"Vui lòng nạp hoặc tạo ít nhất 1 loại Ống Mềm trong Revit (Hệ thống Piping) trước khi chạy!",
+                        u"The project does not contain any FlexPipeType.\n\n"
+                        u"Please load or create at least one Flexible Pipe Type in Revit (Piping System) before running!",
                         "Missing FlexPipeType"
                     )
                     continue
@@ -483,23 +483,23 @@ def run():
                 t.Commit()
                 tg.Assimilate()
 
-                mode_str = u"Ống Mềm (Flexible Sprinkler Hose S-Curve)" if is_flex_mode else u"Ống Cứng (Rigid Steel Drop)"
-                msg = u"🎉 Đã tạo thành công mạng lưới Sprinkler Pendent!\n\n"
-                msg += u"• Chế độ: {}\n".format(mode_str)
-                msg += u"• Tiêu chuẩn: {}\n".format(selected_std)
-                msg += u"• Cỡ ống thả: DN{}\n".format(drop_dn)
-                msg += u"• Chiều cao Riser Nipple: {} mm\n".format(int(riser_h_val))
-                msg += u"• Số nhánh ống (Branchlines): {}\n".format(len(branches))
-                msg += u"• Số đầu phun đã kết nối: {}\n".format(len(selected_sprinklers))
-                msg += u"• Đoạn ống đã tạo: {}\n".format(len(created_pipes))
-                msg += u"• Phụ kiện (Tê/Cút/Côn thu): {}\n".format(len(created_fittings))
+                mode_str = u"Flexible Hose (G-FLEX S-Curve - NFPA 13)" if is_flex_mode else u"Rigid Steel Pipe Drop (TCVN 7336)"
+                msg = u"🎉 Pendent Sprinkler Network Created Successfully!\n\n"
+                msg += u"• Connection Mode: {}\n".format(mode_str)
+                msg += u"• Sizing Standard: {}\n".format(selected_std)
+                msg += u"• Drop Pipe Size: DN{}\n".format(drop_dn)
+                msg += u"• Riser Nipple Height: {} mm\n".format(int(riser_h_val))
+                msg += u"• Branch lines created: {}\n".format(len(branches))
+                msg += u"• Total Sprinklers connected: {}\n".format(len(selected_sprinklers))
+                msg += u"• Pipe segments created: {}\n".format(len(created_pipes))
+                msg += u"• Fittings placed (Tees / Elbows / Reducers): {}\n".format(len(created_fittings))
 
                 if errors:
-                    msg += u"\n⚠️ Cảnh báo ({}/{} đầu chưa kết nối được):\n• ".format(
+                    msg += u"\n⚠️ Notices ({}/{} heads skipped):\n• ".format(
                         len(errors), len(selected_sprinklers)
                     ) + u"\n• ".join(errors[:4])
 
-                show_info(msg, "Pendent Sprinkler Studio - Hoàn Tất")
+                show_info(msg, "Pendent Sprinkler Studio - Complete")
                 break
 
             except Exception as ex:
@@ -507,7 +507,7 @@ def run():
                     t.RollBack()
                 if tg.HasStarted() and not tg.HasEnded():
                     tg.RollBack()
-                show_error(u"Lỗi trong quá trình tạo mạng lưới sprinkler:\n{}".format(safe_unicode(ex)), "Lỗi Khởi Tạo")
+                show_error(u"Error while generating sprinkler system:\n{}".format(safe_unicode(ex)), "Generation Error")
                 break
 
         else:

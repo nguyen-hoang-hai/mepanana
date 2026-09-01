@@ -69,13 +69,13 @@
                             <RadioButton x:Name="rbFlex" GroupName="SprinklerMode" IsChecked="True" Margin="0,0,0,8" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="🌀" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Ống Mềm (Flexible Sprinkler Hose - Uốn S-Curve)" FontWeight="Bold" Foreground="#EF4444" VerticalAlignment="Center" />
+                                    <TextBlock Text="Flexible Hose (G-FLEX S-Curve - NFPA 13)" FontWeight="Bold" Foreground="#EF4444" VerticalAlignment="Center" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton x:Name="rbRigid" GroupName="SprinklerMode" Margin="0" Cursor="Hand">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="📐" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Ống Cứng (Rigid Steel Pipe Drop - Riser Nipple)" FontWeight="Bold" Foreground="#3B82F6" VerticalAlignment="Center" />
+                                    <TextBlock Text="Rigid Steel Pipe (Direct Drop &amp; Riser Nipple)" FontWeight="Bold" Foreground="#3B82F6" VerticalAlignment="Center" />
                                 </StackPanel>
                             </RadioButton>
                         </StackPanel>
@@ -103,7 +103,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock x:Name="txtModeNote" Text="* Tự động kiểm tra độ cao thả Z &gt;= 150mm để chống gập ống mềm" FontSize="10.5" Foreground="{DynamicResource MutedTextBrush}" FontStyle="Italic" Margin="0,8,0,0" />
+                    <TextBlock x:Name="txtModeNote" Text="* Automatic minimum drop check (ΔZ ≥ 150mm / R ≥ 250mm per NFPA 13)" FontSize="10.5" Foreground="{DynamicResource MutedTextBrush}" FontStyle="Italic" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
 
