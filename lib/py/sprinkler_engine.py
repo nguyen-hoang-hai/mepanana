@@ -284,17 +284,21 @@ def connect_branch_to_main(doc, riser_or_pipe, main_pipe_pool, main_connect_pt):
 
 # ── Routing & Pipe Creation Engine ───────────────────────────────────────────
 
-def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origin_pt, items, dir_vec, standard_name, drop_diameter_ft, created_pipes, created_fittings, errors):
+def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origin_pt, items, dir_vec, standard_name, drop_diameter_ft, created_pipes, created_fittings, errors, is_flex_mode=False, flex_pipe_type_id=None):
     """
     Builds branch line matching exact CAD Detail with 50% compact spool length (120mm):
     - Reduction points (dn_out < dn_in): [ Equal Tee ] -> [ 120mm Spool ] -> [ Reducer ] -> [ Next Pipe ].
     - Equal size points (dn_out == dn_in): [ Normal Equal Tee ] connecting continuous pipes directly.
-    - Branch end: [ 90° Elbow ] dropping straight to ceiling sprinkler head.
-    - Guarantees 100% Sprinkler Coverage (0 skipped heads).
+    - Branch end: [ 90° Elbow ] dropping to ceiling sprinkler head.
+    - Supports both Flex Hose S-Curve drops (NFPA 13) and Rigid Pipe drops (TCVN 7336).
     """
     num_heads = len(items)
     if num_heads == 0:
         return None
+
+    import clr
+    clr.AddReference("System")
+    from System.Collections.Generic import List as ClrList
 
     # 1. Calculate node points on the branch line directly above each sprinkler
     node_points = []
@@ -303,6 +307,9 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
         proj_dist = (sp_pt - origin_pt).DotProduct(dir_vec)
         node_pt = origin_pt + dir_vec * proj_dist
         node_points.append(node_pt)
+
+    # Perpendicular vector in XY plane for lateral S-Curve flexing
+    perp_vec = DB.XYZ(-dir_vec.Y, dir_vec.X, 0.0).Normalize()
 
     # 2. Build pipe network step-by-step with immediate fitting connections
     first_branch_pipe = None
@@ -334,29 +341,78 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
 
         pipe_in = curr_incoming_pipe
 
-        # B. Create Vertical Drop Pipe to Sprinkler Head
-        drop_top_pt = node_pt
-        drop_bot_pt = DB.XYZ(node_pt.X, node_pt.Y, sp_pt.Z)
-        drop_pipe = None
+        # B. Create Drop to Sprinkler Head (Flex Hose S-Curve or Rigid Steel Drop)
+        drop_top_conn = None
+        drop_bot_conn = None
 
-        if abs(drop_top_pt.Z - drop_bot_pt.Z) > mm_to_ft(30.0):
+        if is_flex_mode and flex_pipe_type_id:
+            # ── ỐNG MỀM (FLEXIBLE SPRINKLER HOSE S-CURVE) ──
+            p_start = node_pt
+            p_end = sp_conn.Origin if sp_conn else DB.XYZ(node_pt.X, node_pt.Y, sp_pt.Z)
+            delta_z = p_start.Z - p_end.Z
+
+            # Natural S-Curve lateral offset (150mm perpendicular to branch line)
+            offset_dir = perp_vec if (i % 2 == 0) else -perp_vec
+            p_knee1 = p_start + offset_dir.Multiply(mm_to_ft(120.0)) - DB.XYZ(0, 0, delta_z * 0.15)
+            p_knee2 = DB.XYZ(p_end.X, p_end.Y, p_end.Z + delta_z * 0.35)
+
+            points = ClrList[DB.XYZ]()
+            points.Add(p_start)
+            points.Add(p_knee1)
+            points.Add(p_knee2)
+            points.Add(p_end)
+
+            start_tangent = (offset_dir - DB.XYZ(0, 0, 0.4)).Normalize()
+            end_tangent = DB.XYZ(0, 0, -1.0)
+
             try:
-                drop_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, drop_top_pt, drop_bot_pt)
-                drop_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(drop_diameter_ft)
-                created_pipes.append(drop_pipe)
-            except Exception as ex:
-                errors.append(u"Drop pipe error head {}: {}".format(i + 1, safe_unicode(ex)))
-
-        drop_top_conn = get_connector_closest_to(drop_pipe, drop_top_pt) if drop_pipe else None
-        drop_bot_conn = get_connector_closest_to(drop_pipe, drop_bot_pt) if drop_pipe else None
-
-        # Connect bottom of drop pipe to Sprinkler connector
-        if drop_bot_conn and sp_conn:
-            if not drop_bot_conn.IsConnected and not sp_conn.IsConnected:
+                from Autodesk.Revit.DB.Plumbing import FlexPipe
+                flex_pipe = None
                 try:
-                    drop_bot_conn.ConnectTo(sp_conn)
+                    flex_pipe = FlexPipe.Create(doc, system_type_id, flex_pipe_type_id, level_id, start_tangent, end_tangent, points)
                 except Exception:
-                    pass
+                    flex_pipe = FlexPipe.Create(doc, system_type_id, flex_pipe_type_id, level_id, points)
+
+                if flex_pipe:
+                    diam_param = flex_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+                    if diam_param and not diam_param.IsReadOnly:
+                        diam_param.Set(drop_diameter_ft)
+                    created_pipes.append(flex_pipe)
+
+                    drop_top_conn = get_connector_closest_to(flex_pipe, p_start)
+                    drop_bot_conn = get_connector_closest_to(flex_pipe, p_end)
+
+                    if drop_bot_conn and sp_conn:
+                        try:
+                            drop_bot_conn.ConnectTo(sp_conn)
+                        except Exception:
+                            pass
+            except Exception as ex:
+                errors.append(u"Flex hose error head {}: {}".format(i + 1, safe_unicode(ex)))
+
+        else:
+            # ── ỐNG CỨNG (RIGID STEEL PIPE DROP) ──
+            drop_top_pt = node_pt
+            drop_bot_pt = DB.XYZ(node_pt.X, node_pt.Y, sp_pt.Z)
+            drop_pipe = None
+
+            if abs(drop_top_pt.Z - drop_bot_pt.Z) > mm_to_ft(30.0):
+                try:
+                    drop_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, drop_top_pt, drop_bot_pt)
+                    drop_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(drop_diameter_ft)
+                    created_pipes.append(drop_pipe)
+                except Exception as ex:
+                    errors.append(u"Drop pipe error head {}: {}".format(i + 1, safe_unicode(ex)))
+
+            drop_top_conn = get_connector_closest_to(drop_pipe, drop_top_pt) if drop_pipe else None
+            drop_bot_conn = get_connector_closest_to(drop_pipe, drop_bot_pt) if drop_pipe else None
+
+            if drop_bot_conn and sp_conn:
+                if not drop_bot_conn.IsConnected and not sp_conn.IsConnected:
+                    try:
+                        drop_bot_conn.ConnectTo(sp_conn)
+                    except Exception:
+                        pass
 
         # C. Top Junction Fitting Placement & Compact Spool Connection (120mm)
         if is_last:
@@ -474,7 +530,7 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
     return first_branch_pipe
 
 
-def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, riser_height_mm=300.0, drop_dn=25):
+def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, riser_height_mm=300.0, drop_dn=25, is_flex_mode=False, flex_pipe_type_id=None):
     """
     Generates complete hydraulic sprinkler network matching exact CAD Detail:
     1. Tracks active Main Pipe segments pool dynamically.
@@ -534,7 +590,8 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
                 doc, system_type_id, pipe_type_id, level_id,
                 branch_origin_pt, pos_items, bg["pos_direction"],
                 standard_name, drop_diameter_ft,
-                created_pipes, created_fittings, errors
+                created_pipes, created_fittings, errors,
+                is_flex_mode=is_flex_mode, flex_pipe_type_id=flex_pipe_type_id
             )
 
         # 3. Build Neg Side Branch (Left) with 120mm Compact Spools & Normal Tees
@@ -544,7 +601,8 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
                 doc, system_type_id, pipe_type_id, level_id,
                 branch_origin_pt, neg_items, bg["neg_direction"],
                 standard_name, drop_diameter_ft,
-                created_pipes, created_fittings, errors
+                created_pipes, created_fittings, errors,
+                is_flex_mode=is_flex_mode, flex_pipe_type_id=flex_pipe_type_id
             )
 
         # 4. Connect Branchlines to Supply:

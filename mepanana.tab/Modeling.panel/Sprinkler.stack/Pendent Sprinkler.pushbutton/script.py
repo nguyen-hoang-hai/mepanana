@@ -433,8 +433,26 @@ def run():
         elif win.action == "GENERATE":
             drop_dn = 25 if drop_dn_idx == 0 else 32
 
+            riser_h_val = 300.0
+            try:
+                riser_h_val = float(riser_height.strip())
+            except Exception:
+                riser_h_val = 300.0
+
+            selected_std = "TCVN 7336:2021 (Vietnam Standard)"
+
+            # 1. Cluster sprinklers into branch rows/columns
+            branches = cluster_sprinklers_by_main_pipe(
+                main_pipe,
+                selected_sprinklers,
+                tolerance_mm=300.0
+            )
+            if not branches:
+                show_warning(u"Could not detect any valid branch alignments with the selected Main Pipe.", "Topology Error")
+                continue
+
+            flex_type_id = None
             if is_flex_mode:
-                # ── EXECUTE CHẾ ĐỘ ỐNG MỀM (FLEXIBLE SPRINKLER HOSE) ──────────
                 flex_types = list(DB.FilteredElementCollector(doc).OfClass(FlexPipeType).ToElements())
                 if not flex_types:
                     show_error(
@@ -443,111 +461,53 @@ def run():
                         "Missing FlexPipeType"
                     )
                     continue
+                flex_type_id = flex_types[0].Id
 
-                selected_type_id = flex_types[0].Id
-
-                # Run in TransactionGroup
-                tg = DB.TransactionGroup(doc, "MEPANANA - Flex Sprinkler Drop Connections")
-                tg.Start()
-                t = DB.Transaction(doc, "Create S-Curve Flex Drops")
+            # 2. Execute network creation with branchlines and drops
+            tg = DB.TransactionGroup(doc, "MEPANANA - Pendent Sprinkler System")
+            tg.Start()
+            t = DB.Transaction(doc, "Generate Sprinkler Network & Drops")
+            try:
                 t.Start()
-
-                success_count = 0
-                errors = []
-
-                try:
-                    for spk in selected_sprinklers:
-                        ok, res = create_flex_drop_connection(
-                            doc, spk, main_pipe, selected_type_id,
-                            diameter_mm=drop_dn, min_drop_mm=150
-                        )
-                        if ok:
-                            success_count += 1
-                        else:
-                            errors.append(u"Sprinkler #{}: {}".format(get_id_value(spk), safe_unicode(res)))
-
-                    t.Commit()
-                    tg.Assimilate()
-
-                    msg = u"🎉 Đã kết nối thành công {}/{} đầu phun bằng Ống Mềm (Flex Hose)!\n\n".format(
-                        success_count, len(selected_sprinklers)
-                    )
-                    msg += u"• Tiêu chuẩn: NFPA 13 (Uốn S-Curve tự nhiên)\n"
-                    msg += u"• Cỡ ống mềm: DN{}\n".format(drop_dn)
-                    msg += u"• Kiểm tra cao độ: ΔZ ≥ 150mm\n"
-
-                    if errors:
-                        msg += u"\n⚠️ Cảnh báo ({}/{} đầu chưa kết nối được):\n• ".format(
-                            len(errors), len(selected_sprinklers)
-                        ) + u"\n• ".join(errors[:4])
-
-                    show_info(msg, "Pendent Sprinkler Studio - Hoàn Tất")
-                    break
-
-                except Exception as ex:
-                    if t.HasStarted() and not t.HasEnded():
-                        t.RollBack()
-                    if tg.HasStarted() and not tg.HasEnded():
-                        tg.RollBack()
-                    show_error(u"Lỗi trong quá trình tạo ống mềm:\n{}".format(safe_unicode(ex)), "Lỗi Khởi Tạo")
-                    break
-
-            else:
-                # ── EXECUTE CHẾ ĐỘ ỐNG CỨNG (RIGID STEEL PIPE DROP) ───────────
-                riser_h_val = 300.0
-                try:
-                    riser_h_val = float(riser_height.strip())
-                except Exception:
-                    riser_h_val = 300.0
-
-                selected_std = "TCVN 7336:2021 (Vietnam Standard)"
-
-                branches = cluster_sprinklers_by_main_pipe(
+                created_pipes, created_fittings, errors = generate_sprinkler_network(
+                    doc,
                     main_pipe,
-                    selected_sprinklers,
-                    tolerance_mm=300.0
+                    branches,
+                    selected_std,
+                    riser_height_mm=riser_h_val,
+                    drop_dn=drop_dn,
+                    is_flex_mode=is_flex_mode,
+                    flex_pipe_type_id=flex_type_id
                 )
-                if not branches:
-                    show_warning(u"Could not detect any valid branch alignments with the selected Main Pipe.", "Topology Error")
-                    continue
+                t.Commit()
+                tg.Assimilate()
 
-                tg = DB.TransactionGroup(doc, "Generate Pendent Sprinkler Network")
-                tg.Start()
-                t = DB.Transaction(doc, "Create Pendent Pipes & Fittings")
-                try:
-                    t.Start()
-                    created_pipes, created_fittings, errors = generate_sprinkler_network(
-                        doc,
-                        main_pipe,
-                        branches,
-                        selected_std,
-                        riser_height_mm=riser_h_val,
-                        drop_dn=drop_dn
-                    )
-                    t.Commit()
-                    tg.Assimilate()
+                mode_str = u"Ống Mềm (Flexible Sprinkler Hose S-Curve)" if is_flex_mode else u"Ống Cứng (Rigid Steel Drop)"
+                msg = u"🎉 Đã tạo thành công mạng lưới Sprinkler Pendent!\n\n"
+                msg += u"• Chế độ: {}\n".format(mode_str)
+                msg += u"• Tiêu chuẩn: {}\n".format(selected_std)
+                msg += u"• Cỡ ống thả: DN{}\n".format(drop_dn)
+                msg += u"• Chiều cao Riser Nipple: {} mm\n".format(int(riser_h_val))
+                msg += u"• Số nhánh ống (Branchlines): {}\n".format(len(branches))
+                msg += u"• Số đầu phun đã kết nối: {}\n".format(len(selected_sprinklers))
+                msg += u"• Đoạn ống đã tạo: {}\n".format(len(created_pipes))
+                msg += u"• Phụ kiện (Tê/Cút/Côn thu): {}\n".format(len(created_fittings))
 
-                    msg = u"🎉 Pendent Sprinkler Network Created Successfully!\n\n"
-                    msg += u"• Sizing Standard: TCVN 7336:2021\n"
-                    msg += u"• Riser Nipple Height: {} mm\n".format(int(riser_h_val))
-                    msg += u"• Branch lines / Arm-overs created: {}\n".format(len(branches))
-                    msg += u"• Total Sprinklers connected: {}\n".format(len(selected_sprinklers))
-                    msg += u"• Pipe segments created: {}\n".format(len(created_pipes))
-                    msg += u"• Fittings placed: {}\n".format(len(created_fittings))
+                if errors:
+                    msg += u"\n⚠️ Cảnh báo ({}/{} đầu chưa kết nối được):\n• ".format(
+                        len(errors), len(selected_sprinklers)
+                    ) + u"\n• ".join(errors[:4])
 
-                    if errors:
-                        msg += u"\n⚠️ Notices:\n" + u"\n".join([safe_unicode(e) for e in errors[:3]])
+                show_info(msg, "Pendent Sprinkler Studio - Hoàn Tất")
+                break
 
-                    show_info(msg, "Sprinkler Connector Success")
-                    break
-
-                except Exception as ex:
-                    if t.HasStarted() and not t.HasEnded():
-                        t.RollBack()
-                    if tg.HasStarted() and not tg.HasEnded():
-                        tg.RollBack()
-                    show_error(u"Error while generating network:\n{}".format(safe_unicode(ex)), "Generation Error")
-                    break
+            except Exception as ex:
+                if t.HasStarted() and not t.HasEnded():
+                    t.RollBack()
+                if tg.HasStarted() and not tg.HasEnded():
+                    tg.RollBack()
+                show_error(u"Lỗi trong quá trình tạo mạng lưới sprinkler:\n{}".format(safe_unicode(ex)), "Lỗi Khởi Tạo")
+                break
 
         else:
             break
