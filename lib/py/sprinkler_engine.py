@@ -616,9 +616,17 @@ def get_closest_projection_point(main_pipe, target_xyz):
     try:
         loc = getattr(main_pipe, "Location", None)
         if isinstance(loc, DB.LocationCurve):
-            res = loc.Curve.Project(target_xyz)
+            curve = loc.Curve
+            res = curve.Project(target_xyz)
             if res:
                 return res.XYZPoint
+            # Unbounded ray projection fallback
+            p0 = curve.GetEndPoint(0)
+            p1 = curve.GetEndPoint(1)
+            v = (p1 - p0).Normalize()
+            rel = target_xyz - p0
+            proj_dist = rel.DotProduct(v)
+            return p0 + v.Multiply(proj_dist)
     except Exception:
         pass
     return None
@@ -673,19 +681,46 @@ def create_flex_drop_connection(doc, sprinkler, main_pipe, flex_pipe_type_id, di
 
     sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
     sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
-    level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
+    if not sys_type_id or sys_type_id == DB.ElementId.InvalidElementId or sys_type_id.IntegerValue == -1:
+        from Autodesk.Revit.DB.Plumbing import PipingSystemType
+        sys_types = list(DB.FilteredElementCollector(doc).OfClass(PipingSystemType).ToElements())
+        if sys_types:
+            sys_type_id = sys_types[0].Id
+
+    level_id = DB.ElementId.InvalidElementId
+    if getattr(main_pipe, "ReferenceLevel", None):
+        level_id = main_pipe.ReferenceLevel.Id
+    elif getattr(main_pipe, "LevelId", None) and main_pipe.LevelId != DB.ElementId.InvalidElementId:
+        level_id = main_pipe.LevelId
+    else:
+        levels = list(DB.FilteredElementCollector(doc).OfClass(DB.Level).ToElements())
+        if levels:
+            level_id = levels[0].Id
 
     try:
         from Autodesk.Revit.DB.Plumbing import FlexPipe
-        flex_pipe = FlexPipe.Create(
-            doc,
-            sys_type_id,
-            flex_pipe_type_id,
-            level_id,
-            points,
-            start_tangent,
-            end_tangent
-        )
+        # Revit API FlexPipe.Create overloads:
+        # 1. (doc, sysTypeId, flexTypeId, levelId, startTangent, endTangent, points)
+        # 2. (doc, sysTypeId, flexTypeId, levelId, points)
+        flex_pipe = None
+        try:
+            flex_pipe = FlexPipe.Create(
+                doc,
+                sys_type_id,
+                flex_pipe_type_id,
+                level_id,
+                start_tangent,
+                end_tangent,
+                points
+            )
+        except Exception:
+            flex_pipe = FlexPipe.Create(
+                doc,
+                sys_type_id,
+                flex_pipe_type_id,
+                level_id,
+                points
+            )
         
         # Set nominal diameter
         diam_param = flex_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
