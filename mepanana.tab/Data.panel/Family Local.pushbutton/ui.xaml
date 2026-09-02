@@ -44,9 +44,9 @@
                 <TextBox Grid.Column="1" Name="txtFolderPath" Height="32" Padding="8,4" VerticalContentAlignment="Center" FontSize="12" Margin="0,0,8,0"
                          ToolTip="Path to your local or network Revit family library directory" />
 
-                <Button Grid.Column="2" Name="btnBrowseFolder" Content="📁 Browse..." Style="{DynamicResource PrimaryButton}" Height="32" Padding="12,0" Margin="0,0,6,0" />
-                <Button Grid.Column="3" Name="btnRescan" Content="🔄 Rescan" Style="{DynamicResource GhostButton}" Height="32" Padding="10,0" Margin="0,0,6,0" ToolTip="Rescan directory for new or updated .rfa families" />
-                <Button Grid.Column="4" Name="btnOpenExplorer" Content="↗️ Explorer" Style="{DynamicResource GhostButton}" Height="32" Padding="10,0" Margin="0,0,10,0" ToolTip="Open folder in Windows Explorer" />
+                <Button Grid.Column="2" Name="btnBrowseFolder" Content="📁 Browse..." Style="{DynamicResource PrimaryButton}" Height="32" Padding="14,0" Margin="0,0,6,0" Cursor="Hand" />
+                <Button Grid.Column="3" Name="btnRescan" Content="🔄 Rescan" Style="{DynamicResource GhostButton}" Height="32" Padding="12,0" Margin="0,0,6,0" Cursor="Hand" ToolTip="Rescan directory for new or updated .rfa families" />
+                <Button Grid.Column="4" Name="btnOpenExplorer" Content="↗️ Explorer" Style="{DynamicResource GhostButton}" Height="32" Padding="12,0" Margin="0,0,10,0" Cursor="Hand" ToolTip="Open folder in Windows Explorer" />
 
                 <!-- Stats Badge -->
                 <Border Grid.Column="5" Name="borderLibraryStats" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Height="32" Padding="12,0" VerticalAlignment="Center">
@@ -112,11 +112,12 @@
             <!-- Right Families Catalog Area -->
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" /> <!-- Search Bar & Filters -->
-                    <RowDefinition Height="*" />    <!-- Cards ScrollViewer -->
+                    <RowDefinition Height="Auto" /> <!-- Row 0: Search Bar & Filters -->
+                    <RowDefinition Height="Auto" /> <!-- Row 1: Batch Actions Toolbar -->
+                    <RowDefinition Height="*" />    <!-- Row 2: Cards ScrollViewer -->
                 </Grid.RowDefinitions>
 
-                <!-- Search Input + Compatibility Filter + Found Counter -->
+                <!-- Row 0: Search Input + Compatibility Filter + Found Counter -->
                 <Grid Grid.Row="0" Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />        <!-- Search Box -->
@@ -158,8 +159,73 @@
                     </Border>
                 </Grid>
 
-                <!-- Cards ScrollViewer with Adaptive WrapPanel -->
-                <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Padding="8">
+                <!-- Row 1: Batch Actions Toolbar (Select All & Batch Load) -->
+                <Grid Grid.Row="1" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Select All Pill Button -->
+                        <CheckBox Name="chkSelectAll" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand"
+                                  ToolTip="Select or Deselect all currently filtered families for batch loading">
+                            <CheckBox.Template>
+                                <ControlTemplate TargetType="CheckBox">
+                                    <Border Name="borderPill" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Height="32" Padding="10,0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Name="txtIcon" Text="☑️" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                            <TextBlock Name="txtLabel" Text="Select All" FontSize="11.5" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="borderPill" Property="Background" Value="#EFF6FF" />
+                                            <Setter TargetName="borderPill" Property="BorderBrush" Value="#93C5FD" />
+                                            <Setter TargetName="txtLabel" Property="Foreground" Value="#1D4ED8" />
+                                            <Setter TargetName="txtLabel" Property="Text" Value="Deselect All" />
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="borderPill" Property="BorderBrush" Value="#2563EB" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </CheckBox.Template>
+                        </CheckBox>
+
+                        <!-- Batch Load Button (Sleek Pill Button) -->
+                        <Button Name="btnBatchLoadTop" Height="32" Padding="14,0" Margin="0,0,8,0" Cursor="Hand"
+                                ToolTip="Load all selected families into the active Revit project">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Background" Value="#EFF6FF" />
+                                    <Setter Property="BorderBrush" Value="#BFDBFE" />
+                                    <Setter Property="BorderThickness" Value="1" />
+                                    <Setter Property="Foreground" Value="#1D4ED8" />
+                                    <Setter Property="FontSize" Value="11.5" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#DBEAFE" />
+                                                        <Setter TargetName="border" Property="BorderBrush" Value="#2563EB" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="📥" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Name="txtBatchLoadTopCount" Text="Load Selected (0)" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Row 2: Balanced Cards Grid ScrollViewer (3 Cards Per Row) -->
+                <Border Grid.Row="2" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="6">
                     <ScrollViewer Name="scrollCards" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl Name="itemsCards">
                             <ItemsControl.ItemsPanel>
@@ -169,62 +235,88 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Width="246" Margin="6" Background="{DynamicResource CardBgBrush}"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            CornerRadius="8" Padding="8" SnapsToDevicePixels="True" Cursor="Hand"
-                                            Tag="{Binding RfaPath}" ToolTip="{Binding TooltipText}">
+                                    <!-- Balanced Family Card (Width 236 for perfect 3-column wrap matching Family Cloud) -->
+                                    <Border Width="236" Height="274" Margin="5" Style="{DynamicResource CardStyle}" Padding="10">
                                         <Grid>
                                             <Grid.RowDefinitions>
-                                                <RowDefinition Height="120" /> <!-- Thumbnail Preview -->
-                                                <RowDefinition Height="Auto" /> <!-- Family Title -->
+                                                <RowDefinition Height="148" /> <!-- Thumbnail -->
+                                                <RowDefinition Height="Auto" /> <!-- Title -->
                                                 <RowDefinition Height="Auto" /> <!-- Badges -->
-                                                <RowDefinition Height="Auto" /> <!-- Footer Actions (Select Checkbox & 1-Click Load) -->
+                                                <RowDefinition Height="*" />    <!-- Spacer -->
+                                                <RowDefinition Height="Auto" /> <!-- Action Button -->
                                             </Grid.RowDefinitions>
 
-                                            <!-- Thumbnail Container -->
-                                            <Border Grid.Row="0" Background="#F8FAFC" CornerRadius="6" ClipToBounds="True" BorderBrush="#E2E8F0" BorderThickness="1">
+                                            <!-- Thumbnail Container with Checkbox Overlay -->
+                                            <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Margin="0,0,0,8" ClipToBounds="True">
                                                 <Grid>
-                                                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="4"
+                                                    <TextBlock Text="📦" FontSize="36" Opacity="0.2" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding ThumbnailImage}" Stretch="Uniform" Margin="4"
                                                            RenderOptions.BitmapScalingMode="HighQuality" />
-                                                    <!-- Fallback watermarking if no thumbnail -->
-                                                    <TextBlock Text="📦 RFA" FontSize="14" FontWeight="Bold" Foreground="#CBD5E1"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                               Visibility="{Binding FallbackVisibility}" />
+
+                                                    <!-- Selection Checkbox Overlay -->
+                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                              HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                              Margin="7" Cursor="Hand"
+                                                              ToolTip="Select family for batch loading">
+                                                        <CheckBox.Template>
+                                                            <ControlTemplate TargetType="CheckBox">
+                                                                <Border Name="chkBorder" Width="20" Height="20" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1.5" CornerRadius="5">
+                                                                    <TextBlock Name="chkCheck" Text="✓" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsChecked" Value="True">
+                                                                        <Setter TargetName="chkBorder" Property="Background" Value="#2563EB" />
+                                                                        <Setter TargetName="chkBorder" Property="BorderBrush" Value="#1D4ED8" />
+                                                                        <Setter TargetName="chkCheck" Property="Visibility" Value="Visible" />
+                                                                    </Trigger>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="chkBorder" Property="BorderBrush" Value="#2563EB" />
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </CheckBox.Template>
+                                                    </CheckBox>
                                                 </Grid>
                                             </Border>
 
                                             <!-- Family Title -->
-                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12"
-                                                       Margin="0,8,0,4" TextTrimming="CharacterEllipsis"
+                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12.5"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding TooltipText}" Margin="0,0,0,5"
                                                        Foreground="{DynamicResource TextBrush}" />
 
-                                            <!-- Badges: Category, Version, File Size -->
-                                            <WrapPanel Grid.Row="2" Margin="0,0,0,8">
-                                                <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1" Margin="0,0,4,4">
-                                                    <TextBlock Text="{Binding Category}" FontSize="10" FontWeight="SemiBold" Foreground="#475569" TextTrimming="CharacterEllipsis" MaxWidth="110" />
-                                                </Border>
-                                                <Border Background="{Binding VersionBadgeBg}" CornerRadius="4" Padding="5,1" Margin="0,0,4,4">
-                                                    <TextBlock Text="{Binding VersionLabel}" FontSize="10" FontWeight="Bold" Foreground="{Binding VersionBadgeFg}" />
-                                                </Border>
-                                                <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="4,1" Margin="0,0,4,4">
-                                                    <TextBlock Text="{Binding FileSizeStr}" FontSize="9.5" Foreground="#64748B" />
-                                                </Border>
-                                            </WrapPanel>
-
-                                            <!-- Card Footer Actions: Checkbox & 1-Click Load Button -->
-                                            <Grid Grid.Row="3" Margin="0,2,0,0">
+                                            <!-- Badges: Category on Left, Version & Size on Right -->
+                                            <Grid Grid.Row="2" Margin="0,0,0,6">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
 
-                                                <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="Select"
-                                                          FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <!-- Category Tag -->
+                                                <Border Grid.Column="0" Background="#EEF2FF" CornerRadius="4" Padding="5,1.5" HorizontalAlignment="Left" Margin="0,0,4,0">
+                                                    <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
+                                                </Border>
 
-                                                <Button Grid.Column="1" Tag="{Binding RfaPath}" Name="btnCardLoad"
-                                                        Content="📥 Load" Style="{DynamicResource PrimaryButton}"
-                                                        Height="26" Padding="10,0" FontSize="11" FontWeight="Bold" />
+                                                <!-- Version & Size Badges -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Border Background="{Binding VersionBadgeBg}" CornerRadius="4" Padding="5,1.5" Margin="0,0,4,0">
+                                                        <TextBlock Text="{Binding VersionLabel}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" FontWeight="Bold" />
+                                                    </Border>
+                                                    <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1.5">
+                                                        <TextBlock Text="{Binding FileSizeStr}" FontSize="9.5" Foreground="#64748B" FontWeight="SemiBold" />
+                                                    </Border>
+                                                </StackPanel>
                                             </Grid>
+
+                                            <!-- 1-Click Load CTA Button -->
+                                            <Button Grid.Row="4" Tag="{Binding RfaPath}" Name="btnCardLoad"
+                                                    Content="📥 Load" Height="28" FontSize="11" FontWeight="SemiBold"
+                                                    Background="#EFF6FF" BorderBrush="#BFDBFE" Foreground="#1D4ED8" Cursor="Hand">
+                                                <Button.Resources>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="CornerRadius" Value="6" />
+                                                    </Style>
+                                                </Button.Resources>
+                                            </Button>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -235,7 +327,7 @@
             </Grid>
         </Grid>
 
-        <!-- ── Tier 3 FooterBar with ProgressBar & Batch Actions ─────────── -->
+        <!-- ── Tier 3 FooterBar with ProgressBar ─────────────────────────── -->
         <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Padding="12,10" Margin="0,12,0,0">
             <Grid>
                 <Grid.RowDefinitions>
@@ -250,23 +342,14 @@
                 <!-- Action Controls Row -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" /> <!-- Select All / Deselect All -->
                         <ColumnDefinition Width="*" />    <!-- Status Feedback -->
-                        <ColumnDefinition Width="Auto" /> <!-- Close & Batch Load Buttons -->
+                        <ColumnDefinition Width="Auto" /> <!-- Close Button -->
                     </Grid.ColumnDefinitions>
 
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Name="btnSelectAll" Content="Select All" Style="{DynamicResource GhostButton}" Height="32" Padding="12,0" Margin="0,0,6,0" />
-                        <Button Name="btnDeselectAll" Content="Deselect All" Style="{DynamicResource GhostButton}" Height="32" Padding="12,0" Margin="0,0,10,0" />
-                    </StackPanel>
-
-                    <TextBlock Grid.Column="1" Name="txtStatus" Text="Ready." VerticalAlignment="Center"
+                    <TextBlock Grid.Column="0" Name="txtStatus" Text="Ready." VerticalAlignment="Center"
                                FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="32" Padding="16,0" Margin="0,0,8,0" />
-                        <Button Name="btnBatchLoad" Content="📥 Load Selected (0)" Style="{DynamicResource PrimaryButton}" Height="32" Padding="18,0" FontWeight="Bold" />
-                    </StackPanel>
+                    <Button Grid.Column="1" Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="32" Padding="20,0" Margin="0" Cursor="Hand" />
                 </Grid>
             </Grid>
         </Border>

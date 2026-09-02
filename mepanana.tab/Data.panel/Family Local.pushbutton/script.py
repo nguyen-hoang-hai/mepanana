@@ -101,7 +101,7 @@ class SafeFamilyLoadOptions(DB.IFamilyLoadOptions):
 # ── UI Data Model ─────────────────────────────────────────────────────────────
 
 class LocalFamilyItem(object):
-    """View model for a single local .rfa family card."""
+    """View model for a single local .rfa family card matching Family Cloud standards."""
     def __init__(self, rfa_path, active_revit_year=2024):
         self.RfaPath = rfa_path
         self.Name = os.path.splitext(os.path.basename(rfa_path))[0]
@@ -140,31 +140,39 @@ class LocalFamilyItem(object):
             self.VersionBadgeFg = SolidColorBrush(Color.FromRgb(71, 85, 105))
             self.IsCompatible = True
 
-        # Thumbnail Image
-        self.Thumbnail = None
-        self.FallbackVisibility = Visibility.Visible
+        # Extract & Build WPF Thumbnail Image (using .NET Byte Array)
+        self.ThumbnailImage = None
         try:
-            thumb_bytes = extract_preview_png_bytes(rfa_path)
-            if thumb_bytes:
-                ms = MemoryStream(thumb_bytes)
-                bmp = BitmapImage()
-                bmp.BeginInit()
-                bmp.StreamSource = ms
-                bmp.CacheOption = BitmapCacheOption.OnLoad
-                bmp.EndInit()
-                bmp.Freeze()
-                self.Thumbnail = bmp
-                self.FallbackVisibility = Visibility.Collapsed
+            raw_bytes = extract_preview_png_bytes(rfa_path)
+            if raw_bytes:
+                self.ThumbnailImage = self._bytes_to_bitmapimage(raw_bytes)
         except Exception:
             pass
 
         # Selection State
         self.IsSelected = False
 
-        # Tooltip
+        # Tooltip Text
         self.TooltipText = u"Name: {}\nCategory: {}\nVersion: {}\nSize: {}\nPath: {}".format(
             self.Name, self.Category, self.VersionLabel, self.FileSizeStr, self.RfaPath
         )
+
+    def _bytes_to_bitmapimage(self, raw_bytes):
+        """Converts raw PNG/JPEG bytes to a frozen WPF BitmapImage."""
+        if not raw_bytes:
+            return None
+        try:
+            arr = System.Array[System.Byte](bytearray(raw_bytes))
+            ms = MemoryStream(arr)
+            bmp = BitmapImage()
+            bmp.BeginInit()
+            bmp.CacheOption = BitmapCacheOption.OnLoad
+            bmp.StreamSource = ms
+            bmp.EndInit()
+            bmp.Freeze()
+            return bmp
+        except Exception:
+            return None
 
 
 class CategoryItem(object):
@@ -218,20 +226,22 @@ class FamilyLocalWindow(forms.WPFWindow):
             self.cmbVersionFilter.SelectionChanged += self.OnFilterChanged
         if hasattr(self, 'listCategories'):
             self.listCategories.SelectionChanged += self.OnCategorySelectionChanged
-        if hasattr(self, 'btnSelectAll'):
-            self.btnSelectAll.Click += self.OnSelectAll
-        if hasattr(self, 'btnDeselectAll'):
-            self.btnDeselectAll.Click += self.OnDeselectAll
-        if hasattr(self, 'btnBatchLoad'):
-            self.btnBatchLoad.Click += self.OnBatchLoad
+        if hasattr(self, 'chkSelectAll'):
+            self.chkSelectAll.Click += self.OnSelectAllClick
+        if hasattr(self, 'btnBatchLoadTop'):
+            self.btnBatchLoadTop.Click += self.OnBatchLoad
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += lambda s, e: self.Close()
 
-        # Connect Dynamic Card Loading Event via PreviewMouseLeftButtonDown
+        # Connect Dynamic Card Loading Event via ItemsControl
         if hasattr(self, 'itemsCards'):
             self.itemsCards.AddHandler(
                 System.Windows.Controls.Button.ClickEvent,
                 System.Windows.RoutedEventHandler(self.OnCardButtonClick)
+            )
+            self.itemsCards.AddHandler(
+                System.Windows.Controls.CheckBox.ClickEvent,
+                System.Windows.RoutedEventHandler(self.OnCardCheckboxClick)
             )
 
         # Initial Directory Scan
@@ -422,29 +432,27 @@ class FamilyLocalWindow(forms.WPFWindow):
         if hasattr(self, 'txtFoundCount'):
             self.txtFoundCount.Text = "{} families found".format(len(filtered))
 
-        self.UpdateBatchLoadButtonText()
+        self.UpdateBatchLoadButtonState()
 
     # ── Selection & Batch Load Handlers ───────────────────────────────────────
 
-    def OnSelectAll(self, sender, args):
+    def OnSelectAllClick(self, sender, args):
+        is_chk = self.chkSelectAll.IsChecked == True
         for it in self.filtered_families:
-            it.IsSelected = True
+            it.IsSelected = is_chk
         if hasattr(self, 'itemsCards'):
             self.itemsCards.Items.Refresh()
-        self.UpdateBatchLoadButtonText()
+        self.UpdateBatchLoadButtonState()
 
-    def OnDeselectAll(self, sender, args):
-        for it in self.all_families:
-            it.IsSelected = False
-        if hasattr(self, 'itemsCards'):
-            self.itemsCards.Items.Refresh()
-        self.UpdateBatchLoadButtonText()
+    def OnCardCheckboxClick(self, sender, args):
+        self.UpdateBatchLoadButtonState()
 
-    def UpdateBatchLoadButtonText(self):
-        if not hasattr(self, 'btnBatchLoad'):
-            return
+    def UpdateBatchLoadButtonState(self):
         selected_count = sum(1 for it in self.all_families if it.IsSelected)
-        self.btnBatchLoad.Content = u"📥 Load Selected ({})".format(selected_count)
+        if hasattr(self, 'txtBatchLoadTopCount'):
+            self.txtBatchLoadTopCount.Text = u"Load Selected ({})".format(selected_count)
+        if hasattr(self, 'btnBatchLoadTop'):
+            self.btnBatchLoadTop.IsEnabled = (selected_count > 0)
 
     # ── Folder Picker & Navigation ────────────────────────────────────────────
 
@@ -539,8 +547,8 @@ class FamilyLocalWindow(forms.WPFWindow):
         if hasattr(self, 'progressBar'):
             self.progressBar.Visibility = Visibility.Visible
             self.progressBar.Value = 0
-        if hasattr(self, 'btnBatchLoad'):
-            self.btnBatchLoad.IsEnabled = False
+        if hasattr(self, 'btnBatchLoadTop'):
+            self.btnBatchLoadTop.IsEnabled = False
 
         opt = SafeFamilyLoadOptions()
         success_count = 0
@@ -596,8 +604,8 @@ class FamilyLocalWindow(forms.WPFWindow):
         finally:
             if hasattr(self, 'progressBar'):
                 self.progressBar.Visibility = Visibility.Collapsed
-            if hasattr(self, 'btnBatchLoad'):
-                self.btnBatchLoad.IsEnabled = True
+            if hasattr(self, 'btnBatchLoadTop'):
+                self.btnBatchLoadTop.IsEnabled = True
 
 
 # ── Launch Entry ──────────────────────────────────────────────────────────────
