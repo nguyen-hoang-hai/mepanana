@@ -285,15 +285,11 @@ class FamilyCloudWindow(forms.WPFWindow):
         if hasattr(self, 'btnExecuteUpload'):
             self.btnExecuteUpload.Click += self.OnExecuteUploadClick
 
-        # 3. 0ms Instant Load: Render from local disk cache instantly, then sync on Loaded
-        cached_catalog = load_catalog(force_online=False)
-        self.ApplyCatalogData(cached_catalog)
-
-        self.Loaded += self.OnWindowLoaded
-
-    def OnWindowLoaded(self, sender, args):
-        """Syncs latest updates from cloud in background after window is displayed."""
-        self.ReloadLibrary(force_online=True)
+        # 3. Apply preloaded catalog or fetch fresh from webhook
+        if preloaded_catalog is not None:
+            self.ApplyCatalogData(preloaded_catalog)
+        else:
+            self.ReloadLibrary(force_online=True)
 
     # ── Tab Navigation ────────────────────────────────────────────────────────
 
@@ -983,8 +979,15 @@ class FamilyCloudWindow(forms.WPFWindow):
 # ── Launch Entry ──────────────────────────────────────────────────────────────
 
 def run():
-    # 0ms Instant Window Popup
-    win = FamilyCloudWindow()
+    # 1. Show MepananaProgressBar dialog IMMEDIATELY upon clicking button!
+    with MepananaProgressBar(title="Connecting to Family Cloud...", indeterminate=True, cancellable=False) as pb:
+        pb.update(status="Connecting to cloud library...", detail="Fetching catalog data...")
+        catalog_data = load_catalog(force_online=True)
+        fams_count = len(catalog_data.get("families", [])) if catalog_data else 0
+        pb.update(status="Preparing family cards...", detail="Loaded {} cloud families".format(fams_count))
+
+    # 2. Open Main Studio Window with preloaded cards!
+    win = FamilyCloudWindow(preloaded_catalog=catalog_data)
     win.ShowDialog()
 
 
