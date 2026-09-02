@@ -172,3 +172,114 @@ def show_error(message, title="Error", exitscript=False):
 
 def show_confirm(message, title="Confirmation"):
     return _show_custom_dialog(message, title=title, dialog_type="WARNING", show_cancel=True)
+
+
+# ── Universal Branded WPF Progress Dialog ────────────────────────────────────
+
+class MepananaProgressBar(object):
+    """
+    Modern Branded Modal/Modeless Progress Dialog Context Manager.
+    Features:
+    - 60 FPS smooth Dispatcher message pumping
+    - Supports both Determinate (0-100%) and Indeterminate (pulsing wave animation)
+    - Branded MEPANANA card design with rounded corners & shadow
+    - Real-time status and detail message updates
+    - Optional Cancel button
+    
+    Usage:
+        with MepananaProgressBar("Scanning Directory...", total=len(files), cancellable=True) as pb:
+            for i, f in enumerate(files):
+                if pb.is_cancelled:
+                    break
+                # work
+                pb.update(i + 1, status="Indexing files...", detail=os.path.basename(f))
+    """
+    def __init__(self, title="Processing...", total=0, cancellable=False, indeterminate=False, icon="🍌"):
+        self.title = title
+        self.total = total
+        self.cancellable = cancellable
+        self.indeterminate = indeterminate or (total == 0)
+        self.icon = icon
+        self.is_cancelled = False
+        self.win = None
+        self._init_window()
+
+    def _init_window(self):
+        try:
+            xaml_path = os.path.join(os.path.dirname(__file__), 'progress_dialog.xaml')
+            if not os.path.exists(xaml_path):
+                return
+            
+            class _ProgressWindow(forms.WPFWindow):
+                def __init__(self, owner_bar):
+                    forms.WPFWindow.__init__(self, xaml_path)
+                    setup_window(self)
+                    self.owner_bar = owner_bar
+
+            self.win = _ProgressWindow(self)
+            
+            if hasattr(self.win, 'txtTitle'):
+                self.win.txtTitle.Text = self.title
+            if hasattr(self.win, 'txtIcon'):
+                self.win.txtIcon.Text = self.icon
+            if hasattr(self.win, 'progressBar'):
+                self.win.progressBar.IsIndeterminate = self.indeterminate
+                self.win.progressBar.Minimum = 0
+                self.win.progressBar.Maximum = self.total if self.total > 0 else 100
+                self.win.progressBar.Value = 0
+            if hasattr(self.win, 'btnCancel'):
+                if self.cancellable:
+                    self.win.btnCancel.Visibility = Visibility.Visible
+                    self.win.btnCancel.Click += self._on_cancel
+                else:
+                    self.win.btnCancel.Visibility = Visibility.Collapsed
+        except Exception:
+            self.win = None
+
+    def _on_cancel(self, sender, args):
+        self.is_cancelled = True
+        if hasattr(self.win, 'txtStatus'):
+            self.win.txtStatus.Text = "Cancelling operation..."
+        do_events()
+
+    def __enter__(self):
+        if self.win:
+            try:
+                self.win.Show()
+                do_events()
+            except Exception:
+                pass
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.win:
+            try:
+                self.win.Close()
+            except Exception:
+                pass
+            self.win = None
+
+    def update(self, current_value=0, total=None, status=None, detail=None):
+        if not self.win:
+            return
+        if total is not None:
+            self.total = total
+            if hasattr(self.win, 'progressBar'):
+                self.win.progressBar.Maximum = self.total
+                if self.total > 0 and self.win.progressBar.IsIndeterminate:
+                    self.win.progressBar.IsIndeterminate = False
+
+        if hasattr(self.win, 'progressBar') and not self.win.progressBar.IsIndeterminate:
+            self.win.progressBar.Value = current_value
+            if self.total > 0:
+                pct = int((float(current_value) / self.total) * 100)
+                if hasattr(self.win, 'txtPercent'):
+                    self.win.txtPercent.Text = "{}%".format(min(100, max(0, pct)))
+
+        if status and hasattr(self.win, 'txtStatus'):
+            self.win.txtStatus.Text = status
+
+        if detail is not None and hasattr(self.win, 'txtDetail'):
+            self.win.txtDetail.Text = detail
+
+        do_events()
