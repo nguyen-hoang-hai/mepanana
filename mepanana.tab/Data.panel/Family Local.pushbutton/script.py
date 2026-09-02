@@ -31,7 +31,7 @@ from py.ui import (
     show_confirm, do_events, yield_dispatcher_every
 )
 from py.family_cloud_engine import (
-    extract_rfa_thumbnail, detect_rfa_category, detect_rfa_version,
+    extract_preview_png_bytes, extract_rfa_category, extract_rfa_version,
     STANDARD_CATEGORIES
 )
 
@@ -118,8 +118,8 @@ class LocalFamilyItem(object):
             self.FileSizeStr = "Unknown"
 
         # Revit Version & Category
-        self.Version = detect_rfa_version(rfa_path)
-        self.Category = detect_rfa_category(rfa_path)
+        self.Version = extract_rfa_version(rfa_path)
+        self.Category = extract_rfa_category(rfa_path)
 
         # Version Badge Color Coding
         if self.Version > 0:
@@ -144,7 +144,7 @@ class LocalFamilyItem(object):
         self.Thumbnail = None
         self.FallbackVisibility = Visibility.Visible
         try:
-            thumb_bytes = extract_rfa_thumbnail(rfa_path)
+            thumb_bytes = extract_preview_png_bytes(rfa_path)
             if thumb_bytes:
                 ms = MemoryStream(thumb_bytes)
                 bmp = BitmapImage()

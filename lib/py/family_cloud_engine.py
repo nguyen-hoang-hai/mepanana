@@ -969,3 +969,9 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
         return True, u"Family '{}' successfully loaded into project!".format(fam_name)
     except Exception as ex:
         return False, u"Error loading family:\n{}".format(str(ex))
+
+
+# ── Convenient Engine Aliases ────────────────────────────────────────────────
+extract_rfa_thumbnail = extract_preview_png_bytes
+detect_rfa_category = extract_rfa_category
+detect_rfa_version = extract_rfa_version
