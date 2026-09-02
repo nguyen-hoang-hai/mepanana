@@ -17,6 +17,7 @@ Full Features:
 import math
 from pyrevit import DB
 from py.core import safe_unicode
+from py.ui import yield_dispatcher_every
 
 # ── Standards & Pipe Schedule Sizing Rules ────────────────────────────────────
 
@@ -536,6 +537,8 @@ def _build_single_side_branch(doc, system_type_id, pipe_type_id, level_id, origi
                 # Pass next_pipe to the next iteration
                 curr_incoming_pipe = next_pipe
                 curr_start_pt = node_pt
+
+        yield_dispatcher_every(i + 1, batch_size=10)
 
     return first_branch_pipe
 

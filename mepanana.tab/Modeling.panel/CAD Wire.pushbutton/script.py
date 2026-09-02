@@ -56,7 +56,7 @@ try:
 
     from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, get_uidoc, SafeTransaction, SafeTransactionGroup, mm_to_ft, safe_unicode
-    from py.ui   import setup_window, show_info, show_warning, show_error
+    from py.ui   import setup_window, show_info, show_warning, show_error, yield_dispatcher_every
     from py.cad_wire_engine import (
         get_cad_links_in_view, get_wire_types, get_electrical_panels,
         extract_curves_from_cad, stitch_curves_to_paths,
@@ -226,6 +226,8 @@ try:
                     if tot > 0:
                         pct = 70 + int((float(cur) / tot) * 25)
                         self.progressBar.Value = min(98, pct)
+                        self.txtStatus.Text = "Creating wire {}/{}...".format(cur, tot)
+                        yield_dispatcher_every(cur, batch_size=15)
 
                 with SafeTransactionGroup(doc, "CAD Wire Conversion"):
                     with SafeTransaction(doc, "CAD Wire & Circuit"):

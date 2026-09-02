@@ -15,7 +15,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.DB.Structure import StructuralType
 from py.core import get_doc, get_uidoc, SafeTransaction, get_element_name, mm_to_ft, get_id_value, safe_unicode
-from py.ui   import show_error, show_info, show_warning, setup_window, do_events
+from py.ui   import show_error, show_info, show_warning, setup_window, do_events, yield_dispatcher_every
 from py.cad  import extract_cad_blocks
 from py.auth import require_auth, update_ribbon_state, is_authenticated
 
@@ -566,7 +566,7 @@ class CadBlockPlacerWindow(forms.WPFWindow):
                         pct = int((float(current) / total_blocks) * 100)
                         self.progressBar.Value = pct
                         self.txtStatus.Text = "Placing {} ({}/{} elements)...".format(rule.Layer, current, total_blocks)
-                        do_events()
+                        yield_dispatcher_every(current, batch_size=20)
 
             self.progressBar.Value = 100
             self.txtStatus.Text = "Completed: {} placed, {} failed.".format(placed_count, failed_count)

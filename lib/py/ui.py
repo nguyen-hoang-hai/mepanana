@@ -58,6 +58,15 @@ def do_events():
         pass
 
 
+def yield_dispatcher_every(counter, batch_size=25):
+    """
+    Yields WPF dispatcher every N iterations to keep UI responsive & smooth (60 FPS)
+    without incurring per-iteration dispatching context-switch overhead.
+    """
+    if counter % batch_size == 0:
+        do_events()
+
+
 # ── Synchronized Modern Alert Dialog ─────────────────────────────────────────
 
 def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
