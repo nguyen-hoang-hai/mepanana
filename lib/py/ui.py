@@ -194,7 +194,7 @@ class MepananaProgressBar(object):
                 # work
                 pb.update(i + 1, status="Indexing files...", detail=os.path.basename(f))
     """
-    def __init__(self, title="Processing...", total=0, cancellable=False, indeterminate=False, icon="🍌"):
+    def __init__(self, title="Processing...", total=0, cancellable=False, indeterminate=False, icon="⚡"):
         self.title = title
         self.total = total
         self.cancellable = cancellable

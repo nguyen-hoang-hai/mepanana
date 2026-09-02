@@ -291,7 +291,7 @@ def scan_library_folder_with_progress(folder_path, active_revit_year=2024, cache
     cache_updated = False
 
     # Show MepananaProgressBar during indexing!
-    with MepananaProgressBar(title="Loading Family Library...", total=total_files, cancellable=True, icon="🍌") as pb:
+    with MepananaProgressBar(title="Loading Family Library...", total=total_files, cancellable=True, icon="⚡") as pb:
         for idx, rfa_path in enumerate(rfa_paths):
             if pb.is_cancelled:
                 break
