@@ -568,7 +568,7 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
     created_fittings = []
     errors = []
 
-    for bg in branch_groups:
+    for bg_idx, bg in enumerate(branch_groups):
         pos_items = bg["pos_items"]
         neg_items = bg["neg_items"]
         total_heads = len(pos_items) + len(neg_items)
@@ -659,6 +659,8 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
                 neg_main_fit = connect_branch_to_main(doc, neg_first_pipe, main_pipe_pool, branch_origin_pt)
                 if neg_main_fit:
                     created_fittings.append(neg_main_fit)
+
+        yield_dispatcher_every(bg_idx + 1, batch_size=2)
 
     return created_pipes, created_fittings, errors
 

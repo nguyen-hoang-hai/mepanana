@@ -140,7 +140,16 @@ class MepananaInstallerApp(tk.Tk):
                 else:
                     shutil.copy2(s, d)
 
-            # 4. Cleanup
+            # 4. Auto-Unblock All Files (Remove Windows Mark-of-the-Web / Zone.Identifier)
+            self.set_progress(92, "Unblocking binaries & security descriptors...")
+            try:
+                import subprocess
+                ps_cmd = 'Get-ChildItem -Path "{}" -Recurse | Unblock-File'.format(TARGET_EXT_DIR)
+                subprocess.call(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd], creationflags=0x08000000)
+            except Exception:
+                pass
+
+            # 5. Cleanup
             try: os.remove(temp_zip)
             except: pass
             try: shutil.rmtree(temp_extract, ignore_errors=True)
@@ -149,7 +158,7 @@ class MepananaInstallerApp(tk.Tk):
             self.set_progress(100, "🎉 Installation & Update completed successfully!", success=True)
             self.after(200, lambda: messagebox.showinfo(
                 "Installation Complete",
-                "🎉 MEPANANA Extension has been installed successfully!\n\nPlease restart Autodesk Revit or click pyRevit -> Reload to start."
+                "🎉 MEPANANA Extension has been installed successfully!\n\nAll DLL binaries have been unblocked.\nPlease restart Autodesk Revit or click pyRevit -> Reload to start."
             ))
 
         except Exception as ex:

@@ -179,3 +179,20 @@ class SafeTransactionGroup(object):
             if self.tg.HasStarted() and not self.tg.HasEnded():
                 self.tg.Assimilate()
 
+
+def unblock_extension_dlls(extension_dir=None):
+    """
+    Safely unblocks all DLL binaries in the extension directory by stripping Windows Mark-of-the-Web (Zone.Identifier).
+    Prevents CLR Assembly loading failures on Windows.
+    """
+    if os.name != 'nt':
+        return
+    if not extension_dir:
+        extension_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    try:
+        import subprocess
+        ps_cmd = 'Get-ChildItem -Path "{}" -Filter "*.dll" -Recurse | Unblock-File'.format(extension_dir)
+        subprocess.call(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd], creationflags=0x08000000)
+    except Exception:
+        pass
+
