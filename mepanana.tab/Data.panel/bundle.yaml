@@ -3,5 +3,6 @@ background:
   title: '#FFEDD5'
 layout:
   - Family Cloud
+  - Family Local
   - ---
   - Schedule Link
