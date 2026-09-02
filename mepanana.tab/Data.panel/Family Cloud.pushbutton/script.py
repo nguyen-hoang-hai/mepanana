@@ -43,12 +43,28 @@ from System.IO import MemoryStream, File
 import re
 from pyrevit import revit, DB, UI, forms, HOST_APP
 
-HOST_REVIT_YEAR = None
-try:
-    if HOST_APP and hasattr(HOST_APP, "version"):
-        HOST_REVIT_YEAR = int(str(HOST_APP.version).strip()[:4])
-except Exception:
-    pass
+def get_active_revit_year():
+    """Returns active Revit host version year as integer, e.g. 2024, 2025, 2022."""
+    try:
+        if HOST_APP and hasattr(HOST_APP, "version") and HOST_APP.version:
+            v_str = str(HOST_APP.version).strip()
+            m = re.search(r"(20[12]\d)", v_str)
+            if m:
+                return int(m.group(1))
+    except Exception:
+        pass
+    try:
+        doc = revit.doc
+        if doc and hasattr(doc, "Application") and doc.Application:
+            v_str = str(doc.Application.VersionNumber).strip()
+            m = re.search(r"(20[12]\d)", v_str)
+            if m:
+                return int(m.group(1))
+    except Exception:
+        pass
+    return 2024
+
+HOST_REVIT_YEAR = get_active_revit_year()
 
 from py.core import safe_unicode
 from py.ui import (

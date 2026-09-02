@@ -3,6 +3,7 @@
 Family Local (FL) — High-Performance Local & Network Revit Family Studio
 Part of mepanana.extension.
 - Displays MepananaProgressBar dialog immediately upon clicking ribbon button.
+- Robust integer-based Revit version compatibility detection (Compatible Only filter).
 - 2-Tier Disk Caching (Metadata DB + PNG Thumbnails in %LOCALAPPDATA%).
 - Ultra-Fast Sub-Millisecond Cache Hits (<100ms for 300+ families).
 - Category & Revit version auto-detection with smart compatibility filtering.
@@ -21,6 +22,7 @@ if not is_authenticated():
 
 import os
 import sys
+import re
 import json
 import time
 import hashlib
@@ -48,6 +50,31 @@ from System.IO import MemoryStream, File
 from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption
 from System.Windows.Media import SolidColorBrush, Color
 from System.Windows import Visibility
+
+
+# ── Host Version Resolver ─────────────────────────────────────────────────────
+
+def get_active_revit_year(doc=None):
+    """Returns active Revit host version year as integer, e.g. 2024, 2025, 2022."""
+    try:
+        from pyrevit import HOST_APP
+        if HOST_APP and hasattr(HOST_APP, "version") and HOST_APP.version:
+            v_str = str(HOST_APP.version).strip()
+            m = re.search(r"(20[12]\d)", v_str)
+            if m:
+                return int(m.group(1))
+    except Exception:
+        pass
+    try:
+        d = doc or get_doc()
+        if d and hasattr(d, "Application") and d.Application:
+            v_str = str(d.Application.VersionNumber).strip()
+            m = re.search(r"(20[12]\d)", v_str)
+            if m:
+                return int(m.group(1))
+    except Exception:
+        pass
+    return 2024
 
 
 # ── Configuration & 2-Tier Disk Cache Persistence ────────────────────────────
@@ -159,26 +186,46 @@ class LocalFamilyItem(object):
 
         # Check Cache Hit
         is_cache_hit = False
+        cached_ver = 0
         if cached_meta and cached_meta.get("mtime") == self.MTime and cached_meta.get("size") == self.FileSize:
-            self.Version = cached_meta.get("version", 0)
+            cached_ver = cached_meta.get("version", 0)
             self.Category = cached_meta.get("category", "Generic Models")
             is_cache_hit = True
         else:
             # Cache Miss: Extract directly
-            self.Version = extract_rfa_version(rfa_path)
+            cached_ver = extract_rfa_version(rfa_path)
             self.Category = extract_rfa_category(rfa_path)
 
-        # Version Badge Color Coding
-        if self.Version > 0:
-            self.VersionLabel = "{}".format(self.Version)
-            if self.Version > active_revit_year:
-                self.VersionBadgeBg = SolidColorBrush(Color.FromRgb(254, 226, 226)) # Light Red
-                self.VersionBadgeFg = SolidColorBrush(Color.FromRgb(220, 38, 38))   # Red Text
-                self.IsCompatible = False
+        # Robust Integer Version Resolution (Avoid Python 2 str vs int bug)
+        self.NumericVersion = 0
+        try:
+            if isinstance(cached_ver, int):
+                self.NumericVersion = cached_ver
             else:
-                self.VersionBadgeBg = SolidColorBrush(Color.FromRgb(219, 234, 254)) # Light Blue
-                self.VersionBadgeFg = SolidColorBrush(Color.FromRgb(29, 78, 216))   # Blue Text
-                self.IsCompatible = True
+                m = re.search(r"(20[12]\d)", str(cached_ver))
+                if m:
+                    self.NumericVersion = int(m.group(1))
+        except Exception:
+            self.NumericVersion = 0
+
+        self.Version = self.NumericVersion
+
+        # Determine Compatibility
+        # Compatible if version <= active_revit_year OR if version is 0 (Universal/Unknown)
+        self.IsCompatible = True
+        if self.NumericVersion > 0 and active_revit_year and active_revit_year > 0:
+            if self.NumericVersion > active_revit_year:
+                self.IsCompatible = False
+
+        # Version Badge Color Coding
+        if self.NumericVersion > 0:
+            self.VersionLabel = str(self.NumericVersion)
+            if not self.IsCompatible:
+                self.VersionBadgeBg = SolidColorBrush(Color.FromRgb(254, 226, 226)) # Light Red (#FEE2E2)
+                self.VersionBadgeFg = SolidColorBrush(Color.FromRgb(220, 38, 38))   # Red Text (#DC2626)
+            else:
+                self.VersionBadgeBg = SolidColorBrush(Color.FromRgb(220, 252, 231)) # Soft Green (#DCFCE7)
+                self.VersionBadgeFg = SolidColorBrush(Color.FromRgb(21, 128, 61))   # Dark Green (#15803D)
         else:
             self.VersionLabel = "Universal"
             self.VersionBadgeBg = SolidColorBrush(Color.FromRgb(241, 245, 249))
@@ -190,7 +237,6 @@ class LocalFamilyItem(object):
         thumb_cache_file = get_thumb_cache_path_for_file(rfa_path)
 
         if is_cache_hit and os.path.exists(thumb_cache_file) and os.path.getsize(thumb_cache_file) > 0:
-            # Fast Instant Disk Cache Load (<0.5ms)
             try:
                 raw_bytes = File.ReadAllBytes(thumb_cache_file)
                 self.ThumbnailImage = self._bytes_to_bitmapimage(bytes(bytearray(raw_bytes)))
@@ -198,7 +244,6 @@ class LocalFamilyItem(object):
                 pass
 
         if not self.ThumbnailImage:
-            # Extract from RFA binary & persist to disk cache
             try:
                 raw_bytes = extract_preview_png_bytes(rfa_path)
                 if raw_bytes:
@@ -223,7 +268,7 @@ class LocalFamilyItem(object):
         return {
             "mtime": self.MTime,
             "size": self.FileSize,
-            "version": self.Version,
+            "version": self.NumericVersion,
             "category": self.Category
         }
 
@@ -339,15 +384,7 @@ class FamilyLocalWindow(forms.WPFWindow):
         setup_window(self)
 
         self.doc = doc
-        
-        # Determine Active Revit Version Year
-        self.active_revit_year = 2024
-        try:
-            from pyrevit import HOST_APP
-            if HOST_APP and HOST_APP.version:
-                self.active_revit_year = int(HOST_APP.version)
-        except Exception:
-            pass
+        self.active_revit_year = get_active_revit_year(doc)
 
         self.all_families = preloaded_items or []
         self.filtered_families = []
@@ -450,8 +487,8 @@ class FamilyLocalWindow(forms.WPFWindow):
 
         versions = set()
         for it in items:
-            if it.Version > 0:
-                versions.add(it.Version)
+            if it.NumericVersion > 0:
+                versions.add(it.NumericVersion)
 
         self.cmbVersionFilter.Items.Clear()
         self.cmbVersionFilter.Items.Add("All Versions")
@@ -474,7 +511,7 @@ class FamilyLocalWindow(forms.WPFWindow):
     def ApplyFilters(self):
         """Applies Search, Category, Version, and Compatibility filters simultaneously."""
         search_query = self.txtSearch.Text.strip().lower() if hasattr(self, 'txtSearch') and self.txtSearch.Text else ""
-        compatible_only = self.chkCompatibleOnly.IsChecked == True if hasattr(self, 'chkCompatibleOnly') else False
+        compatible_only = (self.chkCompatibleOnly.IsChecked == True) if hasattr(self, 'chkCompatibleOnly') else False
 
         selected_cat = "All Categories"
         if hasattr(self, 'listCategories') and self.listCategories.SelectedItem:
@@ -496,8 +533,9 @@ class FamilyLocalWindow(forms.WPFWindow):
                 continue
 
             # 3. Version Filter
-            if selected_ver != "All Versions" and it.VersionLabel != selected_ver:
-                continue
+            if selected_ver != "All Versions":
+                if str(it.NumericVersion) != selected_ver and it.VersionLabel != selected_ver:
+                    continue
 
             # 4. Compatibility Filter
             if compatible_only and not it.IsCompatible:
@@ -538,7 +576,7 @@ class FamilyLocalWindow(forms.WPFWindow):
         if hasattr(self, 'btnBatchLoadTop'):
             self.btnBatchLoadTop.IsEnabled = (selected_count > 0)
 
-    # ── Folder Picker & Navigation ────────────────────────────────────────────
+    # ── Folder Picker & Navigation ────────────────────────────────────
 
     def OnBrowseFolder(self, sender, args):
         """Opens Windows FolderBrowserDialog to pick a family library directory."""
@@ -616,7 +654,7 @@ class FamilyLocalWindow(forms.WPFWindow):
             show_warning("Please select at least 1 family to load.", "Empty Selection")
             return
 
-        higher_count = sum(1 for it in selected_items if not it.IsCompatible and it.Version > self.active_revit_year)
+        higher_count = sum(1 for it in selected_items if not it.IsCompatible and it.NumericVersion > self.active_revit_year)
         if higher_count > 0:
             if not show_confirm(
                 u"⚠️ {} of the selected families were created in a newer Revit version (> {}).\n\n"
@@ -693,14 +731,7 @@ def run():
 
     folder = load_saved_folder()
     cache_db = load_cache_db()
-
-    active_revit_year = 2024
-    try:
-        from pyrevit import HOST_APP
-        if HOST_APP and HOST_APP.version:
-            active_revit_year = int(HOST_APP.version)
-    except Exception:
-        pass
+    active_revit_year = get_active_revit_year(doc)
 
     # 1. SHOW MEPANANA PROGRESS BAR DIALOG IMMEDIATELY!
     items, total_bytes = scan_library_folder_with_progress(
