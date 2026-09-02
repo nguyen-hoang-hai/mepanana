@@ -51,7 +51,10 @@ except Exception:
     pass
 
 from py.core import safe_unicode
-from py.ui import setup_window, show_info, show_success, show_warning, show_error, show_confirm, do_events
+from py.ui import (
+    setup_window, show_info, show_success, show_warning, show_error,
+    show_confirm, do_events, MepananaProgressBar
+)
 from py.family_cloud_engine import (
     STANDARD_CATEGORIES,
     get_webhook_url,
@@ -238,7 +241,7 @@ class FamilyCardItem(System.Object):
 # ── Main WPF Window ──────────────────────────────────────────────────────────
 
 class FamilyCloudWindow(forms.WPFWindow):
-    def __init__(self):
+    def __init__(self, preloaded_catalog=None):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         setup_window(self)
@@ -282,8 +285,11 @@ class FamilyCloudWindow(forms.WPFWindow):
         if hasattr(self, 'btnExecuteUpload'):
             self.btnExecuteUpload.Click += self.OnExecuteUploadClick
 
-        # 3. Always fetch fresh catalog from webhook on startup (reads from RAM cache, ~0.1s)
-        self.ReloadLibrary(force_online=True)
+        # 3. Apply preloaded catalog or fetch fresh from webhook
+        if preloaded_catalog is not None:
+            self.ApplyCatalogData(preloaded_catalog)
+        else:
+            self.ReloadLibrary(force_online=True)
 
     # ── Tab Navigation ────────────────────────────────────────────────────────
 
@@ -332,6 +338,37 @@ class FamilyCloudWindow(forms.WPFWindow):
         if hasattr(self, 'rbTabUpload'):
             self.rbTabUpload.IsChecked = True
 
+    def ApplyCatalogData(self, catalog_data):
+        """Populates UI with parsed catalog data and starts async background thumbnail sync."""
+        webhook_url = get_webhook_url()
+        self.all_families = []
+        for raw in catalog_data.get("families", []):
+            try:
+                card = FamilyCardItem(raw)
+                self.all_families.append(card)
+            except Exception:
+                pass
+
+        self.PopulateCategoriesList()
+        self.PopulateVersionFilter()
+        self.ApplyFilter()
+
+        if hasattr(self, 'scrollCards'):
+            self.scrollCards.Visibility = System.Windows.Visibility.Visible
+        if hasattr(self, 'panelSyncingState'):
+            self.panelSyncingState.Visibility = System.Windows.Visibility.Collapsed
+        if hasattr(self, 'progressBar'):
+            self.progressBar.Visibility = System.Windows.Visibility.Collapsed
+            self.progressBar.IsIndeterminate = False
+
+        if webhook_url:
+            self._set_cloud_status("online")
+        else:
+            self._set_cloud_status("connect")
+
+        # Async download missing thumbnails in background (non-blocking)
+        self._download_missing_thumbnails_async()
+
     def ReloadLibrary(self, force_online=False, rebuild_drive=False):
         webhook_url = get_webhook_url()
         if not webhook_url:
@@ -354,26 +391,7 @@ class FamilyCloudWindow(forms.WPFWindow):
         do_events()
 
         catalog_data = load_catalog(force_online=force_online, rebuild_drive=rebuild_drive)
-
-        self.all_families = []
-        for raw in catalog_data.get("families", []):
-            try:
-                card = FamilyCardItem(raw)
-                self.all_families.append(card)
-            except Exception:
-                pass
-
-        self.PopulateCategoriesList()
-        self.PopulateVersionFilter()
-        self.ApplyFilter()
-
-        if webhook_url:
-            self._set_cloud_status("online")
-        else:
-            self._set_cloud_status("connect")
-
-        # Async download missing thumbnails in background (non-blocking)
-        self._download_missing_thumbnails_async()
+        self.ApplyCatalogData(catalog_data)
 
     def PopulateCategoriesList(self):
         if not hasattr(self, 'listCategories'): return
@@ -961,7 +979,15 @@ class FamilyCloudWindow(forms.WPFWindow):
 # ── Launch Entry ──────────────────────────────────────────────────────────────
 
 def run():
-    win = FamilyCloudWindow()
+    # 1. Pre-load Cloud Catalog with MepananaProgressBar splash dialog before opening main window
+    with MepananaProgressBar(title="Connecting to Family Cloud...", indeterminate=True, cancellable=False) as pb:
+        pb.update(status="Connecting to cloud library...", detail="Fetching catalog data...")
+        catalog_data = load_catalog(force_online=True)
+        fams_count = len(catalog_data.get("families", [])) if catalog_data else 0
+        pb.update(status="Preparing family cards...", detail="Loaded {} cloud families".format(fams_count))
+
+    # 2. Launch Main Window pre-loaded instantly
+    win = FamilyCloudWindow(preloaded_catalog=catalog_data)
     win.ShowDialog()
 
 
