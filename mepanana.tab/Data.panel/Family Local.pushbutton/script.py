@@ -2,7 +2,7 @@
 """
 Family Local (FL) — High-Performance Local & Network Revit Family Studio
 Part of mepanana.extension.
-- 0ms Instant Window Launch via Loaded lifecycle hook.
+- Displays MepananaProgressBar dialog before launching the main window.
 - 2-Tier Disk Caching (Metadata DB + PNG Thumbnails in %LOCALAPPDATA%).
 - Ultra-Fast Sub-Millisecond Cache Hits (<100ms for 300+ families).
 - Category & Revit version auto-detection with smart compatibility filtering.
@@ -30,7 +30,7 @@ from pyrevit import forms, revit, script, DB, UI
 from py.core import get_doc, get_uidoc, safe_unicode
 from py.ui import (
     setup_window, show_info, show_warning, show_error, show_success,
-    show_confirm, do_events, yield_dispatcher_every
+    show_confirm, do_events, yield_dispatcher_every, MepananaProgressBar
 )
 from py.family_cloud_engine import (
     extract_preview_png_bytes, extract_rfa_category, extract_rfa_version,
@@ -253,11 +253,81 @@ class CategoryItem(object):
         self.Count = count
 
 
+# ── Standalone Scanning Engine with MepananaProgressBar ───────────────────────
+
+def scan_library_folder_with_progress(folder_path, active_revit_year=2024, cache_db=None):
+    """
+    Scans a folder for .rfa files and displays the modern MepananaProgressBar dialog.
+    Returns: (items, total_bytes)
+    """
+    if not folder_path or not os.path.isdir(folder_path):
+        return [], 0
+
+    if cache_db is None:
+        cache_db = load_cache_db()
+
+    save_saved_folder(folder_path)
+
+    # 1. Discover all .rfa files
+    rfa_paths = []
+    try:
+        for root, dirs, files in os.walk(folder_path):
+            for f in files:
+                if f.lower().endswith(".rfa") and not f.startswith("."):
+                    name_no_ext = os.path.splitext(f)[0]
+                    if len(name_no_ext) > 5 and name_no_ext[-5] == '.' and name_no_ext[-4:].isdigit():
+                        continue
+                    rfa_paths.append(os.path.join(root, f))
+    except Exception as ex:
+        show_error(u"Error scanning folder:\n{}".format(safe_unicode(ex)), "Scan Error")
+        return [], 0
+
+    total_files = len(rfa_paths)
+    if total_files == 0:
+        return [], 0
+
+    items = []
+    total_bytes = 0
+    cache_updated = False
+
+    # Show MepananaProgressBar during indexing!
+    with MepananaProgressBar(title="Loading Family Library...", total=total_files, cancellable=True, icon="🍌") as pb:
+        for idx, rfa_path in enumerate(rfa_paths):
+            if pb.is_cancelled:
+                break
+
+            clean_name = os.path.splitext(os.path.basename(rfa_path))[0]
+            pb.update(
+                current_value=idx + 1,
+                status="Indexing family ({}/{})...".format(idx + 1, total_files),
+                detail=clean_name
+            )
+
+            cached_meta = cache_db.get(rfa_path.lower())
+            try:
+                item = LocalFamilyItem(rfa_path, active_revit_year=active_revit_year, cached_meta=cached_meta)
+                items.append(item)
+                total_bytes += item.FileSize
+
+                if not cached_meta or cached_meta.get("mtime") != item.MTime:
+                    cache_db[rfa_path.lower()] = item.to_cache_dict()
+                    cache_updated = True
+            except Exception:
+                pass
+
+            yield_dispatcher_every(idx + 1, batch_size=20)
+
+    if cache_updated:
+        save_cache_db(cache_db)
+
+    return items, total_bytes
+
+
 # ── Main Window Controller ───────────────────────────────────────────────────
 
 class FamilyLocalWindow(forms.WPFWindow):
     """Interactive WPF Studio for browsing, filtering and loading local families."""
-    def __init__(self, doc):
+    def __init__(self, doc, preloaded_items=None, total_bytes=0):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         setup_window(self)
@@ -273,7 +343,7 @@ class FamilyLocalWindow(forms.WPFWindow):
         except Exception:
             pass
 
-        self.all_families = []
+        self.all_families = preloaded_items or []
         self.filtered_families = []
         self.cache_db = load_cache_db()
         self.current_folder = load_saved_folder()
@@ -315,98 +385,25 @@ class FamilyLocalWindow(forms.WPFWindow):
                 System.Windows.RoutedEventHandler(self.OnCardCheckboxClick)
             )
 
-        # 0ms Instant Window Display: Hook into Loaded event so UI pops up immediately!
-        self.Loaded += self.OnWindowLoaded
-
-    def OnWindowLoaded(self, sender, args):
-        """Called immediately after window is rendered on screen. Starts non-blocking scan."""
-        self.ScanDirectory(self.current_folder)
+        # If items were preloaded, populate UI immediately!
+        if self.all_families:
+            self.UpdateStatsAndFilters(self.all_families, total_bytes)
+        else:
+            self.ScanDirectory(self.current_folder)
 
     # ── Directory Scanning & Indexing ─────────────────────────────────────────
 
     def ScanDirectory(self, folder_path):
-        """Recursively scans folder for .rfa files with 2-tier disk cache acceleration."""
-        if not folder_path or not os.path.isdir(folder_path):
-            if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = "Please select a valid directory containing Revit families."
-            return
-
-        self.current_folder = folder_path
-        save_saved_folder(folder_path)
-
-        # UI Visuals: Show progress bar during indexing
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = Visibility.Visible
-            self.progressBar.Value = 0
-        if hasattr(self, 'txtStatus'):
-            self.txtStatus.Text = "Scanning directory for .rfa families..."
-        do_events()
-
-        # 1. Fast Discovery of all .rfa files
-        rfa_paths = []
-        try:
-            for root, dirs, files in os.walk(folder_path):
-                for f in files:
-                    if f.lower().endswith(".rfa") and not f.startswith("."):
-                        # Skip Revit automatic backup files (e.g. Family.0001.rfa)
-                        name_no_ext = os.path.splitext(f)[0]
-                        if len(name_no_ext) > 5 and name_no_ext[-5] == '.' and name_no_ext[-4:].isdigit():
-                            continue
-                        rfa_paths.append(os.path.join(root, f))
-        except Exception as ex:
-            show_error(u"Error scanning folder:\n{}".format(safe_unicode(ex)), "Scan Error")
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Visibility = Visibility.Collapsed
-            return
-
-        total_files = len(rfa_paths)
-        if total_files == 0:
-            self.all_families = []
-            self.PopulateCategories([])
-            self.PopulateVersionFilter([])
-            self.ApplyFilters()
-            if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = "No .rfa families found in selected folder."
-            if hasattr(self, 'txtLibraryStats'):
-                self.txtLibraryStats.Text = "0 Families"
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Visibility = Visibility.Collapsed
-            return
-
-        # 2. Extract metadata & thumbnails with Disk Cache + 60 FPS Dispatcher Slicing
-        items = []
-        total_bytes = 0
-        cache_updated = False
-
-        for idx, rfa_path in enumerate(rfa_paths):
-            cached_meta = self.cache_db.get(rfa_path.lower())
-            try:
-                item = LocalFamilyItem(rfa_path, active_revit_year=self.active_revit_year, cached_meta=cached_meta)
-                items.append(item)
-                total_bytes += item.FileSize
-                
-                # Update cache DB entry if new/modified
-                if not cached_meta or cached_meta.get("mtime") != item.MTime:
-                    self.cache_db[rfa_path.lower()] = item.to_cache_dict()
-                    cache_updated = True
-            except Exception:
-                pass
-
-            if hasattr(self, 'progressBar'):
-                pct = int((float(idx + 1) / total_files) * 100)
-                self.progressBar.Value = pct
-            if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = "Indexing library ({}/{})...".format(idx + 1, total_files)
-
-            yield_dispatcher_every(idx + 1, batch_size=25)
-
+        """Scans directory with MepananaProgressBar and refreshes UI."""
+        items, total_bytes = scan_library_folder_with_progress(
+            folder_path, active_revit_year=self.active_revit_year, cache_db=self.cache_db
+        )
         self.all_families = items
+        self.UpdateStatsAndFilters(items, total_bytes)
 
-        # Persist updated cache to disk
-        if cache_updated:
-            save_cache_db(self.cache_db)
-
-        # 3. Update Library Stats Badge
+    def UpdateStatsAndFilters(self, items, total_bytes):
+        """Updates stats badge, category sidebar, version filter and cards view."""
+        # 1. Update Library Stats Badge
         if hasattr(self, 'txtLibraryStats'):
             size_mb = total_bytes / (1024.0 * 1024.0)
             if size_mb > 1024:
@@ -415,17 +412,15 @@ class FamilyLocalWindow(forms.WPFWindow):
                 size_str = "{:.1f} MB".format(size_mb)
             self.txtLibraryStats.Text = "{} Families ({})".format(len(items), size_str)
 
-        # 4. Build Category & Version Filters
+        # 2. Build Category & Version Filters
         self.PopulateCategories(items)
         self.PopulateVersionFilter(items)
 
-        # 5. Apply Initial Filters & Render Cards
+        # 3. Apply Initial Filters & Render Cards
         self.ApplyFilters()
 
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = Visibility.Collapsed
         if hasattr(self, 'txtStatus'):
-            self.txtStatus.Text = "Ready. Scanned {} families.".format(len(items))
+            self.txtStatus.Text = "Ready. Loaded {} families.".format(len(items))
 
     # ── Category & Version Filter Builders ────────────────────────────────────
 
@@ -556,6 +551,7 @@ class FamilyLocalWindow(forms.WPFWindow):
             if chosen and os.path.isdir(chosen):
                 if hasattr(self, 'txtFolderPath'):
                     self.txtFolderPath.Text = chosen
+                self.current_folder = chosen
                 self.ScanDirectory(chosen)
 
     def OnRescan(self, sender, args):
@@ -630,13 +626,7 @@ class FamilyLocalWindow(forms.WPFWindow):
             ):
                 return
 
-        # Execute Batch Loading
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = Visibility.Visible
-            self.progressBar.Value = 0
-        if hasattr(self, 'btnBatchLoadTop'):
-            self.btnBatchLoadTop.IsEnabled = False
-
+        # Execute Batch Loading with Progress Dialog
         opt = SafeFamilyLoadOptions()
         success_count = 0
         failed_count = 0
@@ -646,28 +636,32 @@ class FamilyLocalWindow(forms.WPFWindow):
         tg.Start()
 
         try:
-            for idx, it in enumerate(selected_items):
-                fam_name = it.Name
-                if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Loading ({}/{}): {}...".format(idx + 1, len(selected_items), fam_name)
-                if hasattr(self, 'progressBar'):
-                    pct = int((float(idx + 1) / len(selected_items)) * 100)
-                    self.progressBar.Value = pct
+            with MepananaProgressBar(title="Loading Selected Families...", total=len(selected_items), cancellable=True, icon="📥") as pb:
+                for idx, it in enumerate(selected_items):
+                    if pb.is_cancelled:
+                        break
 
-                t = DB.Transaction(self.doc, "Load Family {}".format(fam_name))
-                try:
-                    t.Start()
-                    clr_family = clr.Reference[DB.Family]()
-                    ok = self.doc.LoadFamily(it.RfaPath, opt, clr_family)
-                    t.Commit()
-                    success_count += 1
-                except Exception as ex:
-                    if t.HasStarted() and not t.HasEnded():
-                        t.RollBack()
-                    failed_count += 1
-                    errors.append(u"{}: {}".format(fam_name, safe_unicode(ex)))
+                    fam_name = it.Name
+                    pb.update(
+                        current_value=idx + 1,
+                        status="Loading into project ({}/{})...".format(idx + 1, len(selected_items)),
+                        detail=fam_name
+                    )
 
-                yield_dispatcher_every(idx + 1, batch_size=5)
+                    t = DB.Transaction(self.doc, "Load Family {}".format(fam_name))
+                    try:
+                        t.Start()
+                        clr_family = clr.Reference[DB.Family]()
+                        ok = self.doc.LoadFamily(it.RfaPath, opt, clr_family)
+                        t.Commit()
+                        success_count += 1
+                    except Exception as ex:
+                        if t.HasStarted() and not t.HasEnded():
+                            t.RollBack()
+                        failed_count += 1
+                        errors.append(u"{}: {}".format(fam_name, safe_unicode(ex)))
+
+                    yield_dispatcher_every(idx + 1, batch_size=5)
 
             tg.Assimilate()
 
@@ -688,12 +682,6 @@ class FamilyLocalWindow(forms.WPFWindow):
                 tg.RollBack()
             show_error(u"Error during batch load:\n{}".format(safe_unicode(ex)), "Batch Load Error")
 
-        finally:
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Visibility = Visibility.Collapsed
-            if hasattr(self, 'btnBatchLoadTop'):
-                self.btnBatchLoadTop.IsEnabled = True
-
 
 # ── Launch Entry ──────────────────────────────────────────────────────────────
 
@@ -703,7 +691,25 @@ def run():
         show_warning("Please open a Revit project before launching Family Local.", "No Active Project")
         return
 
-    win = FamilyLocalWindow(doc)
+    folder = load_saved_folder()
+    cache_db = load_cache_db()
+
+    # Determine Active Revit Version Year
+    active_revit_year = 2024
+    try:
+        from pyrevit import HOST_APP
+        if HOST_APP and HOST_APP.version:
+            active_revit_year = int(HOST_APP.version)
+    except Exception:
+        pass
+
+    # 1. Show MepananaProgressBar splash dialog BEFORE main window opens!
+    items, total_bytes = scan_library_folder_with_progress(
+        folder, active_revit_year=active_revit_year, cache_db=cache_db
+    )
+
+    # 2. Launch Main Window pre-populated instantly!
+    win = FamilyLocalWindow(doc, preloaded_items=items, total_bytes=total_bytes)
     win.ShowDialog()
 
 if __name__ == "__main__":
