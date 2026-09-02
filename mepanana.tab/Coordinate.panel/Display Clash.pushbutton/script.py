@@ -15,6 +15,14 @@ Part of mepanana.extension.
 __title__ = "Display Clash"
 __doc__   = "Transient visual clash analysis for MEP and BIM elements using Revit Analysis Visualization Framework (AVF)."
 
+# ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        import sys
+        sys.exit()
+
 import os
 import sys
 import json
