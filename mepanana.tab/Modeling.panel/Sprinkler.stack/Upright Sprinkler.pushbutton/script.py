@@ -228,48 +228,55 @@ class UprightSprinklerWindow(forms.WPFWindow):
             add_line(cx, cy - 12, cx, cy - 16, spray_blue, 1.2)
             add_line(cx + 6, cy - 11, cx + 14, cy - 2, spray_blue, 1.2)
 
-        # 1. Horizontal Supply Branchline at bottom (Y=120)
-        add_line(20, 120, 420, 120, pipe_brush, 8)
-        add_badge("Branchline Supply", 25, 128, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        # 1. Ceiling / Roof Deck at top
+        ceiling_brush = SolidColorBrush(Color.FromRgb(203, 213, 225))
+        add_line(15, 20, 395, 20, ceiling_brush, 3)
+        add_badge("Ceiling / Roof Deck", 20, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
+
+        # 2. Horizontal Supply Branchline at bottom (Y=116)
+        add_line(15, 116, 395, 116, pipe_brush, 8)
+        add_badge("Branchline Supply", 20, 126, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
         if is_direct:
             # ── MODE 1: DIRECT VERTICAL RISER UP ──
-            add_badge("Crown Takeoff / Olet", 100, 128, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_badge(u"Riser Nipple (" + drop_str + u", H=" + riser_str + u"mm)", 230, 65, badge_gray_bg, badge_gray_border, green_badge)
-
             # Crown tee/olet
-            add_circle(210, 120, 6, fitting_brush, pipe_brush, 1.5)
+            add_circle(175, 116, 6, fitting_brush, pipe_brush, 1.5)
 
             # Vertical riser pipe up
-            add_line(210, 120, 210, 52, pipe_brush, 4.5)
-            add_circle(210, 52, 4.5, fitting_brush, pipe_brush, 1.2)
+            add_line(175, 116, 175, 52, pipe_brush, 4.5)
+            add_circle(175, 52, 4.5, fitting_brush, pipe_brush, 1.2)
 
             # Upright Sprinkler Head pointing UP
-            add_upright_head(210, 50)
-            add_badge("Upright Deflector", 250, 25, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_upright_head(175, 50)
+
+            # Badges positioned with zero overlap
+            add_badge("Upright Deflector", 210, 24, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_line(185, 42, 210, 32, badge_gray_border, 1, dash=[2, 2])
+
+            add_badge(u"Riser Nipple (" + drop_str + u", H=" + riser_str + u"mm)", 210, 72, badge_gray_bg, badge_gray_border, green_badge)
 
         else:
             # ── MODE 2: ARM-OVER LOOP (NFPA 13) ──
-            add_badge("Arm-Over Loop (NFPA 13)", 240, 15, badge_gray_bg, badge_gray_border, green_badge)
-            add_badge("Top Tee", 120, 128, badge_gray_bg, badge_gray_border, badge_gray_fg)
-
             # Takeoff at crown
-            add_circle(150, 120, 6, fitting_brush, pipe_brush, 1.5)
+            add_circle(130, 116, 6, fitting_brush, pipe_brush, 1.5)
 
             # Vertical riser up to Y=45
-            add_line(150, 120, 150, 45, pipe_brush, 4)
-            add_circle(150, 45, 4.5, fitting_brush, pipe_brush, 1.2)
+            add_line(130, 116, 130, 45, pipe_brush, 4)
+            add_circle(130, 45, 4.5, fitting_brush, pipe_brush, 1.2)
 
-            # Horizontal arm from X=150 to X=270 at Y=45
-            add_line(150, 45, 270, 45, pipe_brush, 4)
-            add_circle(270, 45, 4.5, fitting_brush, pipe_brush, 1.2)
+            # Horizontal arm from X=130 to X=240 at Y=45
+            add_line(130, 45, 240, 45, pipe_brush, 4)
+            add_circle(240, 45, 4.5, fitting_brush, pipe_brush, 1.2)
 
-            # Short vertical drop / riser to upright head
-            add_line(270, 45, 270, 58, pipe_brush, 3.5)
+            # Short vertical connection to upright head
+            add_line(240, 45, 240, 56, pipe_brush, 3.5)
 
             # Upright head
-            add_upright_head(270, 58)
-            add_badge("Sediment-Free", 290, 85, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_upright_head(240, 56)
+
+            # Badges
+            add_badge("Arm-Over Loop (NFPA 13)", 140, 18, badge_gray_bg, badge_gray_border, green_badge)
+            add_badge("Sediment-Free Nipple", 240, 72, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"

@@ -352,10 +352,10 @@ class PendentSprinklerWindow(forms.WPFWindow):
             # 6. Sprinkler Pendent Head
             add_sprinkler_head(255, 112)
 
-            # 7. Lower Annotations (Strictly separated zones)
-            add_badge("NFPA 13: R ≥ 250mm", 75, 80, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_badge("90° Vertical Drop", 272, 70, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_badge("Ceiling Grid", 335, 104, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
+            # 7. Lower Annotations (Strictly separated non-overlapping zones)
+            add_badge("NFPA 13: R ≥ 250mm", 20, 78, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge("90° Vertical Drop", 270, 70, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge("Ceiling Grid", 275, 118, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
 
         else:
             # ── MODE 2: RIGID STEEL PIPE DROP (RISER NIPPLE) ──────────────────
@@ -368,11 +368,11 @@ class PendentSprinklerWindow(forms.WPFWindow):
 
             # 1. Main Pipe at bottom
             add_line(25, 116, 135, 116, rigid_blue, 9)
-            add_badge("Main Pipe", 42, 126, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge("Main Pipe", 35, 126, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
             # 2. Riser Nipple going up
             add_line(80, 116, 80, 42, rigid_blue, 6)
-            add_badge("H = {}mm".format(int(riser_h_val)), 6, 72, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge("H = {}mm".format(int(riser_h_val)), 8, 68, badge_blue_bg, badge_blue_border, badge_blue_fg)
 
             # 3. Top Tee Fitting
             add_circle(80, 42, 6.5, fitting_brush, rigid_blue, 1.5)
@@ -396,7 +396,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_circle(350, 42, 5, fitting_brush, rigid_blue, 1)
             add_line(350, 47, 350, 94, rigid_blue, drop_w)
             add_sprinkler_head(350, 95)
-            add_badge("End 90° Elbow", 295, 16, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge("End 90° Elbow", 265, 16, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"

@@ -216,48 +216,48 @@ class SidewallSprinklerWindow(forms.WPFWindow):
             canvas.Children.Add(el)
             return el
 
-        # 1. Ceiling Slab Line at Y=20
-        add_line(15, 20, 420, 20, ceiling_brush, 3)
+        # 1. Ceiling Slab Line at Y=22
+        add_line(15, 22, 360, 22, ceiling_brush, 3)
         add_badge("Ceiling / Slab Deck", 20, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-        # 2. Vertical Wall Line at X=360
-        add_line(360, 20, 360, 140, wall_brush, 8)
-        add_badge("Wall / Partition", 330, 125, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        # 2. Vertical Wall Line at X=310
+        add_line(310, 22, 310, 138, wall_brush, 8)
+        add_badge("Wall / Partition", 260, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-        # 3. Supply Pipe near ceiling (X=80, Y=38)
-        add_line(40, 38, 120, 38, pipe_brush, 9)
-        add_circle(80, 38, 6, fitting_brush, pipe_brush, 1.5)
-        add_badge("Supply Pipe", 30, 52, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        # 3. Supply Pipe near ceiling (X=65, Y=40)
+        add_line(25, 40, 95, 40, pipe_brush, 9)
+        add_circle(65, 40, 6, fitting_brush, pipe_brush, 1.5)
+        add_badge("Supply Pipe", 20, 62, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-        # 4. Sidewall Head mounted on Wall (X=354, Y=80)
-        # Fitting into wall
-        add_line(354, 80, 344, 80, fitting_brush, 4)
-        add_circle(342, 80, 4, head_gold, pipe_brush, 1.2)
-        # Vertical deflector plate against wall
-        add_line(340, 72, 340, 88, head_gold, 2.5)
+        # 4. Sidewall Head mounted on Wall (X=304, Y=80)
+        add_line(304, 80, 294, 80, fitting_brush, 4)
+        add_circle(292, 80, 4, head_gold, pipe_brush, 1.2)
+        add_line(290, 72, 290, 88, head_gold, 2.5)
+
         # Crescent horizontal spray out into room (leftward)
-        add_line(338, 80, 260, 70, spray_cyan, 1.5)
-        add_line(338, 80, 250, 85, spray_cyan, 1.8)
-        add_line(338, 80, 265, 105, spray_cyan, 1.5)
-        add_badge("Sidewall Deflector", 260, 110, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        add_line(288, 80, 215, 70, spray_cyan, 1.5)
+        add_line(288, 80, 205, 80, spray_cyan, 1.8)
+        add_line(288, 80, 218, 92, spray_cyan, 1.5)
+
+        # Deflector badge placed cleanly in lower-middle zone
+        add_badge("Sidewall Deflector", 140, 118, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        add_line(235, 118, 288, 86, badge_gray_border, 1, dash=[2, 2])
 
         if is_rigid:
             # ── MODE 1: RIGID STEEL DROP ──
-            # Horizontal pipe run near ceiling from X=80 to X=354
-            add_line(80, 38, 354, 38, pipe_brush, 4.5)
-            add_circle(354, 38, 5, fitting_brush, pipe_brush, 1.5)
-            # Vertical drop down along wall to head (Y=38 to Y=80)
-            add_line(354, 38, 354, 80, pipe_brush, 4)
-            add_circle(354, 80, 5, fitting_brush, pipe_brush, 1.5)
-            add_badge("90° Wall Elbow (" + drop_str + ")", 170, 25, badge_gray_bg, badge_gray_border, pipe_brush)
+            add_line(65, 40, 304, 40, pipe_brush, 4.5)
+            add_circle(304, 40, 5, fitting_brush, pipe_brush, 1.5)
+            add_line(304, 40, 304, 80, pipe_brush, 4)
+            add_circle(304, 80, 5, fitting_brush, pipe_brush, 1.5)
+            add_badge("90° Wall Elbow (" + drop_str + ")", 115, 48, badge_gray_bg, badge_gray_border, pipe_brush)
 
         else:
             # ── MODE 2: FLEXIBLE HOSE TO WALL ──
             coral_brush = SolidColorBrush(Color.FromRgb(248, 113, 113))
-            p0 = (80.0, 38.0)
-            p1 = (180.0, 38.0)
-            p2 = (280.0, 80.0)
-            p3 = (344.0, 80.0)
+            p0 = (65.0, 40.0)
+            p1 = (160.0, 40.0)
+            p2 = (240.0, 80.0)
+            p3 = (294.0, 80.0)
 
             for s_idx in range(25):
                 t = float(s_idx) / 24.0
@@ -268,7 +268,7 @@ class SidewallSprinklerWindow(forms.WPFWindow):
                 y2 = (1-t_next)**3 * p0[1] + 3*(1-t_next)**2 * t_next * p1[1] + 3*(1-t_next) * t_next**2 * p2[1] + t_next**3 * p3[1]
                 add_line(x1, y1, x2, y2, coral_brush, 5)
 
-            add_badge("🌀 Flex Hose (" + drop_str + ")", 170, 50, badge_gray_bg, badge_gray_border, coral_brush)
+            add_badge("🌀 Flex Hose (" + drop_str + ")", 125, 48, badge_gray_bg, badge_gray_border, coral_brush)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"
