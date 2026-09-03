@@ -177,7 +177,15 @@ def cluster_sprinklers_by_main_pipe(main_pipe, sprinkler_elements, tolerance_mm=
     branch_groups = []
     for cl in raw_clusters:
         avg_u = sum(x["proj_u"] for x in cl) / float(len(cl))
-        main_conn_pt = p0 + u_2d * avg_u
+        raw_pt = p0 + u_2d * avg_u
+        main_conn_pt = raw_pt
+        try:
+            m_curve = main_pipe.Location.Curve
+            proj = m_curve.Project(raw_pt)
+            if proj:
+                main_conn_pt = proj.XYZPoint
+        except Exception:
+            pass
 
         pos_items = [it for it in cl if it["side"] > 0]
         neg_items = [it for it in cl if it["side"] < 0]
@@ -224,40 +232,91 @@ def get_connector_closest_to(element, target_pt):
 
 
 def find_containing_main_pipe(doc, main_pipe_pool, target_pt):
-    """Finds the active main pipe segment that physically contains the target point."""
+    """
+    Finds the active main pipe segment that physically contains target_pt.
+    Returns: (best_pipe, exact_proj_pt_on_curve)
+    """
+    best_pipe = None
+    best_proj_pt = None
+    min_dist = float('inf')
+
     for pipe in list(main_pipe_pool):
-        loc = pipe.Location
-        if isinstance(loc, DB.LocationCurve):
-            curve = loc.Curve
-            p0 = curve.GetEndPoint(0)
-            p1 = curve.GetEndPoint(1)
-            d_total = p0.DistanceTo(p1)
-            d1 = p0.DistanceTo(target_pt)
-            d2 = p1.DistanceTo(target_pt)
-            if d1 > mm_to_ft(20.0) and d2 > mm_to_ft(20.0):
-                if abs((d1 + d2) - d_total) <= mm_to_ft(15.0):
-                    return pipe
-    return None
+        try:
+            loc = pipe.Location
+            if isinstance(loc, DB.LocationCurve):
+                curve = loc.Curve
+                proj = curve.Project(target_pt)
+                if proj:
+                    p0 = curve.GetEndPoint(0)
+                    p1 = curve.GetEndPoint(1)
+                    seg_len = p0.DistanceTo(p1)
+                    proj_pt = proj.XYZPoint
+                    vec_norm = (p1 - p0).Normalize()
+                    u = (proj_pt - p0).DotProduct(vec_norm)
+                    margin = mm_to_ft(10.0)
+                    if -margin <= u <= (seg_len + margin):
+                        if proj.Distance < min_dist:
+                            min_dist = proj.Distance
+                            best_pipe = pipe
+                            best_proj_pt = proj_pt
+        except Exception:
+            pass
+
+    if best_pipe and best_proj_pt:
+        return best_pipe, best_proj_pt
+
+    # Fallback: find pipe in pool with minimum 3D projection distance
+    for pipe in list(main_pipe_pool):
+        try:
+            loc = pipe.Location
+            if isinstance(loc, DB.LocationCurve):
+                proj = loc.Curve.Project(target_pt)
+                if proj and proj.Distance < min_dist:
+                    min_dist = proj.Distance
+                    best_pipe = pipe
+                    best_proj_pt = proj.XYZPoint
+        except Exception:
+            pass
+
+    return best_pipe, best_proj_pt
 
 
 def connect_branch_to_main(doc, riser_or_pipe, main_pipe_pool, main_connect_pt):
     """
-    Connects a riser nipple or branch start pipe to the main pipe:
-    1. Attempts NewTakeoffFitting (for Mechanical Tee / Welded Tap setups).
-    2. If Takeoff fails, breaks the containing main pipe with BreakCurve and creates NewTeeFitting.
+    Connects a riser nipple or vertical branch pipe to the main pipe network:
+    1. Finds the specific main pipe segment containing main_connect_pt.
+    2. Snaps the riser/branch start connector precisely to exact_pt on the main pipe centerline.
+    3. Attempts NewTakeoffFitting (for Mechanical Tee / Tap routing).
+    4. If Takeoff fails, breaks the containing main pipe with BreakCurve, regenerates document,
+       and creates NewTeeFitting (with automatic size matching fallback).
     """
-    start_conn = get_connector_closest_to(riser_or_pipe, main_connect_pt)
+    target_pipe, exact_pt = find_containing_main_pipe(doc, main_pipe_pool, main_connect_pt)
+    if not target_pipe or not exact_pt:
+        return None
+
+    # Snap the riser_or_pipe endpoint precisely to exact_pt on main pipe centerline
+    try:
+        loc = riser_or_pipe.Location
+        if isinstance(loc, DB.LocationCurve):
+            c = loc.Curve
+            p_start = c.GetEndPoint(0)
+            p_end = c.GetEndPoint(1)
+            if p_start.DistanceTo(exact_pt) < p_end.DistanceTo(exact_pt):
+                if p_start.DistanceTo(exact_pt) > 1e-4:
+                    loc.Curve = DB.Line.CreateBound(exact_pt, p_end)
+                    doc.Regenerate()
+            else:
+                if p_end.DistanceTo(exact_pt) > 1e-4:
+                    loc.Curve = DB.Line.CreateBound(p_start, exact_pt)
+                    doc.Regenerate()
+    except Exception:
+        pass
+
+    start_conn = get_connector_closest_to(riser_or_pipe, exact_pt)
     if not start_conn:
         return None
 
-    target_pipe = find_containing_main_pipe(doc, main_pipe_pool, main_connect_pt)
-    if not target_pipe:
-        target_pipe = main_pipe_pool[0] if main_pipe_pool else None
-
-    if not target_pipe:
-        return None
-
-    # Attempt 1: Takeoff Fitting
+    # Attempt 1: Takeoff Fitting (Mechanical Tee / Welded Tap)
     try:
         fitting = doc.Create.NewTakeoffFitting(start_conn, target_pipe)
         if fitting:
@@ -265,18 +324,94 @@ def connect_branch_to_main(doc, riser_or_pipe, main_pipe_pool, main_connect_pt):
     except Exception:
         pass
 
-    # Attempt 2: BreakCurve on target pipe + NewTeeFitting
+    # Attempt 2: BreakCurve on target pipe + doc.Regenerate() + NewTeeFitting
     try:
-        new_pipe_id = DB.Plumbing.PlumbingUtils.BreakCurve(doc, target_pipe.Id, main_connect_pt)
-        if new_pipe_id and new_pipe_id != DB.ElementId.InvalidElementId:
-            new_pipe = doc.GetElement(new_pipe_id)
-            main_pipe_pool.append(new_pipe)
-            c1 = get_connector_closest_to(target_pipe, main_connect_pt)
-            c2 = get_connector_closest_to(new_pipe, main_connect_pt)
-            if c1 and c2 and not c1.IsConnected and not c2.IsConnected:
-                tee = doc.Create.NewTeeFitting(c1, c2, start_conn)
-                if tee:
-                    return tee
+        t_curve = target_pipe.Location.Curve
+        p0 = t_curve.GetEndPoint(0)
+        p1 = t_curve.GetEndPoint(1)
+        d0 = p0.DistanceTo(exact_pt)
+        d1 = p1.DistanceTo(exact_pt)
+
+        # If very close to an open end of target_pipe, try 90° Elbow fitting
+        if d0 <= mm_to_ft(25.0):
+            c_main = get_connector_closest_to(target_pipe, exact_pt)
+            if c_main and not c_main.IsConnected:
+                try:
+                    elbow = doc.Create.NewElbowFitting(c_main, start_conn)
+                    if elbow:
+                        return elbow
+                except Exception:
+                    pass
+        elif d1 <= mm_to_ft(25.0):
+            c_main = get_connector_closest_to(target_pipe, exact_pt)
+            if c_main and not c_main.IsConnected:
+                try:
+                    elbow = doc.Create.NewElbowFitting(c_main, start_conn)
+                    if elbow:
+                        return elbow
+                except Exception:
+                    pass
+
+        # Otherwise, break the curve inside the segment
+        if d0 > mm_to_ft(25.0) and d1 > mm_to_ft(25.0):
+            new_pipe_id = DB.Plumbing.PlumbingUtils.BreakCurve(doc, target_pipe.Id, exact_pt)
+            if new_pipe_id and new_pipe_id != DB.ElementId.InvalidElementId:
+                doc.Regenerate()  # CRITICAL: refresh connector positions at break point!
+                new_pipe = doc.GetElement(new_pipe_id)
+                if new_pipe:
+                    main_pipe_pool.append(new_pipe)
+
+                c1 = get_connector_closest_to(target_pipe, exact_pt)
+                c2 = get_connector_closest_to(new_pipe, exact_pt)
+                c_branch = get_connector_closest_to(riser_or_pipe, exact_pt)
+
+                if c1 and c2 and c_branch:
+                    # 2a. Direct Tee (c1, c2, c_branch)
+                    try:
+                        tee = doc.Create.NewTeeFitting(c1, c2, c_branch)
+                        if tee:
+                            return tee
+                    except Exception:
+                        pass
+
+                    # 2b. Reversed run collinear connectors (c2, c1, c_branch)
+                    try:
+                        tee = doc.Create.NewTeeFitting(c2, c1, c_branch)
+                        if tee:
+                            return tee
+                    except Exception:
+                        pass
+
+                    # 2c. Size matching fallback (handle equal-tee-only routing preferences)
+                    try:
+                        main_dia_p = target_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+                        branch_dia_p = riser_or_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+                        if main_dia_p and branch_dia_p:
+                            main_dia = main_dia_p.AsDouble()
+                            orig_branch_dia = branch_dia_p.AsDouble()
+                            if abs(main_dia - orig_branch_dia) > mm_to_ft(5.0):
+                                branch_dia_p.Set(main_dia)
+                                doc.Regenerate()
+                                c1 = get_connector_closest_to(target_pipe, exact_pt)
+                                c2 = get_connector_closest_to(new_pipe, exact_pt)
+                                c_branch = get_connector_closest_to(riser_or_pipe, exact_pt)
+                                tee = None
+                                try:
+                                    tee = doc.Create.NewTeeFitting(c1, c2, c_branch)
+                                except Exception:
+                                    try:
+                                        tee = doc.Create.NewTeeFitting(c2, c1, c_branch)
+                                    except Exception:
+                                        pass
+                                if tee:
+                                    branch_dia_p.Set(orig_branch_dia)
+                                    doc.Regenerate()
+                                    return tee
+                                else:
+                                    branch_dia_p.Set(orig_branch_dia)
+                                    doc.Regenerate()
+                    except Exception:
+                        pass
     except Exception:
         pass
 
@@ -576,8 +711,16 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
             continue
 
         main_pt = bg["main_connect_pt"]
-        main_top_pt = DB.XYZ(main_pt.X, main_pt.Y, main_z)
-        branch_origin_pt = DB.XYZ(main_pt.X, main_pt.Y, branch_z)
+        main_top_pt = main_pt
+        try:
+            m_curve = main_pipe.Location.Curve
+            proj = m_curve.Project(main_pt)
+            if proj:
+                main_top_pt = proj.XYZPoint
+        except Exception:
+            pass
+
+        branch_origin_pt = DB.XYZ(main_top_pt.X, main_top_pt.Y, branch_z)
 
         # 1. Create Single Riser Nipple for this branch position (if riser > 0)
         riser_pipe = None
@@ -593,6 +736,10 @@ def generate_sprinkler_network(doc, main_pipe, branch_groups, standard_name, ris
                 main_fitting = connect_branch_to_main(doc, riser_pipe, main_pipe_pool, main_top_pt)
                 if main_fitting:
                     created_fittings.append(main_fitting)
+                else:
+                    errors.append(u"Branch at ({:.0f}, {:.0f}): Could not connect Tee to Main Pipe.".format(
+                        ft_to_mm(main_top_pt.X), ft_to_mm(main_top_pt.Y)
+                    ))
             except Exception as ex:
                 errors.append(u"Riser Nipple error: {}".format(safe_unicode(ex)))
 
@@ -1144,14 +1291,22 @@ def generate_upright_network(doc, main_pipe, branch_groups, standard_name="TCVN 
         branch_z = avg_spk_z - riser_h_ft
 
         main_pt = bg["main_connect_pt"]
-        main_top_pt = DB.XYZ(main_pt.X, main_pt.Y, main_z)
-        branch_origin_pt = DB.XYZ(main_pt.X, main_pt.Y, branch_z)
+        main_top_pt = main_pt
+        try:
+            m_curve = main_pipe.Location.Curve
+            proj = m_curve.Project(main_pt)
+            if proj:
+                main_top_pt = proj.XYZPoint
+        except Exception:
+            pass
+
+        branch_origin_pt = DB.XYZ(main_top_pt.X, main_top_pt.Y, branch_z)
 
         # 3. Create vertical connection pipe between Main Pipe and Branch Line if needed
         v_conn_pipe = None
         branch_total_dn = get_dn_for_head_count(total_heads, standard_name)
 
-        if abs(branch_z - main_z) > mm_to_ft(30.0):
+        if abs(branch_z - main_top_pt.Z) > mm_to_ft(30.0):
             try:
                 v_conn_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, main_top_pt, branch_origin_pt)
                 v_conn_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(branch_total_dn))
@@ -1160,6 +1315,10 @@ def generate_upright_network(doc, main_pipe, branch_groups, standard_name="TCVN 
                 main_fitting = connect_branch_to_main(doc, v_conn_pipe, main_pipe_pool, main_top_pt)
                 if main_fitting:
                     created_fittings.append(main_fitting)
+                else:
+                    errors.append(u"Branch at ({:.0f}, {:.0f}): Could not connect Tee to Main Pipe.".format(
+                        ft_to_mm(main_top_pt.X), ft_to_mm(main_top_pt.Y)
+                    ))
             except Exception as ex:
                 errors.append(u"Main to branch connection error: {}".format(safe_unicode(ex)))
 
