@@ -105,6 +105,8 @@ class PendentSprinklerWindow(forms.WPFWindow):
             self.btnGenerate.Click += self.OnGenerate
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += self.OnClose
+        if hasattr(self, 'btnStandards'):
+            self.btnStandards.Click += self.OnShowStandards
 
         # Wire Mode switchers
         if hasattr(self, 'rbFlex'):
@@ -397,6 +399,11 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_line(350, 47, 350, 94, rigid_blue, drop_w)
             add_sprinkler_head(350, 95)
             add_badge("End 90° Elbow", 265, 16, badge_gray_bg, badge_gray_border, badge_gray_fg)
+
+    def OnShowStandards(self, sender, args):
+        from py.sprinkler_standards import show_standards_dialog
+        current_mode = "FLEX" if (hasattr(self, 'rbFlex') and self.rbFlex.IsChecked == True) else "RIGID"
+        show_standards_dialog(self, "PENDENT", current_mode)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"

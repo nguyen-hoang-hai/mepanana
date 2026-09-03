@@ -102,6 +102,8 @@ class UprightSprinklerWindow(forms.WPFWindow):
             self.btnGenerate.Click += self.OnGenerate
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += self.OnClose
+        if hasattr(self, 'btnStandards'):
+            self.btnStandards.Click += self.OnShowStandards
 
         # Wire Mode switchers
         if hasattr(self, 'rbDirect'):
@@ -283,6 +285,11 @@ class UprightSprinklerWindow(forms.WPFWindow):
             # Badges
             add_badge("Arm-Over Loop (NFPA 13)", 140, 18, badge_gray_bg, badge_gray_border, green_badge)
             add_badge("Sediment-Free Nipple", 240, 72, badge_gray_bg, badge_gray_border, badge_gray_fg)
+
+    def OnShowStandards(self, sender, args):
+        from py.sprinkler_standards import show_standards_dialog
+        current_mode = "DIRECT" if (hasattr(self, 'rbDirect') and self.rbDirect.IsChecked == True) else "ARM_OVER"
+        show_standards_dialog(self, "UPRIGHT", current_mode)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"

@@ -102,6 +102,8 @@ class SidewallSprinklerWindow(forms.WPFWindow):
             self.btnGenerate.Click += self.OnGenerate
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += self.OnClose
+        if hasattr(self, 'btnStandards'):
+            self.btnStandards.Click += self.OnShowStandards
 
         # Wire Mode switchers
         if hasattr(self, 'rbRigid'):
@@ -275,6 +277,11 @@ class SidewallSprinklerWindow(forms.WPFWindow):
                 add_line(x1, y1, x2, y2, coral_brush, 5)
 
             add_badge("🌀 Flex Hose (" + drop_str + ")", 125, 48, badge_gray_bg, badge_gray_border, coral_brush)
+
+    def OnShowStandards(self, sender, args):
+        from py.sprinkler_standards import show_standards_dialog
+        current_mode = "RIGID" if (hasattr(self, 'rbRigid') and self.rbRigid.IsChecked == True) else "FLEX"
+        show_standards_dialog(self, "SIDEWALL", current_mode)
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"
