@@ -86,7 +86,7 @@ class SprinklerSelectionFilter(UI.Selection.ISelectionFilter):
 # ── WPF Window Controller ─────────────────────────────────────────────────────
 
 class UprightSprinklerWindow(forms.WPFWindow):
-    def __init__(self, main_pipe=None, selected_sprinklers=None, is_direct_mode=True, riser_height="150", drop_dn_idx=0):
+    def __init__(self, main_pipe=None, selected_sprinklers=None, riser_height="150", drop_dn_idx=0):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         setup_window(self)
@@ -107,24 +107,11 @@ class UprightSprinklerWindow(forms.WPFWindow):
         if hasattr(self, 'btnStandards'):
             self.btnStandards.Click += self.OnShowStandards
 
-        # Wire Mode switchers
-        if hasattr(self, 'rbDirect'):
-            self.rbDirect.Checked += self.OnModeChanged
-        if hasattr(self, 'rbArmOver'):
-            self.rbArmOver.Checked += self.OnModeChanged
-
         # Wire Live Reactivity inputs
         if hasattr(self, 'txtRiserHeight'):
             self.txtRiserHeight.TextChanged += self.OnInputChanged
         if hasattr(self, 'cmbDropSize'):
             self.cmbDropSize.SelectionChanged += self.OnInputChanged
-
-        # Restore Mode
-        if hasattr(self, 'rbDirect') and hasattr(self, 'rbArmOver'):
-            if is_direct_mode:
-                self.rbDirect.IsChecked = True
-            else:
-                self.rbArmOver.IsChecked = True
 
         # Restore Main Pipe UI state
         if self.main_pipe:
@@ -247,51 +234,26 @@ class UprightSprinklerWindow(forms.WPFWindow):
         add_line(15, 116, 395, 116, pipe_brush, 8)
         add_badge("Branchline Supply", 20, 126, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
-        if is_direct:
-            # ── MODE 1: DIRECT VERTICAL RISER UP ──
-            # Crown tee/olet
-            add_circle(175, 116, 6, fitting_brush, pipe_brush, 1.5)
+        # ── DIRECT VERTICAL RISER UP ──
+        # Crown tee/olet
+        add_circle(175, 116, 6, fitting_brush, pipe_brush, 1.5)
 
-            # Vertical riser pipe up
-            add_line(175, 116, 175, 52, pipe_brush, 4.5)
-            add_circle(175, 52, 4.5, fitting_brush, pipe_brush, 1.2)
+        # Vertical riser pipe up
+        add_line(175, 116, 175, 52, pipe_brush, 4.5)
+        add_circle(175, 52, 4.5, fitting_brush, pipe_brush, 1.2)
 
-            # Upright Sprinkler Head pointing UP
-            add_upright_head(175, 50)
+        # Upright Sprinkler Head pointing UP
+        add_upright_head(175, 50)
 
-            # Badges positioned with zero overlap
-            add_badge("Upright Deflector", 210, 24, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_line(185, 42, 210, 32, badge_gray_border, 1, dash=[2.0, 2.0])
+        # Badges positioned with zero overlap
+        add_badge("Upright Deflector", 210, 24, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        add_line(185, 42, 210, 32, badge_gray_border, 1, dash=[2.0, 2.0])
 
-            add_badge(u"Riser Nipple (" + drop_str + u", H=" + riser_str + u"mm)", 210, 72, badge_gray_bg, badge_gray_border, green_badge)
-
-        else:
-            # ── MODE 2: ARM-OVER LOOP (NFPA 13) ──
-            # Takeoff at crown
-            add_circle(130, 116, 6, fitting_brush, pipe_brush, 1.5)
-
-            # Vertical riser up to Y=45
-            add_line(130, 116, 130, 45, pipe_brush, 4)
-            add_circle(130, 45, 4.5, fitting_brush, pipe_brush, 1.2)
-
-            # Horizontal arm from X=130 to X=240 at Y=45
-            add_line(130, 45, 240, 45, pipe_brush, 4)
-            add_circle(240, 45, 4.5, fitting_brush, pipe_brush, 1.2)
-
-            # Short vertical connection to upright head
-            add_line(240, 45, 240, 56, pipe_brush, 3.5)
-
-            # Upright head
-            add_upright_head(240, 56)
-
-            # Badges
-            add_badge("Arm-Over Loop (NFPA 13)", 140, 18, badge_gray_bg, badge_gray_border, green_badge)
-            add_badge("Sediment-Free Nipple", 240, 72, badge_gray_bg, badge_gray_border, badge_gray_fg)
+        add_badge(u"Riser Nipple (" + drop_str + u", H=" + riser_str + u"mm)", 210, 72, badge_gray_bg, badge_gray_border, green_badge)
 
     def OnShowStandards(self, sender, args):
         from py.sprinkler_standards import show_standards_dialog
-        current_mode = "DIRECT" if (hasattr(self, 'rbDirect') and self.rbDirect.IsChecked == True) else "ARM_OVER"
-        show_standards_dialog(self, "UPRIGHT", current_mode)
+        show_standards_dialog(self, "UPRIGHT", "DIRECT")
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"
@@ -323,7 +285,6 @@ class UprightSprinklerWindow(forms.WPFWindow):
 def run():
     main_pipe = None
     selected_sprinklers = []
-    is_direct_mode = True
     riser_height = "150"
     drop_dn_idx = 0
 
@@ -331,13 +292,11 @@ def run():
         win = UprightSprinklerWindow(
             main_pipe=main_pipe,
             selected_sprinklers=selected_sprinklers,
-            is_direct_mode=is_direct_mode,
             riser_height=riser_height,
             drop_dn_idx=drop_dn_idx
         )
         win.ShowDialog()
 
-        is_direct_mode = hasattr(win, 'rbDirect') and (win.rbDirect.IsChecked == True)
         riser_height = win.txtRiserHeight.Text if hasattr(win, 'txtRiserHeight') else "150"
         drop_dn_idx = win.cmbDropSize.SelectedIndex if hasattr(win, 'cmbDropSize') else 0
 
@@ -372,7 +331,7 @@ def run():
 
         elif win.action == "GENERATE":
             drop_dn = 25 if drop_dn_idx == 0 else 32
-            mode_str = "DIRECT" if is_direct_mode else "ARM_OVER"
+            mode_str = "DIRECT"
 
             riser_h_val = 150.0
             try:
@@ -410,7 +369,7 @@ def run():
                 t.Commit()
                 tg.Assimilate()
 
-                mode_name = u"Direct Riser Up (NFPA 13 / TCVN 7336)" if is_direct_mode else u"Arm-Over Loop"
+                mode_name = u"Direct Riser Up (NFPA 13 / TCVN 7336)"
                 msg = u"🎉 Upright Sprinkler Network Created Successfully!\n\n"
                 msg += u"• Connection Mode: {}\n".format(mode_name)
                 msg += u"• Sizing Standard: {}\n".format(selected_std)

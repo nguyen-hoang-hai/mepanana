@@ -127,7 +127,7 @@ STANDARDS_DB = {
         "modes": [
             {
                 "key": "DIRECT",
-                "display": u"Mode 1: Direct Vertical Riser Up (Ống đứng nhú thẳng từ lưng ống)",
+                "display": u"Direct Vertical Riser Up (Ống đứng nhú thẳng từ lưng ống)",
                 "nfpa_edition": "NFPA 13 (2019/2022) Sec. 10.2 & Sec. 9.2.2",
                 "nfpa_rules": [
                     (
@@ -159,34 +159,6 @@ STANDARDS_DB = {
                     (u"Chiều cao Riser Nipple (H)", u"H = 100 mm – 300 mm (Mặc định 150 mm)"),
                     (u"Đường kính ống đứng", u"DN25 (1 in.) – DN32 (1-1/4 in.)"),
                     (u"Vị trí đấu nối", u"Đỉnh tâm ống cấp (Crown Takeoff)"),
-                ]
-            },
-            {
-                "key": "ARM_OVER",
-                "display": u"Mode 2: Arm-Over Loop Upright (Cần vươn chữ U tránh dầm & chống cặn)",
-                "nfpa_edition": "NFPA 13 (2019/2022) Sec. 16.4.2 & Sec. 17.2.3",
-                "nfpa_rules": [
-                    (
-                        "Arm-Over Connection Rules (Sec. 16.4.2.1)",
-                        u"Các kết nối tay vươn (Arm-overs) phải được lấy từ đỉnh trên cùng của ống nhánh để ngăn ngừa bùn cặn và rỉ sét từ lòng ống rơi vào cổ đầu phun."
-                    ),
-                    (
-                        "Unsupported Arm-Over Limits (Sec. 17.2.3.5)",
-                        u"Chiều dài tay vươn ngang không có quang treo đỡ phụ không được vượt quá 24 in. (610 mm) đối với ống DN25 nhằm đảm bảo khả năng tự chịu lực và chống rung giật khi xả nước."
-                    ),
-                ],
-                "tcvn_edition": "TCVN 7336:2021 Điều 6.7.10",
-                "tcvn_rules": [
-                    (
-                        u"Cần vươn tránh kết cấu (Điều 6.7.10)",
-                        u"Đối với các vị trí đầu phun cần dịch chuyển để tránh dầm, cột kết cấu hoặc đường ống thông gió, phải sử dụng ống nối kiểu cần vươn (arm-over) trích từ đỉnh ống chính và đảm bảo độ dốc thoát nước khi bảo dưỡng."
-                    ),
-                ],
-                "specs": [
-                    (u"Độ vươn ngang tay arm", u"150 mm – 600 mm"),
-                    (u"Độ chênh cao tay vươn so với ống", u"ΔZ = 150 mm – 250 mm"),
-                    (u"Đường kính ống vươn", u"DN25 (1 in.)"),
-                    (u"Phụ kiện kết nối", u"Tê đỉnh + 2 Co 90° ren/hàn"),
                 ]
             }
         ]
