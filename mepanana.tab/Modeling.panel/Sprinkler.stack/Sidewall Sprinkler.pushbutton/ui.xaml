@@ -143,11 +143,11 @@
                              
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Button x:Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="36" IsCancel="True" />
-                    <Button x:Name="btnGenerate" Grid.Column="1" Content="🚀 CREATE SIDEWALL SPRINKLERS" Style="{DynamicResource PrimaryButton}" Height="36" Margin="10,0,0,0" IsDefault="True" />
+                    <Button x:Name="btnClose" Grid.Column="0" Content="Close" Style="{DynamicResource GhostButton}" Height="36" MinWidth="90" Margin="0,0,10,0" IsCancel="True" />
+                    <Button x:Name="btnGenerate" Grid.Column="1" Content="🚀 CREATE SIDEWALL SPRINKLERS" Style="{DynamicResource PrimaryButton}" Height="36" IsDefault="True" />
                 </Grid>
             </Grid>
         </Border>
