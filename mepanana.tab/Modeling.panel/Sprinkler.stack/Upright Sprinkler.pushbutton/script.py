@@ -45,6 +45,8 @@ from pyrevit import revit, DB, UI, forms
 from py.core import get_id_value, safe_unicode, mm_to_ft, ft_to_mm, SafeTransactionGroup
 from py.ui import setup_window, show_info, show_warning, show_error, do_events
 from py.sprinkler_engine import (
+    cluster_sprinklers_by_main_pipe,
+    generate_upright_network,
     create_upright_connection,
     SIZING_STANDARDS
 )
@@ -378,47 +380,60 @@ def run():
             except Exception:
                 riser_h_val = 150.0
 
-            pipe_type_id = main_pipe.PipeType.Id
+            selected_std = "TCVN 7336:2021 (Vietnam Standard)"
 
-            success_count = 0
-            fail_count = 0
-            errors = []
+            # 1. Cluster sprinklers into branch rows/columns
+            branches = cluster_sprinklers_by_main_pipe(
+                main_pipe,
+                selected_sprinklers,
+                tolerance_mm=300.0
+            )
+            if not branches:
+                show_warning(u"Could not detect any valid branch alignments with the selected Main Pipe.", "Topology Error")
+                continue
 
-            with SafeTransactionGroup(doc, "Create Upright Sprinklers"):
-                t = DB.Transaction(doc, "Generate Upright Connections")
+            # 2. Execute Upright network creation
+            tg = DB.TransactionGroup(doc, "MEPANANA - Upright Sprinkler System")
+            tg.Start()
+            t = DB.Transaction(doc, "Generate Upright Sprinkler Network")
+            try:
                 t.Start()
-                try:
-                    for s_idx, spk in enumerate(selected_sprinklers):
-                        ok, res = create_upright_connection(
-                            doc,
-                            spk,
-                            main_pipe,
-                            pipe_type_id,
-                            diameter_mm=drop_dn,
-                            mode=mode_str,
-                            arm_offset_mm=riser_h_val
-                        )
-                        if ok:
-                            success_count += 1
-                        else:
-                            fail_count += 1
-                            errors.append(u"Head #{}: {}".format(get_id_value(spk), res))
+                created_pipes, created_fittings, errors = generate_upright_network(
+                    doc,
+                    main_pipe,
+                    branches,
+                    standard_name=selected_std,
+                    riser_height_mm=riser_h_val,
+                    drop_dn=drop_dn,
+                    mode=mode_str
+                )
+                t.Commit()
+                tg.Assimilate()
 
-                    t.Commit()
-                except Exception as ex:
+                mode_name = u"Direct Riser Up (NFPA 13 / TCVN 7336)" if is_direct_mode else u"Arm-Over Loop"
+                msg = u"🎉 Upright Sprinkler Network Created Successfully!\n\n"
+                msg += u"• Connection Mode: {}\n".format(mode_name)
+                msg += u"• Sizing Standard: {}\n".format(selected_std)
+                msg += u"• Riser Pipe Size: DN{}\n".format(drop_dn)
+                msg += u"• Riser Nipple Height: {} mm\n".format(int(riser_h_val))
+                msg += u"• Branch lines created: {}\n".format(len(branches))
+                msg += u"• Total Sprinklers connected: {}\n".format(len(selected_sprinklers))
+                msg += u"• Pipe segments created: {}\n".format(len(created_pipes))
+                msg += u"• Fittings placed (Tees / Elbows / Reducers): {}\n".format(len(created_fittings))
+
+                if errors:
+                    msg += u"\n⚠️ Notices:\n• " + u"\n• ".join(errors[:4])
+
+                show_info(msg, "Upright Sprinkler Studio - Complete")
+                break
+
+            except Exception as ex:
+                if t.HasStarted() and not t.HasEnded():
                     t.RollBack()
-                    show_error(u"Generation Error:\n{}".format(safe_unicode(ex)), "Error")
-                    break
-
-            msg = u"Upright Sprinkler Connections Completed!\n\n" \
-                  u"✅ Successfully connected: {} heads\n" \
-                  u"❌ Failed / Skipped: {} heads".format(success_count, fail_count)
-
-            if fail_count > 0 and errors:
-                msg += u"\n\nDetails:\n" + u"\n".join(errors[:5])
-
-            show_info(msg, "Upright Sprinkler Results")
-            break
+                if tg.HasStarted() and not tg.HasEnded():
+                    tg.RollBack()
+                show_error(u"Error while generating Upright sprinkler system:\n{}".format(safe_unicode(ex)), "Generation Error")
+                break
 
         elif win.action == "CLOSE" or win.action is None:
             break

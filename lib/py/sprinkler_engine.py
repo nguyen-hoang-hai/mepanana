@@ -919,6 +919,317 @@ def create_upright_connection(doc, sprinkler, main_pipe, pipe_type_id, diameter_
         return False, safe_unicode(ex)
 
 
+def _build_upright_branch(doc, system_type_id, pipe_type_id, level_id, origin_pt, items, dir_vec, standard_name, drop_diameter_ft, created_pipes, created_fittings, errors, mode="DIRECT", riser_height_mm=150.0):
+    """
+    Builds branch line for Upright Sprinklers:
+    - Runs underneath the row of upright sprinklers.
+    - Sized per head count: DN40 -> DN32 -> DN25.
+    - Connects each upright head via upright riser nipple into Equal Tees / 90° Elbows.
+    """
+    num_heads = len(items)
+    if num_heads == 0:
+        return None
+
+    node_points = []
+    for item in items:
+        sp_pt = item["point"]
+        proj_dist = (sp_pt - origin_pt).DotProduct(dir_vec)
+        node_pt = origin_pt + dir_vec * proj_dist
+        node_points.append(node_pt)
+
+    first_branch_pipe = None
+    curr_incoming_pipe = None
+    curr_start_pt = origin_pt
+
+    for i in range(num_heads):
+        item = items[i]
+        sp_pt = item["point"]
+        sp_conn = item["connector"]
+        node_pt = node_points[i]
+        is_last = (i == num_heads - 1)
+
+        heads_fed = num_heads - i
+        dn_in = get_dn_for_head_count(heads_fed, standard_name)
+        dia_in_ft = mm_to_ft(dn_in)
+
+        # 1. Create Incoming Pipe into node_pt
+        if not curr_incoming_pipe:
+            if curr_start_pt.DistanceTo(node_pt) > mm_to_ft(30.0):
+                try:
+                    curr_incoming_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, curr_start_pt, node_pt)
+                    curr_incoming_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_in_ft)
+                    created_pipes.append(curr_incoming_pipe)
+                    if not first_branch_pipe:
+                        first_branch_pipe = curr_incoming_pipe
+                except Exception as ex:
+                    errors.append(u"Upright pipe in error head {}: {}".format(i + 1, safe_unicode(ex)))
+
+        pipe_in = curr_incoming_pipe
+
+        # 2. Create Upright Riser Nipple from branch up to sprinkler head
+        riser_bot_pt = node_pt
+        head_target_pt = sp_conn.Origin if sp_conn else DB.XYZ(node_pt.X, node_pt.Y, sp_pt.Z)
+        riser_pipe = None
+
+        if abs(head_target_pt.Z - riser_bot_pt.Z) > mm_to_ft(25.0):
+            try:
+                riser_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, riser_bot_pt, head_target_pt)
+                diam_p = riser_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+                if diam_p and not diam_p.IsReadOnly:
+                    diam_p.Set(drop_diameter_ft)
+                created_pipes.append(riser_pipe)
+            except Exception as ex:
+                errors.append(u"Upright riser error head {}: {}".format(i + 1, safe_unicode(ex)))
+
+        riser_branch_conn = get_connector_closest_to(riser_pipe, riser_bot_pt) if riser_pipe else None
+        riser_head_conn = get_connector_closest_to(riser_pipe, head_target_pt) if riser_pipe else None
+
+        if riser_head_conn and sp_conn:
+            if not riser_head_conn.IsConnected and not sp_conn.IsConnected:
+                try:
+                    riser_head_conn.ConnectTo(sp_conn)
+                except Exception:
+                    pass
+
+        # 3. Junction Fitting on branch line at node_pt
+        if is_last:
+            # Last head: 90° Elbow pointing UP into riser
+            if pipe_in and riser_branch_conn:
+                c_in_end = get_connector_closest_to(pipe_in, node_pt)
+                if c_in_end:
+                    try:
+                        elbow = doc.Create.NewElbowFitting(c_in_end, riser_branch_conn)
+                        if elbow:
+                            created_fittings.append(elbow)
+                    except Exception:
+                        try:
+                            tf = doc.Create.NewTakeoffFitting(riser_branch_conn, pipe_in)
+                            if tf:
+                                created_fittings.append(tf)
+                        except Exception:
+                            pass
+            curr_incoming_pipe = None
+        else:
+            next_node_pt = node_points[i + 1]
+            span_dist = node_pt.DistanceTo(next_node_pt)
+            next_heads_fed = num_heads - (i + 1)
+            dn_out = get_dn_for_head_count(next_heads_fed, standard_name)
+            dia_out_ft = mm_to_ft(dn_out)
+
+            if dn_out < dn_in and span_dist > mm_to_ft(350.0):
+                # Reduction: [Equal Tee] -> [120mm Spool] -> [Reducer] -> [Next Pipe]
+                spool_len_ft = mm_to_ft(120.0)
+                trans_pt = node_pt + dir_vec * spool_len_ft
+
+                spool_pipe = None
+                try:
+                    spool_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, node_pt, trans_pt)
+                    spool_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_in_ft)
+                    created_pipes.append(spool_pipe)
+                except Exception as ex:
+                    errors.append(u"Upright spool error: {}".format(safe_unicode(ex)))
+
+                next_pipe = None
+                try:
+                    next_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, trans_pt, next_node_pt)
+                    next_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_out_ft)
+                    created_pipes.append(next_pipe)
+                except Exception as ex:
+                    errors.append(u"Upright next pipe error: {}".format(safe_unicode(ex)))
+
+                if pipe_in and spool_pipe and riser_branch_conn:
+                    c_in_end = get_connector_closest_to(pipe_in, node_pt)
+                    c_spool_start = get_connector_closest_to(spool_pipe, node_pt)
+                    if c_in_end and c_spool_start and not c_in_end.IsConnected and not c_spool_start.IsConnected:
+                        try:
+                            tee = doc.Create.NewTeeFitting(c_in_end, c_spool_start, riser_branch_conn)
+                            if tee:
+                                created_fittings.append(tee)
+                        except Exception:
+                            try:
+                                doc.Create.NewTakeoffFitting(riser_branch_conn, pipe_in)
+                            except Exception:
+                                pass
+
+                if spool_pipe and next_pipe:
+                    c_spool_end = get_connector_closest_to(spool_pipe, trans_pt)
+                    c_next_start = get_connector_closest_to(next_pipe, trans_pt)
+                    if c_spool_end and c_next_start and not c_spool_end.IsConnected and not c_next_start.IsConnected:
+                        try:
+                            reducer = doc.Create.NewTransitionFitting(c_spool_end, c_next_start)
+                            if reducer:
+                                created_fittings.append(reducer)
+                        except Exception:
+                            try:
+                                c_spool_end.ConnectTo(c_next_start)
+                            except Exception:
+                                pass
+
+                curr_incoming_pipe = next_pipe
+                curr_start_pt = trans_pt
+
+            else:
+                # Equal size: [Normal Equal Tee] connecting directly at node_pt
+                next_pipe = None
+                try:
+                    next_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, node_pt, next_node_pt)
+                    next_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(dia_out_ft)
+                    created_pipes.append(next_pipe)
+                except Exception as ex:
+                    errors.append(u"Upright next equal pipe error: {}".format(safe_unicode(ex)))
+
+                if pipe_in and next_pipe and riser_branch_conn:
+                    c_in_end = get_connector_closest_to(pipe_in, node_pt)
+                    c_next_start = get_connector_closest_to(next_pipe, node_pt)
+                    if c_in_end and c_next_start and not c_in_end.IsConnected and not c_next_start.IsConnected:
+                        try:
+                            normal_tee = doc.Create.NewTeeFitting(c_in_end, c_next_start, riser_branch_conn)
+                            if normal_tee:
+                                created_fittings.append(normal_tee)
+                        except Exception:
+                            try:
+                                doc.Create.NewTakeoffFitting(riser_branch_conn, pipe_in)
+                            except Exception:
+                                pass
+
+                curr_incoming_pipe = next_pipe
+                curr_start_pt = node_pt
+
+        yield_dispatcher_every(i + 1, batch_size=10)
+
+    return first_branch_pipe
+
+
+def generate_upright_network(doc, main_pipe, branch_groups, standard_name="TCVN 7336:2021 (Vietnam Standard)", riser_height_mm=150.0, drop_dn=25, mode="DIRECT"):
+    """
+    Generates complete hydraulic sprinkler network for Upright Sprinklers:
+    - Clusters heads along parallel branchlines running perpendicular to the Main Pipe.
+    - Positions branchlines at proper elevation below upright heads (Z_branch = Z_spk - H_riser).
+    - Sizes branch pipes with stepped hydraulic diameters (DN40 -> DN32 -> DN25).
+    - Connects each upright head via upright riser nipple into Equal Tees / 90° Elbows.
+    - Connects branch lines to the Main Pipe via Top Riser or direct Takeoff / Tee.
+    """
+    pipe_type_id = main_pipe.PipeType.Id
+    system_type_id = main_pipe.MEPSystem.GetTypeId()
+    level_id = main_pipe.ReferenceLevel.Id if hasattr(main_pipe, 'ReferenceLevel') and main_pipe.ReferenceLevel else main_pipe.LevelId
+
+    main_z = main_pipe.Location.Curve.GetEndPoint(0).Z
+    riser_h_ft = mm_to_ft(riser_height_mm)
+    drop_diameter_ft = mm_to_ft(drop_dn)
+
+    main_pipe_pool = [main_pipe]
+    created_pipes = []
+    created_fittings = []
+    errors = []
+
+    for bg_idx, bg in enumerate(branch_groups):
+        pos_items = bg["pos_items"]
+        neg_items = bg["neg_items"]
+        all_items = pos_items + neg_items
+        total_heads = len(all_items)
+        if total_heads == 0:
+            continue
+
+        # 1. Determine average Z of sprinkler connectors in this branch
+        spk_z_list = []
+        for it in all_items:
+            conn = it.get("connector")
+            if conn:
+                spk_z_list.append(conn.Origin.Z)
+            elif it.get("point"):
+                spk_z_list.append(it["point"].Z)
+        avg_spk_z = sum(spk_z_list) / float(len(spk_z_list))
+
+        # 2. Branch pipe elevation is placed BELOW upright heads by riser_h_ft
+        branch_z = avg_spk_z - riser_h_ft
+
+        main_pt = bg["main_connect_pt"]
+        main_top_pt = DB.XYZ(main_pt.X, main_pt.Y, main_z)
+        branch_origin_pt = DB.XYZ(main_pt.X, main_pt.Y, branch_z)
+
+        # 3. Create vertical connection pipe between Main Pipe and Branch Line if needed
+        v_conn_pipe = None
+        branch_total_dn = get_dn_for_head_count(total_heads, standard_name)
+
+        if abs(branch_z - main_z) > mm_to_ft(30.0):
+            try:
+                v_conn_pipe = DB.Plumbing.Pipe.Create(doc, system_type_id, pipe_type_id, level_id, main_top_pt, branch_origin_pt)
+                v_conn_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(branch_total_dn))
+                created_pipes.append(v_conn_pipe)
+
+                main_fitting = connect_branch_to_main(doc, v_conn_pipe, main_pipe_pool, main_top_pt)
+                if main_fitting:
+                    created_fittings.append(main_fitting)
+            except Exception as ex:
+                errors.append(u"Main to branch connection error: {}".format(safe_unicode(ex)))
+
+        # 4. Build Pos Side Branch
+        pos_first_pipe = None
+        if pos_items:
+            pos_first_pipe = _build_upright_branch(
+                doc, system_type_id, pipe_type_id, level_id,
+                branch_origin_pt, pos_items, bg["pos_direction"],
+                standard_name, drop_diameter_ft,
+                created_pipes, created_fittings, errors,
+                mode=mode, riser_height_mm=riser_height_mm
+            )
+
+        # 5. Build Neg Side Branch
+        neg_first_pipe = None
+        if neg_items:
+            neg_first_pipe = _build_upright_branch(
+                doc, system_type_id, pipe_type_id, level_id,
+                branch_origin_pt, neg_items, bg["neg_direction"],
+                standard_name, drop_diameter_ft,
+                created_pipes, created_fittings, errors,
+                mode=mode, riser_height_mm=riser_height_mm
+            )
+
+        # 6. Connect Branchlines to Main Pipe / Vertical Connection
+        if v_conn_pipe:
+            c_v_top = get_connector_closest_to(v_conn_pipe, branch_origin_pt)
+            c_pos_start = get_connector_closest_to(pos_first_pipe, branch_origin_pt) if pos_first_pipe else None
+            c_neg_start = get_connector_closest_to(neg_first_pipe, branch_origin_pt) if neg_first_pipe else None
+
+            if c_pos_start and c_neg_start and c_v_top:
+                try:
+                    top_tee = doc.Create.NewTeeFitting(c_pos_start, c_neg_start, c_v_top)
+                    if top_tee:
+                        created_fittings.append(top_tee)
+                except Exception:
+                    try:
+                        doc.Create.NewElbowFitting(c_v_top, c_pos_start)
+                    except Exception:
+                        pass
+            elif c_pos_start and c_v_top:
+                try:
+                    elbow = doc.Create.NewElbowFitting(c_v_top, c_pos_start)
+                    if elbow:
+                        created_fittings.append(elbow)
+                except Exception:
+                    pass
+            elif c_neg_start and c_v_top:
+                try:
+                    elbow = doc.Create.NewElbowFitting(c_v_top, c_neg_start)
+                    if elbow:
+                        created_fittings.append(elbow)
+                except Exception:
+                    pass
+        else:
+            if pos_first_pipe:
+                pos_main_fit = connect_branch_to_main(doc, pos_first_pipe, main_pipe_pool, branch_origin_pt)
+                if pos_main_fit:
+                    created_fittings.append(pos_main_fit)
+            if neg_first_pipe:
+                neg_main_fit = connect_branch_to_main(doc, neg_first_pipe, main_pipe_pool, branch_origin_pt)
+                if neg_main_fit:
+                    created_fittings.append(neg_main_fit)
+
+        yield_dispatcher_every(bg_idx + 1, batch_size=2)
+
+    return created_pipes, created_fittings, errors
+
+
 # ==============================================================================
 # SIDEWALL SPRINKLER CONNECTIONS (RIGID DROP & FLEX HOSE)
 # ==============================================================================
