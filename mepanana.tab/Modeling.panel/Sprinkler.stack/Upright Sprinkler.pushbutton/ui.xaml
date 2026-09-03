@@ -30,20 +30,20 @@
                     <!-- Pick Main Pipe -->
                     <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="btnPickMain" Content="🎯 Pick Main Pipe" Style="{DynamicResource GhostButton}" Height="32" />
+                        <Button x:Name="btnPickMain" Content="🎯 Pick Main Pipe" Style="{DynamicResource GhostButton}" Height="32" Padding="8,0" />
                         <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No main pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
                     </Grid>
 
                     <!-- Select Upright Sprinklers -->
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="150" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="btnSelectSprinklers" Content="⛶ Select Heads" Style="{DynamicResource GhostButton}" Height="32" />
+                        <Button x:Name="btnSelectSprinklers" Content="⛶ Select Heads" Style="{DynamicResource GhostButton}" Height="32" Padding="8,0" />
                         <TextBlock x:Name="txtSprinklerStatus" Grid.Column="1" Text="0 upright heads selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" />
                     </Grid>
                 </StackPanel>
