@@ -842,3 +842,165 @@ def create_rigid_drop_connection(doc, sprinkler, main_pipe, pipe_type_id, diamet
         return True, rigid_drop
     except Exception as ex:
         return False, safe_unicode(ex)
+
+
+# ==============================================================================
+# UPRIGHT SPRINKLER RISER-UP CONNECTIONS (DIRECT NIPPLE & ARM-OVER LOOP)
+# ==============================================================================
+
+def create_upright_connection(doc, sprinkler, main_pipe, pipe_type_id, diameter_mm=25, mode="DIRECT", arm_offset_mm=150):
+    """
+    Creates an NFPA 13 / TCVN 7336 compliant connection from branch pipe UP to an Upright Sprinkler head.
+    Mode 'DIRECT': Vertical nipple straight up from pipe to sprinkler connector.
+    Mode 'ARM_OVER': Arm-over loop (up from pipe, 90 deg horizontal arm, turn into head) to avoid sediment.
+    Returns: (success: bool, result_element_or_error_str)
+    """
+    spk_conn = get_sprinkler_piping_connector(sprinkler)
+    if not spk_conn:
+        return False, u"Sprinkler does not have an active Piping connector."
+
+    p_end = spk_conn.Origin
+    p_start = get_closest_projection_point(main_pipe, p_end)
+    if not p_start:
+        return False, u"Sprinkler is outside the longitudinal bounds of the main pipe."
+
+    sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
+    sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
+    level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
+
+    try:
+        from Autodesk.Revit.DB.Plumbing import Pipe
+        if mode == "ARM_OVER":
+            arm_h_ft = mm_to_ft(arm_offset_mm)
+            p_mid = DB.XYZ(p_start.X, p_start.Y, max(p_start.Z, p_end.Z) + arm_h_ft)
+            p_top_spk = DB.XYZ(p_end.X, p_end.Y, p_mid.Z)
+
+            pipe1 = Pipe.Create(doc, system_type_id, pipe_type_id, level_id, p_start, p_mid)
+            pipe1.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(diameter_mm))
+
+            pipe2 = Pipe.Create(doc, system_type_id, pipe_type_id, level_id, p_mid, p_top_spk)
+            pipe2.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(diameter_mm))
+
+            pipe3 = Pipe.Create(doc, system_type_id, pipe_type_id, level_id, p_top_spk, p_end)
+            pipe3.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(diameter_mm))
+
+            try:
+                c1_top = get_connector_closest_to(pipe1, p_mid)
+                c2_start = get_connector_closest_to(pipe2, p_mid)
+                if c1_top and c2_start:
+                    doc.Create.NewElbowFitting(c1_top, c2_start)
+
+                c2_end = get_connector_closest_to(pipe2, p_top_spk)
+                c3_top = get_connector_closest_to(pipe3, p_top_spk)
+                if c2_end and c3_top:
+                    doc.Create.NewElbowFitting(c2_end, c3_top)
+
+                c3_end = get_connector_closest_to(pipe3, p_end)
+                if c3_end and spk_conn:
+                    c3_end.ConnectTo(spk_conn)
+            except Exception:
+                pass
+            return True, pipe3
+        else:
+            riser = Pipe.Create(doc, system_type_id, pipe_type_id, level_id, p_start, p_end)
+            diam_param = riser.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+            if diam_param and not diam_param.IsReadOnly:
+                diam_param.Set(mm_to_ft(diameter_mm))
+
+            c_top = get_connector_closest_to(riser, p_end)
+            if c_top and spk_conn:
+                try:
+                    c_top.ConnectTo(spk_conn)
+                except Exception:
+                    pass
+
+            return True, riser
+    except Exception as ex:
+        return False, safe_unicode(ex)
+
+
+# ==============================================================================
+# SIDEWALL SPRINKLER CONNECTIONS (RIGID DROP & FLEX HOSE)
+# ==============================================================================
+
+def create_sidewall_connection(doc, sprinkler, main_pipe, pipe_type_id, flex_pipe_type_id=None, is_flex=False, diameter_mm=25, wall_offset_mm=100):
+    """
+    Creates an NFPA 13 / TCVN 7336 compliant connection from supply pipe to a Sidewall Sprinkler head.
+    Returns: (success: bool, result_element_or_error_str)
+    """
+    spk_conn = get_sprinkler_piping_connector(sprinkler)
+    if not spk_conn:
+        return False, u"Sprinkler does not have an active Piping connector."
+
+    p_end = spk_conn.Origin
+    p_start = get_closest_projection_point(main_pipe, p_end)
+    if not p_start:
+        return False, u"Sprinkler is outside the longitudinal bounds of the main pipe."
+
+    sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
+    sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
+    level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
+
+    try:
+        if is_flex and flex_pipe_type_id:
+            import clr
+            clr.AddReference("System")
+            from System.Collections.Generic import List as ClrList
+            from Autodesk.Revit.DB.Plumbing import FlexPipe
+
+            p_knee1 = DB.XYZ(p_start.X, p_start.Y, (p_start.Z + p_end.Z) * 0.5)
+            dir_to_head = (p_end - p_start)
+            dir_h = DB.XYZ(dir_to_head.X, dir_to_head.Y, 0.0).Normalize()
+            p_knee2 = p_end - dir_h.Multiply(mm_to_ft(100.0))
+
+            points = ClrList[DB.XYZ]()
+            points.Add(p_start)
+            points.Add(p_knee1)
+            points.Add(p_knee2)
+            points.Add(p_end)
+
+            flex_pipe = FlexPipe.Create(doc, sys_type_id, flex_pipe_type_id, level_id, points)
+            diam_param = flex_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+            if diam_param and not diam_param.IsReadOnly:
+                diam_param.Set(mm_to_ft(diameter_mm))
+
+            for f_conn in flex_pipe.ConnectorManager.Connectors:
+                if f_conn.Origin.DistanceTo(p_end) < mm_to_ft(60.0):
+                    try:
+                        f_conn.ConnectTo(spk_conn)
+                    except Exception:
+                        pass
+                    break
+            return True, flex_pipe
+        else:
+            from Autodesk.Revit.DB.Plumbing import Pipe
+            p_corner = DB.XYZ(p_start.X, p_start.Y, p_end.Z)
+
+            pipe_v = None
+            if abs(p_start.Z - p_end.Z) > mm_to_ft(50.0):
+                pipe_v = Pipe.Create(doc, system_type_id, pipe_type_id, level_id, p_start, p_corner)
+                pipe_v.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(diameter_mm))
+
+            p_from = p_corner if pipe_v else p_start
+            pipe_h = Pipe.Create(doc, system_type_id, pipe_type_id, level_id, p_from, p_end)
+            pipe_h.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM).Set(mm_to_ft(diameter_mm))
+
+            if pipe_v and pipe_h:
+                try:
+                    c_v = get_connector_closest_to(pipe_v, p_corner)
+                    c_h = get_connector_closest_to(pipe_h, p_corner)
+                    if c_v and c_h:
+                        doc.Create.NewElbowFitting(c_v, c_h)
+                except Exception:
+                    pass
+
+            c_end = get_connector_closest_to(pipe_h, p_end)
+            if c_end and spk_conn:
+                try:
+                    c_end.ConnectTo(spk_conn)
+                except Exception:
+                    pass
+
+            return True, pipe_h
+    except Exception as ex:
+        return False, safe_unicode(ex)
