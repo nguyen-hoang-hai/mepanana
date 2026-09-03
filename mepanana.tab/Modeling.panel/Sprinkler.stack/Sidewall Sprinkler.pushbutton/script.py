@@ -181,7 +181,13 @@ class SidewallSprinklerWindow(forms.WPFWindow):
                 l.StrokeStartLineCap = PenLineCap.Round
                 l.StrokeEndLineCap = PenLineCap.Round
             if dash:
-                l.StrokeDashArray = DoubleCollection(dash)
+                try:
+                    if isinstance(dash, (list, tuple)):
+                        l.StrokeDashArray = DoubleCollection([float(v) for v in dash])
+                    else:
+                        l.StrokeDashArray = DoubleCollection([3.0, 3.0])
+                except Exception:
+                    pass
             canvas.Children.Add(l)
             return l
 
@@ -241,7 +247,7 @@ class SidewallSprinklerWindow(forms.WPFWindow):
 
         # Deflector badge placed cleanly in lower-middle zone
         add_badge("Sidewall Deflector", 140, 118, badge_gray_bg, badge_gray_border, badge_gray_fg)
-        add_line(235, 118, 288, 86, badge_gray_border, 1, dash=[2, 2])
+        add_line(235, 118, 288, 86, badge_gray_border, 1, dash=[2.0, 2.0])
 
         if is_rigid:
             # ── MODE 1: RIGID STEEL DROP ──
@@ -412,5 +418,5 @@ def run():
             break
 
 
-if __name__ == "__main__":
-    run()
+# ── Launch Entry ──────────────────────────────────────────────────────────────
+run()

@@ -865,7 +865,7 @@ def create_upright_connection(doc, sprinkler, main_pipe, pipe_type_id, diameter_
         return False, u"Sprinkler is outside the longitudinal bounds of the main pipe."
 
     sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
-    sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
+    system_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
     level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
 
     try:
@@ -938,7 +938,7 @@ def create_sidewall_connection(doc, sprinkler, main_pipe, pipe_type_id, flex_pip
         return False, u"Sprinkler is outside the longitudinal bounds of the main pipe."
 
     sys_type_param = main_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM)
-    sys_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
+    system_type_id = sys_type_param.AsElementId() if sys_type_param else DB.ElementId.InvalidElementId
     level_id = main_pipe.ReferenceLevel.Id if main_pipe.ReferenceLevel else DB.ElementId.InvalidElementId
 
     try:
@@ -959,7 +959,7 @@ def create_sidewall_connection(doc, sprinkler, main_pipe, pipe_type_id, flex_pip
             points.Add(p_knee2)
             points.Add(p_end)
 
-            flex_pipe = FlexPipe.Create(doc, sys_type_id, flex_pipe_type_id, level_id, points)
+            flex_pipe = FlexPipe.Create(doc, system_type_id, flex_pipe_type_id, level_id, points)
             diam_param = flex_pipe.get_Parameter(DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
             if diam_param and not diam_param.IsReadOnly:
                 diam_param.Set(mm_to_ft(diameter_mm))

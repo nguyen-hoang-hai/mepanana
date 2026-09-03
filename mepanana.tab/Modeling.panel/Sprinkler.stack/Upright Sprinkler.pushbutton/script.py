@@ -180,7 +180,13 @@ class UprightSprinklerWindow(forms.WPFWindow):
                 l.StrokeStartLineCap = PenLineCap.Round
                 l.StrokeEndLineCap = PenLineCap.Round
             if dash:
-                l.StrokeDashArray = DoubleCollection(dash)
+                try:
+                    if isinstance(dash, (list, tuple)):
+                        l.StrokeDashArray = DoubleCollection([float(v) for v in dash])
+                    else:
+                        l.StrokeDashArray = DoubleCollection([3.0, 3.0])
+                except Exception:
+                    pass
             canvas.Children.Add(l)
             return l
 
@@ -251,7 +257,7 @@ class UprightSprinklerWindow(forms.WPFWindow):
 
             # Badges positioned with zero overlap
             add_badge("Upright Deflector", 210, 24, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_line(185, 42, 210, 32, badge_gray_border, 1, dash=[2, 2])
+            add_line(185, 42, 210, 32, badge_gray_border, 1, dash=[2.0, 2.0])
 
             add_badge(u"Riser Nipple (" + drop_str + u", H=" + riser_str + u"mm)", 210, 72, badge_gray_bg, badge_gray_border, green_badge)
 
@@ -411,5 +417,5 @@ def run():
             break
 
 
-if __name__ == "__main__":
-    run()
+# ── Launch Entry ──────────────────────────────────────────────────────────────
+run()
