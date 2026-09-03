@@ -61,22 +61,19 @@
                         <Button x:Name="btnStandards" Grid.Column="1" Content="📖 NFPA 13 &amp; TCVN 7336" Style="{DynamicResource GhostButton}" Height="26" Padding="10,2" FontSize="10.5" FontWeight="Bold" Cursor="Hand" ToolTip="Click to view detailed NFPA 13 and TCVN 7336 code clauses for this mode" />
                     </Grid>
 
-                    <!-- Dual Mode RadioButtons -->
-                    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="10" Margin="0,0,0,8">
-                        <StackPanel Orientation="Vertical">
-                            <RadioButton x:Name="rbRigid" GroupName="SprinklerMode" IsChecked="True" Margin="0,0,0,8" Cursor="Hand">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="📐" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Rigid Steel Wall Drop (90° Horizontal Wall Elbow)" FontWeight="Bold" Foreground="#3B82F6" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </RadioButton>
-                            <RadioButton x:Name="rbFlex" GroupName="SprinklerMode" Margin="0" Cursor="Hand">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="🌀" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Flexible Hose to Wall (NFPA 13 Corrugated Hose)" FontWeight="Bold" Foreground="#EF4444" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </RadioButton>
-                        </StackPanel>
+                    <!-- Single Connection Mode Info Card -->
+                    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,10" Margin="0,0,0,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="📐" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Rigid Steel Wall Drop (90° Horizontal Wall Elbow)" FontWeight="Bold" Foreground="#3B82F6" FontSize="12.5" />
+                                <TextBlock Text="Vertical rigid steel drop from ceiling turning 90° into sidewall deflector per NFPA 13 / TCVN 7336" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
                     <!-- Parameters: Pipe Size & Wall Offset -->

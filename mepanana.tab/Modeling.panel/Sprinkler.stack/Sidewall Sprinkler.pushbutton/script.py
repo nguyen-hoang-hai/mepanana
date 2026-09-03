@@ -84,7 +84,7 @@ class SprinklerSelectionFilter(UI.Selection.ISelectionFilter):
 # ── WPF Window Controller ─────────────────────────────────────────────────────
 
 class SidewallSprinklerWindow(forms.WPFWindow):
-    def __init__(self, main_pipe=None, selected_sprinklers=None, is_rigid_mode=True, wall_offset="100", drop_dn_idx=0):
+    def __init__(self, main_pipe=None, selected_sprinklers=None, wall_offset="100", drop_dn_idx=0):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         setup_window(self)
@@ -105,24 +105,11 @@ class SidewallSprinklerWindow(forms.WPFWindow):
         if hasattr(self, 'btnStandards'):
             self.btnStandards.Click += self.OnShowStandards
 
-        # Wire Mode switchers
-        if hasattr(self, 'rbRigid'):
-            self.rbRigid.Checked += self.OnModeChanged
-        if hasattr(self, 'rbFlex'):
-            self.rbFlex.Checked += self.OnModeChanged
-
         # Wire Live Reactivity inputs
         if hasattr(self, 'txtWallOffset'):
             self.txtWallOffset.TextChanged += self.OnInputChanged
         if hasattr(self, 'cmbDropSize'):
             self.cmbDropSize.SelectionChanged += self.OnInputChanged
-
-        # Restore Mode
-        if hasattr(self, 'rbRigid') and hasattr(self, 'rbFlex'):
-            if is_rigid_mode:
-                self.rbRigid.IsChecked = True
-            else:
-                self.rbFlex.IsChecked = True
 
         # Restore Main Pipe UI state
         if self.main_pipe:
@@ -251,37 +238,16 @@ class SidewallSprinklerWindow(forms.WPFWindow):
         add_badge("Sidewall Deflector", 140, 118, badge_gray_bg, badge_gray_border, badge_gray_fg)
         add_line(235, 118, 288, 86, badge_gray_border, 1, dash=[2.0, 2.0])
 
-        if is_rigid:
-            # ── MODE 1: RIGID STEEL DROP ──
-            add_line(65, 40, 304, 40, pipe_brush, 4.5)
-            add_circle(304, 40, 5, fitting_brush, pipe_brush, 1.5)
-            add_line(304, 40, 304, 80, pipe_brush, 4)
-            add_circle(304, 80, 5, fitting_brush, pipe_brush, 1.5)
-            add_badge("90° Wall Elbow (" + drop_str + ")", 115, 48, badge_gray_bg, badge_gray_border, pipe_brush)
-
-        else:
-            # ── MODE 2: FLEXIBLE HOSE TO WALL ──
-            coral_brush = SolidColorBrush(Color.FromRgb(248, 113, 113))
-            p0 = (65.0, 40.0)
-            p1 = (160.0, 40.0)
-            p2 = (240.0, 80.0)
-            p3 = (294.0, 80.0)
-
-            for s_idx in range(25):
-                t = float(s_idx) / 24.0
-                t_next = float(s_idx + 1) / 24.0
-                x1 = (1-t)**3 * p0[0] + 3*(1-t)**2 * t * p1[0] + 3*(1-t) * t**2 * p2[0] + t**3 * p3[0]
-                y1 = (1-t)**3 * p0[1] + 3*(1-t)**2 * t * p1[1] + 3*(1-t) * t**2 * p2[1] + t**3 * p3[1]
-                x2 = (1-t_next)**3 * p0[0] + 3*(1-t_next)**2 * t_next * p1[0] + 3*(1-t_next) * t_next**2 * p2[0] + t_next**3 * p3[0]
-                y2 = (1-t_next)**3 * p0[1] + 3*(1-t_next)**2 * t_next * p1[1] + 3*(1-t_next) * t_next**2 * p2[1] + t_next**3 * p3[1]
-                add_line(x1, y1, x2, y2, coral_brush, 5)
-
-            add_badge("🌀 Flex Hose (" + drop_str + ")", 125, 48, badge_gray_bg, badge_gray_border, coral_brush)
+        # ── RIGID STEEL DROP ──
+        add_line(65, 40, 304, 40, pipe_brush, 4.5)
+        add_circle(304, 40, 5, fitting_brush, pipe_brush, 1.5)
+        add_line(304, 40, 304, 80, pipe_brush, 4)
+        add_circle(304, 80, 5, fitting_brush, pipe_brush, 1.5)
+        add_badge("90° Wall Elbow (" + drop_str + ")", 115, 48, badge_gray_bg, badge_gray_border, pipe_brush)
 
     def OnShowStandards(self, sender, args):
         from py.sprinkler_standards import show_standards_dialog
-        current_mode = "RIGID" if (hasattr(self, 'rbRigid') and self.rbRigid.IsChecked == True) else "FLEX"
-        show_standards_dialog(self, "SIDEWALL", current_mode)
+        show_standards_dialog(self, "SIDEWALL", "RIGID")
 
     def OnPickMain(self, sender, args):
         self.action = "PICK_MAIN"
@@ -313,7 +279,6 @@ class SidewallSprinklerWindow(forms.WPFWindow):
 def run():
     main_pipe = None
     selected_sprinklers = []
-    is_rigid_mode = True
     wall_offset = "100"
     drop_dn_idx = 0
 
@@ -321,13 +286,11 @@ def run():
         win = SidewallSprinklerWindow(
             main_pipe=main_pipe,
             selected_sprinklers=selected_sprinklers,
-            is_rigid_mode=is_rigid_mode,
             wall_offset=wall_offset,
             drop_dn_idx=drop_dn_idx
         )
         win.ShowDialog()
 
-        is_rigid_mode = hasattr(win, 'rbRigid') and (win.rbRigid.IsChecked == True)
         wall_offset = win.txtWallOffset.Text if hasattr(win, 'txtWallOffset') else "100"
         drop_dn_idx = win.cmbDropSize.SelectedIndex if hasattr(win, 'cmbDropSize') else 0
 
@@ -371,15 +334,6 @@ def run():
 
             pipe_type_id = main_pipe.PipeType.Id
 
-            flex_pipe_type_id = None
-            if not is_rigid_mode:
-                flex_types = list(DB.FilteredElementCollector(doc).OfClass(FlexPipeType).ToElements())
-                if flex_types:
-                    flex_pipe_type_id = flex_types[0].Id
-                else:
-                    show_warning(u"No Flexible Pipe Type found in project. Falling back to Rigid Steel.", "Notice")
-                    is_rigid_mode = True
-
             success_count = 0
             fail_count = 0
             errors = []
@@ -394,8 +348,8 @@ def run():
                             spk,
                             main_pipe,
                             pipe_type_id,
-                            flex_pipe_type_id=flex_pipe_type_id,
-                            is_flex=(not is_rigid_mode),
+                            flex_pipe_type_id=None,
+                            is_flex=False,
                             diameter_mm=drop_dn,
                             wall_offset_mm=offset_val
                         )
