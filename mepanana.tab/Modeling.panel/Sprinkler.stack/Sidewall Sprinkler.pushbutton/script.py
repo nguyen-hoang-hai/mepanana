@@ -334,6 +334,7 @@ def run():
 
             pipe_type_id = main_pipe.PipeType.Id
 
+            main_pipe_pool = [main_pipe]
             success_count = 0
             fail_count = 0
             errors = []
@@ -346,7 +347,7 @@ def run():
                         ok, res = create_sidewall_connection(
                             doc,
                             spk,
-                            main_pipe,
+                            main_pipe_pool,
                             pipe_type_id,
                             flex_pipe_type_id=None,
                             is_flex=False,
