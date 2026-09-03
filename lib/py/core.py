@@ -196,3 +196,35 @@ def unblock_extension_dlls(extension_dir=None):
     except Exception:
         pass
 
+
+def strip_accents(input_str):
+    """
+    Normalizes string by stripping Vietnamese and international diacritical marks.
+    Handles 'đ'/'Đ' and all unicode accents for lightning-fast, forgiving search.
+    """
+    if not input_str:
+        return u""
+    try:
+        import unicodedata
+        s = safe_unicode(input_str).replace(u'đ', u'd').replace(u'Đ', u'D')
+        nfkd = unicodedata.normalize('NFKD', s)
+        return u"".join([c for c in nfkd if not unicodedata.combining(c)]).lower()
+    except Exception:
+        return safe_unicode(input_str).lower()
+
+
+def smart_match(query, target_text):
+    """
+    Performs intelligent multi-keyword accent-insensitive search.
+    Example: 'den exit' matches 'INNO_E_ĐÈN_EXIT THOÁT HIỂM 2 HƯỚNG'.
+    """
+    if not query:
+        return True
+    if not target_text:
+        return False
+    norm_q = strip_accents(query)
+    norm_t = strip_accents(target_text)
+    keywords = norm_q.split()
+    return all(kw in norm_t for kw in keywords)
+
+

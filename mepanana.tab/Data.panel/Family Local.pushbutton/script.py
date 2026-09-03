@@ -29,7 +29,7 @@ import hashlib
 import subprocess
 
 from pyrevit import forms, revit, script, DB, UI
-from py.core import get_doc, get_uidoc, safe_unicode
+from py.core import get_doc, get_uidoc, safe_unicode, smart_match
 from py.ui import (
     setup_window, show_info, show_warning, show_error, show_success,
     show_confirm, do_events, yield_dispatcher_every, MepananaProgressBar
@@ -523,9 +523,9 @@ class FamilyLocalWindow(forms.WPFWindow):
 
         filtered = []
         for it in self.all_families:
-            # 1. Search Query Filter
+            # 1. Smart Search Query Filter (Accent-insensitive multi-word match)
             if search_query:
-                if search_query not in it.Name.lower() and search_query not in it.Category.lower():
+                if not smart_match(search_query, it.Name) and not smart_match(search_query, it.Category):
                     continue
 
             # 2. Category Filter

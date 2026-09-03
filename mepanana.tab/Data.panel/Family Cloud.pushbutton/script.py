@@ -66,7 +66,7 @@ def get_active_revit_year():
 
 HOST_REVIT_YEAR = get_active_revit_year()
 
-from py.core import safe_unicode
+from py.core import safe_unicode, smart_match
 from py.ui import (
     setup_window, show_info, show_success, show_warning, show_error,
     show_confirm, do_events, MepananaProgressBar
@@ -487,7 +487,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                 continue
             if sel_ver != "ALL" and f.RevitVersion != sel_ver:
                 continue
-            if query and query not in f.Name.lower() and query not in f.Category.lower():
+            if query and not smart_match(query, f.Name) and not smart_match(query, f.Category):
                 continue
             filtered.append(f)
 

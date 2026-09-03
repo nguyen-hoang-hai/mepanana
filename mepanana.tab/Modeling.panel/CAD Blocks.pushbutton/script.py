@@ -32,9 +32,11 @@ clr.AddReference("PresentationCore")
 from System.Windows             import Visibility
 from System.Windows.Input       import Key
 from System.Collections.Generic import List
-from System.Windows.Media       import SolidColorBrush, Color
-
 doc = get_doc()
+if not doc:
+    show_warning("Please open a Revit project before launching CAD Blocks.", "No Active Project")
+    import sys
+    sys.exit()
 
 
 # ==============================================================================
@@ -107,20 +109,25 @@ class CadBlockPlacerWindow(forms.WPFWindow):
             except:
                 pass
 
-        # ── Load CAD Links ─────────────────────────────────────────────────
+        # ── Load CAD Links & Imports ───────────────────────────────────────
         all_imports = FilteredElementCollector(doc).OfClass(ImportInstance).ToElements()
-        imports = [i for i in all_imports if i.IsLinked]
+        imports = list(all_imports)
         if not imports:
-            show_error("No CAD Links found in the document.", title="CAD Blocks", exitscript=True)
+            show_error("No CAD Drawings (Linked or Imported) found in the document.", title="CAD Blocks", exitscript=True)
 
         cad_names = []
         for cad in imports:
+            prefix = "[Link] " if getattr(cad, "IsLinked", False) else "[Import] "
             name = "CAD_" + str(get_id_value(cad))
-            try: name = cad.Category.Name
-            except: pass
-            if name not in self.cad_map:
-                self.cad_map[name] = cad
-                cad_names.append(name)
+            try:
+                if cad.Category and cad.Category.Name:
+                    name = cad.Category.Name
+            except Exception:
+                pass
+            full_name = prefix + name
+            if full_name not in self.cad_map:
+                self.cad_map[full_name] = cad
+                cad_names.append(full_name)
 
         self.cmbCadLink.ItemsSource   = cad_names
         self.cmbCadLink.SelectedIndex = 0

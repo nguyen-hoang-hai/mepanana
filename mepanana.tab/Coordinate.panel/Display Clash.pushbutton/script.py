@@ -36,16 +36,10 @@ def _fatal_alert(err_str):
     except Exception:
         pass
 
-# ── Dynamic Lib Resolution & Gatekeeper ──────────────────────────────────────
+# ── Dynamic Lib Resolution ───────────────────────────────────────────────────
 lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
-
-from py.auth import is_authenticated, update_ribbon_state, require_auth
-if not is_authenticated():
-    update_ribbon_state(False)
-    if not require_auth():
-        sys.exit()
 
 
 # ── Imports ──────────────────────────────────────────────────────────────────
