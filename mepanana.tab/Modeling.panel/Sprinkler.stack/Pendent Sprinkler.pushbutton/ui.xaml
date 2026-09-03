@@ -33,8 +33,8 @@
                             <ColumnDefinition Width="130" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="btnPickMain" Content="🎯 Pick Main" Style="{DynamicResource GhostButton}" Height="32" />
-                        <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No main pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                        <Button x:Name="btnPickMain" Content="🎯 Pick Supply" Style="{DynamicResource GhostButton}" Height="32" />
+                        <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No supply pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
                     </Grid>
 
                     <!-- Select Sprinklers -->
@@ -44,7 +44,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Button x:Name="btnSelectSprinklers" Content="⛶ Select Heads" Style="{DynamicResource GhostButton}" Height="32" />
-                        <TextBlock x:Name="txtSprinklerStatus" Grid.Column="1" Text="0 sprinklers selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" />
+                        <TextBlock x:Name="txtSprinklerStatus" Grid.Column="1" Text="0 pendent heads selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -145,7 +145,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Button x:Name="btnClose" Grid.Column="0" Content="Close" Style="{DynamicResource GhostButton}" Height="36" MinWidth="90" Margin="0,0,10,0" IsCancel="True" />
-                    <Button x:Name="btnGenerate" Grid.Column="1" Content="🚀 CREATE SPRINKLER SYSTEM" Style="{DynamicResource PrimaryButton}" Height="36" IsDefault="True" />
+                    <Button x:Name="btnGenerate" Grid.Column="1" Content="🚀 CREATE PENDENT SPRINKLERS" Style="{DynamicResource PrimaryButton}" Height="36" IsDefault="True" />
                 </Grid>
             </Grid>
         </Border>

@@ -27,14 +27,14 @@
                 <StackPanel Orientation="Vertical">
                     <TextBlock Text="1. ELEMENT SELECTION" Style="{DynamicResource SectionTitle}" Margin="0,0,0,10" />
                     
-                    <!-- Pick Main / Branch Pipe -->
+                    <!-- Pick Supply Pipe -->
                     <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="130" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="btnPickMain" Content="🎯 Pick Pipe" Style="{DynamicResource GhostButton}" Height="32" />
-                        <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                        <Button x:Name="btnPickMain" Content="🎯 Pick Supply" Style="{DynamicResource GhostButton}" Height="32" />
+                        <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No supply pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
                     </Grid>
 
                     <!-- Select Upright Sprinklers -->
@@ -71,7 +71,7 @@
                             <TextBlock Text="⬆️" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="Direct Riser Up (Top Nipple &amp; Welded Olet)" FontWeight="Bold" Foreground="#10B981" FontSize="12.5" />
-                                <TextBlock Text="Ống đứng nhú thẳng từ lưng ống cấp lên đầu phun theo TCVN 7336 / NFPA 13" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0" />
+                                <TextBlock Text="Vertical rigid riser nipple from pipe crown to upright deflector per NFPA 13 / TCVN 7336" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                         </Grid>
                     </Border>
