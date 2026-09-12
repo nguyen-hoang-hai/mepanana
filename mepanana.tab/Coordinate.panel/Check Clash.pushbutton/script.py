@@ -335,11 +335,24 @@ _EXCLUDED_CAT_NAMES = {
 }
 
 
-def _collect_document_model_categories(doc, view=None):
-    """Extracts all top-level Model categories strictly matching Revit VV Model Categories."""
+def _collect_document_model_categories(doc):
+    """
+    Extracts all top-level Model categories strictly matching Revit VV Model Categories.
+    Completely view-independent and safely shielded against CLR exceptions.
+    """
+    if not doc:
+        return []
+
     results = []
-    for cat in doc.Settings.Categories:
+    try:
+        categories = doc.Settings.Categories
+    except:
+        return []
+
+    for cat in categories:
         try:
+            if not cat:
+                continue
             if cat.CategoryType != CategoryType.Model:
                 continue
             if cat.Parent is not None:
@@ -348,7 +361,7 @@ def _collect_document_model_categories(doc, view=None):
                 continue
             if hasattr(cat, "IsVisibleInUI") and not cat.IsVisibleInUI:
                 continue
-            cid = cat.Id.IntegerValue
+            cid = get_id_value(cat.Id)
             if cid in _EXCLUDED_BIPS:
                 continue
             name = cat.Name
@@ -356,16 +369,10 @@ def _collect_document_model_categories(doc, view=None):
                 continue
             if name.strip().lower() in _EXCLUDED_CAT_NAMES:
                 continue
-            if view and hasattr(view, "CanCategoryBeHidden"):
-                try:
-                    if not view.CanCategoryBeHidden(cat.Id):
-                        continue
-                except Exception:
-                    pass
 
             disc = _classify_discipline(cid, name)
             results.append((cid, name, disc))
-        except Exception:
+        except:
             pass
 
     results.sort(key=lambda x: x[1])
@@ -419,10 +426,13 @@ class CheckClashWindow(forms.WPFWindow):
         self.dgCategories.PreviewMouseLeftButtonDown += self._on_cat_grid_click
         self.dgCategories.MouseDoubleClick += lambda s, e: self._toggle_selected_category_row()
 
-        self._init_categories()
-        self._load_category_prefs()
-        self._apply_cat_filter()
-        self._update_cat_summary()
+        try:
+            self._init_categories()
+            self._load_category_prefs()
+            self._apply_cat_filter()
+            self._update_cat_summary()
+        except:
+            pass
 
         # Tab Switching
         self.btnTabActive.Click += lambda s, e: self._switch_tab("ACTIVE")
@@ -451,10 +461,13 @@ class CheckClashWindow(forms.WPFWindow):
 
     def _init_categories(self):
         self._all_cat_vms = []
-        raw_cats = _collect_document_model_categories(self.doc, self.uidoc.ActiveView if self.uidoc else None)
-        for cid, name, disc in raw_cats:
-            vm = CategoryItemVM(cid, name, disc, is_checked=False)
-            self._all_cat_vms.append(vm)
+        try:
+            raw_cats = _collect_document_model_categories(self.doc)
+            for cid, name, disc in raw_cats:
+                vm = CategoryItemVM(cid, name, disc, is_checked=False)
+                self._all_cat_vms.append(vm)
+        except:
+            pass
 
     def _on_cat_filter_changed(self, sender, e):
         self._apply_cat_filter()
@@ -584,10 +597,11 @@ class CheckClashWindow(forms.WPFWindow):
             saved_ids = getattr(cfg, 'selected_category_ids', None)
             if saved_ids and isinstance(saved_ids, (list, set)):
                 saved_set = set(int(x) for x in saved_ids)
-                for vm in self._all_cat_vms:
-                    vm.IsChecked = (vm.CatInt in saved_set)
-                return
-        except Exception:
+                if saved_set:
+                    for vm in self._all_cat_vms:
+                        vm.IsChecked = (vm.CatInt in saved_set)
+                    return
+        except:
             pass
         # Default to MEP categories
         for vm in self._all_cat_vms:
@@ -1204,14 +1218,25 @@ if __name__ == "__main__":
     existing = getattr(CheckClashWindow, "_current_wndw", None)
     if existing:
         try:
-            existing.Activate()
-            sys.exit(0)
-        except Exception:
+            if hasattr(existing, "IsLoaded") and existing.IsLoaded:
+                existing.Activate()
+                sys.exit(0)
+            else:
+                CheckClashWindow._current_wndw = None
+        except:
             CheckClashWindow._current_wndw = None
 
-    win = CheckClashWindow(doc, uidoc)
-    CheckClashWindow._current_wndw = win
-    ClashScanHandler._wndw = win
-    ClashFocus3DHandler._wndw = win
-    ClashRecheckHandler._wndw = win
-    win.show(modal=False)
+    try:
+        win = CheckClashWindow(doc, uidoc)
+        CheckClashWindow._current_wndw = win
+        ClashScanHandler._wndw = win
+        ClashFocus3DHandler._wndw = win
+        ClashRecheckHandler._wndw = win
+        win.show(modal=False)
+    except:
+        err = traceback.format_exc()
+        try:
+            forms.alert("Failed to initialize Check Clash window:\n\n{}".format(err), title="Check Clash Error")
+        except:
+            pass
+        raise
