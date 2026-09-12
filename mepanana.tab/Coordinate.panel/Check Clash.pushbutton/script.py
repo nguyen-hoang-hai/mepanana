@@ -390,6 +390,7 @@ class CheckClashWindow(forms.WPFWindow):
 
         # Load theme WITHOUT Owner=MainWindowHandle so Revit canvas stays modelessly interactive
         setup_window(self, set_revit_owner=False)
+        self.Closed += self._on_closed
 
         self.doc = doc
         self.uidoc = uidoc
@@ -443,7 +444,6 @@ class CheckClashWindow(forms.WPFWindow):
         self.txtSearch.TextChanged += self._on_filter_changed
 
         self.PreviewKeyDown += self._on_key_down
-        self.Closed += self._on_closed
 
         # Initialize view state & pill styles
         self._apply_filter()
@@ -1207,24 +1207,38 @@ class CheckClashWindow(forms.WPFWindow):
 
 # -- Tool Entry Point ---------------------------------------------------------
 
-if __name__ == "__main__":
+def main():
+    # Close any open pyRevit output window to keep workspace clean
+    try:
+        from pyrevit import script as _pyscript
+        out = _pyscript.get_output()
+        if out:
+            out.close()
+    except:
+        pass
+
     doc = get_doc()
     uidoc = get_uidoc()
 
     if not doc:
         from py.ui import show_error
-        show_error("Please open a Revit project first.", title="No Document", exitscript=True)
+        show_error("Please open a Revit project first.", title="No Document")
+        return
 
+    # Check if a modeless instance is already open and genuinely visible on screen
     existing = getattr(CheckClashWindow, "_current_wndw", None)
     if existing:
         try:
-            if hasattr(existing, "IsLoaded") and existing.IsLoaded:
+            if getattr(existing, "IsVisible", False):
+                from System.Windows import WindowState
+                if existing.WindowState == WindowState.Minimized:
+                    existing.WindowState = WindowState.Normal
                 existing.Activate()
-                sys.exit(0)
-            else:
-                CheckClashWindow._current_wndw = None
+                return
         except:
-            CheckClashWindow._current_wndw = None
+            pass
+        # Stale reference (window was closed) -> clear it
+        CheckClashWindow._current_wndw = None
 
     try:
         win = CheckClashWindow(doc, uidoc)
@@ -1236,7 +1250,11 @@ if __name__ == "__main__":
     except:
         err = traceback.format_exc()
         try:
-            forms.alert("Failed to initialize Check Clash window:\n\n{}".format(err), title="Check Clash Error")
+            from py.ui import show_error
+            show_error(u"Failed to initialize Check Clash window:\n\n{}".format(err), title="Check Clash Error")
         except:
             pass
-        raise
+
+
+if __name__ == "__main__":
+    main()
