@@ -1,0 +1,7 @@
+title: Check Clash
+author: Hai Nguyen
+tooltip: "🇺🇸 EN: Interactive 3D clash inspection, auto Section Box focus, and instant single-clash recheck navigator for MEP systems.\n\n🇻🇳 VN: Kiểm tra va chạm tương tác 3D, tự động mở Section Box và điều hướng xử lý va chạm tức thì cho hệ thống MEP."
+engine:
+  clean: true
+  persistent: true
+  full_frame: true

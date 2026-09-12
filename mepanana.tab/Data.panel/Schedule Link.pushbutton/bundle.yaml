@@ -1,2 +1,3 @@
-﻿title: Schedule Link
-tooltip: Export and import Revit schedules to/from Excel (.xlsx).
+title: Schedule Link
+author: Hai Nguyen
+tooltip: "🇺🇸 EN: Export and import Revit schedules to and from Excel (.xlsx) with pre-import diff visualization.\n\n🇻🇳 VN: Xuất và nhập dữ liệu bảng thống kê Revit hai chiều với Excel (.xlsx), hỗ trợ so sánh khác biệt trước khi lưu."

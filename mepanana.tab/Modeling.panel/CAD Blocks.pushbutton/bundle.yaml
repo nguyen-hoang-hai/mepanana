@@ -1,2 +1,3 @@
 title: CAD Blocks
-tooltip: Place Revit families at CAD block positions based on layer mapping rules.
+author: Hai Nguyen
+tooltip: "🇺🇸 EN: Place Revit families at CAD block positions based on layer and family mapping rules.\n\n🇻🇳 VN: Tự động đặt các Family Revit vào vị trí Block CAD theo quy tắc ánh xạ Layer và Family."

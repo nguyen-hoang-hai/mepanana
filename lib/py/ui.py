@@ -21,8 +21,8 @@ except Exception:
     pass
 
 
-def setup_window(window):
-    """Applies mepanana theme.xaml, sets Revit as owner, binds ESC to close."""
+def setup_window(window, set_revit_owner=True):
+    """Applies mepanana theme.xaml, sets Revit as owner (if set_revit_owner), binds ESC to close."""
     try:
         theme_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'theme.xaml'))
         rd = ResourceDictionary()
@@ -31,12 +31,13 @@ def setup_window(window):
     except Exception as e:
         print("Failed to load theme.xaml: {}".format(e))
 
-    try:
-        from pyrevit import HOST_APP
-        if HOST_APP and hasattr(HOST_APP, "uiapp") and HOST_APP.uiapp:
-            WindowInteropHelper(window).Owner = HOST_APP.uiapp.MainWindowHandle
-    except Exception:
-        pass
+    if set_revit_owner:
+        try:
+            from pyrevit import HOST_APP
+            if HOST_APP and hasattr(HOST_APP, "uiapp") and HOST_APP.uiapp:
+                WindowInteropHelper(window).Owner = HOST_APP.uiapp.MainWindowHandle
+        except Exception:
+            pass
 
     def on_preview_key_down(sender, args):
         if args.Key == Key.Escape:
@@ -69,7 +70,7 @@ def yield_dispatcher_every(counter, batch_size=25):
 
 # ── Synchronized Modern Alert Dialog ─────────────────────────────────────────
 
-def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
+def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False, owner=None, topmost=False):
     """
     Renders a unified, modern, branded modal dialog with type-specific icon badges and colors.
     """
@@ -81,9 +82,23 @@ def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
         class ModernAlertWindow(forms.WPFWindow):
             def __init__(self):
                 forms.WPFWindow.__init__(self, xaml_path)
-                setup_window(self)
-                self.Title = title
+                setup_window(self, set_revit_owner=(owner is None))
+                self.Title = title or "Notification"
                 self.user_result = False
+                if owner:
+                    try:
+                        self.Owner = owner
+                        from System.Windows import WindowStartupLocation
+                        self.WindowStartupLocation = WindowStartupLocation.CenterOwner
+                    except Exception:
+                        try:
+                            from pyrevit import HOST_APP
+                            if HOST_APP and hasattr(HOST_APP, "uiapp") and HOST_APP.uiapp:
+                                WindowInteropHelper(self).Owner = HOST_APP.uiapp.MainWindowHandle
+                        except Exception:
+                            pass
+                if topmost:
+                    self.Topmost = True
 
                 # Set Title Text
                 if hasattr(self, 'txtAlertTitle'):
@@ -94,8 +109,8 @@ def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
                     self.txtMessage.Text = message or ""
 
                 # Configure Visual Style by Type
-                badge_bg = "#D1FAE5"
-                icon_fg = "#059669"
+                badge_bg = "#EFF6FF"
+                icon_fg = "#2563EB"
                 icon_char = u"ℹ"
 
                 if dialog_type == "SUCCESS":
@@ -151,27 +166,27 @@ def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False):
         return forms.alert(message, title=title, ok=True, cancel=show_cancel)
 
 
-def show_info(message, title="Information"):
-    return _show_custom_dialog(message, title=title, dialog_type="INFO", show_cancel=False)
+def show_info(message, title="Information", owner=None, topmost=False):
+    return _show_custom_dialog(message, title=title, dialog_type="INFO", show_cancel=False, owner=owner, topmost=topmost)
 
 
-def show_success(message, title="Success"):
-    return _show_custom_dialog(message, title=title, dialog_type="SUCCESS", show_cancel=False)
+def show_success(message, title="Success", owner=None, topmost=False):
+    return _show_custom_dialog(message, title=title, dialog_type="SUCCESS", show_cancel=False, owner=owner, topmost=topmost)
 
 
-def show_warning(message, title="Warning"):
-    return _show_custom_dialog(message, title=title, dialog_type="WARNING", show_cancel=False)
+def show_warning(message, title="Warning", owner=None, topmost=False):
+    return _show_custom_dialog(message, title=title, dialog_type="WARNING", show_cancel=False, owner=owner, topmost=topmost)
 
 
-def show_error(message, title="Error", exitscript=False):
-    res = _show_custom_dialog(message, title=title, dialog_type="ERROR", show_cancel=False)
+def show_error(message, title="Error", exitscript=False, owner=None, topmost=False):
+    res = _show_custom_dialog(message, title=title, dialog_type="ERROR", show_cancel=False, owner=owner, topmost=topmost)
     if exitscript:
         sys.exit()
     return res
 
 
-def show_confirm(message, title="Confirmation"):
-    return _show_custom_dialog(message, title=title, dialog_type="WARNING", show_cancel=True)
+def show_confirm(message, title="Confirmation", owner=None, topmost=False):
+    return _show_custom_dialog(message, title=title, dialog_type="WARNING", show_cancel=True, owner=owner, topmost=topmost)
 
 
 # ── Universal Branded WPF Progress Dialog ────────────────────────────────────

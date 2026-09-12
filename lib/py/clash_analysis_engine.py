@@ -27,7 +27,8 @@ import System
 
 from Autodesk.Revit.DB import (
     BuiltInCategory, BuiltInParameter, FilteredElementCollector, XYZ, Line, Curve,
-    Color, RevitLinkInstance, BoundingBoxXYZ, Transform, ElementId, Solid, CategoryType
+    Color, RevitLinkInstance, BoundingBoxXYZ, Transform, ElementId, Solid, CategoryType,
+    View3D, ViewFamilyType, ViewFamily
 )
 
 from py.core import SafeTransaction, mm_to_ft, ft_to_mm, get_id_value, safe_unicode
@@ -114,23 +115,37 @@ ALL_LINKED_CATEGORIES = [
 # ── Data Models ───────────────────────────────────────────────────────────────
 
 class ClashItem(System.Object):
-    def __init__(self, elem1, elem2, clash_point, overlap_mm, elev_diff_mm, is_link1=False, is_link2=False, link_name="", host_band=None, link_top_z=None):
+    def __init__(self, elem1, elem2, clash_point=None,
+                 clash_type="HARD", overlap_mm=0.0, elev_diff_mm=0.0,
+                 width1_ft=0.0, width2_ft=0.0,
+                 is_link1=False, is_link2=False, link_name="",
+                 host_polygon_corners=None, host_band=None, host_top_z=None,
+                 link_polygon_corners=None, link_top_z=None, **kwargs):
         self.Element1 = elem1
         self.Element2 = elem2
         self.ClashPoint = clash_point
+        self.ClashType = clash_type
         self.OverlapMm = overlap_mm
         self.ElevDiffMm = elev_diff_mm
+        self.Width1Ft = width1_ft
+        self.Width2Ft = width2_ft
         self.IsLink1 = is_link1
         self.IsLink2 = is_link2
+        self.IsLink = bool(is_link1 or is_link2)
         self.LinkName = link_name
-        self.HostBand = host_band
+        
+        # Polygon corners and elevations for AVF highlight bands
+        self.HostPolygonCorners = host_polygon_corners if host_polygon_corners is not None else host_band
+        self.HostBand = self.HostPolygonCorners
+        self.HostTopZ = host_top_z
+        self.LinkPolygonCorners = link_polygon_corners
         self.LinkTopZ = link_top_z
         
         # Display properties (Clean & Compact)
-        name1 = elem1.Category.Name if elem1.Category else "Element"
-        name2 = elem2.Category.Name if elem2.Category else "Element"
-        id1 = get_id_value(elem1)
-        id2 = get_id_value(elem2)
+        name1 = elem1.Category.Name if (elem1 and elem1.Category) else "Element"
+        name2 = elem2.Category.Name if (elem2 and elem2.Category) else "Element"
+        id1 = get_id_value(elem1) if elem1 else 0
+        id2 = get_id_value(elem2) if elem2 else 0
         
         if is_link2:
             self.DisplayName = u"{} [{}] ⚡ {} [{}] (Link)".format(name1, id1, name2, id2)
@@ -140,6 +155,8 @@ class ClashItem(System.Object):
             self.DisplayName = u"{} [{}] ⚡ {} [{}]".format(name1, id1, name2, id2)
             
         self.DetailInfo = u"{:.0f} mm".format(overlap_mm)
+        self.Status = "ACTIVE"
+        self.StatusIcon = u"🔴"
 
 
 # ── MEP Connector & Joint Relationship Inspectors ────────────────────────────
@@ -887,3 +904,335 @@ def clear_clash_analysis(doc, view):
         return ClashVisualizer.ClearClashAnalysis(view)
     except Exception:
         return False
+
+
+# ── Interactive 3D Navigation & Instant Recheck Functions ────────────────────
+
+def recheck_single_clash(doc, clash_item, tolerance_mm=0.0):
+    """
+    Rechecks if clash_item is still physically clashing in <0.05s.
+    Returns: (still_clashing: bool, overlap_mm: float, new_clash_item or None)
+    """
+    try:
+        el1 = clash_item.Element1
+        el2 = clash_item.Element2
+        
+        if not el1 or not el1.IsValidObject:
+            return (False, 0.0, None)
+        if not el2 or not el2.IsValidObject:
+            return (False, 0.0, None)
+            
+        d1 = get_mep_curve_data(el1, is_link=clash_item.IsLink1)
+        if not d1 or not d1.get("solids") or len(d1["solids"]) == 0:
+            return (False, 0.0, None)
+            
+        tf = None
+        if clash_item.IsLink2 and clash_item.LinkName:
+            link_instances = FilteredElementCollector(doc).OfClass(RevitLinkInstance).WhereElementIsNotElementType()
+            for li in link_instances:
+                if li.Name == clash_item.LinkName:
+                    tf = li.GetTotalTransform()
+                    break
+                    
+        d2 = get_mep_curve_data(el2, transform=tf, is_link=clash_item.IsLink2, link_name=clash_item.LinkName)
+        if not d2 or not d2.get("solids") or len(d2["solids"]) == 0:
+            return (False, 0.0, None)
+            
+        new_clash = check_clash_between_elements(d1, d2)
+        if new_clash:
+            if new_clash.OverlapMm > tolerance_mm:
+                return (True, new_clash.OverlapMm, new_clash)
+        return (False, 0.0, None)
+    except Exception as ex:
+        print("recheck_single_clash error: {}".format(ex))
+        return (False, 0.0, None)
+
+
+def focus_clash_3d(doc, uidoc, clash_item, padding_mm=800):
+    """
+    Navigates to or creates an isometric 3D View.
+    Smart View Naming:
+    - If doc is Workshared (Central/Local): uses '{3D - <username>}' to prevent element borrowing
+      conflicts and keep each user's Section Box independent.
+    - If doc is Non-workshared: uses standard '{3D}' default view.
+    Sets a tight Section Box around the clash center, and highlights clashing elements.
+    Returns True on success.
+    """
+    try:
+        clash_pt = clash_item.ClashPoint
+        if not clash_pt:
+            bb = clash_item.Element1.get_BoundingBox(None)
+            if bb:
+                clash_pt = XYZ((bb.Min.X + bb.Max.X) * 0.5, (bb.Min.Y + bb.Max.Y) * 0.5, (bb.Min.Z + bb.Max.Z) * 0.5)
+            else:
+                return False
+                
+        pad_ft = mm_to_ft(padding_mm)
+        
+        # 1. Determine target 3D view name based on Worksharing status
+        if getattr(doc, "IsWorkshared", False):
+            try:
+                username = doc.Application.Username
+            except Exception:
+                username = "User"
+            view_name = "{3D - " + str(username) + "}"
+        else:
+            view_name = "{3D}"
+        
+        # 2. Search for existing 3D view
+        target_view = None
+        col = FilteredElementCollector(doc).OfClass(View3D).WhereElementIsNotElementType()
+        for v in col:
+            if not v.IsTemplate and v.Name.strip().lower() == view_name.strip().lower():
+                target_view = v
+                break
+                
+        # 3. Create view if not found & configure Section Box
+        with SafeTransaction(doc, "MEPANANA Focus Clash 3D"):
+            if not target_view:
+                vft_col = FilteredElementCollector(doc).OfClass(ViewFamilyType)
+                iso_vft = None
+                for vft in vft_col:
+                    if vft.ViewFamily == ViewFamily.ThreeDimensional:
+                        iso_vft = vft
+                        break
+                if not iso_vft:
+                    return False
+                target_view = View3D.CreateIsometric(doc, iso_vft.Id)
+                try:
+                    target_view.Name = view_name
+                except Exception:
+                    try:
+                        target_view.Name = "MEPANANA_Clash_3D"
+                    except Exception:
+                        pass
+                
+            box = BoundingBoxXYZ()
+            box.Min = XYZ(clash_pt.X - pad_ft, clash_pt.Y - pad_ft, clash_pt.Z - pad_ft)
+            box.Max = XYZ(clash_pt.X + pad_ft, clash_pt.Y + pad_ft, clash_pt.Z + pad_ft)
+            
+            try:
+                target_view.IsSectionBoxActive = True
+                target_view.SetSectionBox(box)
+            except Exception as ex_box:
+                print("Warning: Could not set Section Box: {}".format(ex_box))
+            
+        # 4. Regenerate document to finalize SectionBox geometry
+        try:
+            doc.Regenerate()
+        except Exception:
+            pass
+
+        # 5. Highlight clashing elements
+        sel_ids = List[ElementId]()
+        if clash_item.Element1 and not clash_item.IsLink1:
+            sel_ids.Add(clash_item.Element1.Id)
+        if clash_item.Element2 and not clash_item.IsLink2:
+            sel_ids.Add(clash_item.Element2.Id)
+
+        if sel_ids.Count > 0:
+            uidoc.Selection.SetElementIds(sel_ids)
+
+        # 6. Switch to or zoom target 3D view
+        if uidoc and target_view:
+            clash_item.LastViewName = target_view.Name
+
+            # Pre-zoom any open UI view for this target
+            for uv in uidoc.GetOpenUIViews():
+                if uv.ViewId == target_view.Id:
+                    try:
+                        uv.ZoomToFit()
+                    except Exception:
+                        pass
+                    break
+
+            if uidoc.ActiveView.Id == target_view.Id:
+                # Already on 3D view: ShowElements zooms smoothly
+                if sel_ids.Count > 0:
+                    try:
+                        uidoc.ShowElements(sel_ids)
+                    except Exception:
+                        pass
+            else:
+                # Use RequestViewChange (required in ExternalEvent / modeless context)
+                switched = False
+                if hasattr(uidoc, "RequestViewChange"):
+                    try:
+                        uidoc.RequestViewChange(target_view)
+                        switched = True
+                    except Exception as ex_req:
+                        print("RequestViewChange failed: {}".format(ex_req))
+
+                if not switched:
+                    try:
+                        uidoc.ActiveView = target_view
+                    except Exception as ex_act:
+                        print("ActiveView fallback failed: {}".format(ex_act))
+
+        return True
+    except Exception as ex:
+        print("focus_clash_3d error: {}".format(ex))
+        return False
+
+
+def export_clash_report(clashes, file_path):
+    """
+    Exports clash items to an Excel file (.xlsx) with professional formatting.
+    """
+    from py.excel_io import write_excel_workbook
+    
+    headers = [
+        "No.", "Status", "Element 1 Category", "Element 1 ID",
+        "Element 2 Category", "Element 2 ID", "Link Model",
+        "Overlap (mm)", "Elevation Diff (mm)", "Clash Type", "Location (X, Y, Z)"
+    ]
+    
+    rows = []
+    for idx, c in enumerate(clashes):
+        status = getattr(c, "Status", "ACTIVE")
+        cat1 = c.Element1.Category.Name if (c.Element1 and c.Element1.Category) else "Element"
+        id1 = str(get_id_value(c.Element1))
+        cat2 = c.Element2.Category.Name if (c.Element2 and c.Element2.Category) else "Element"
+        id2 = str(get_id_value(c.Element2))
+        link = c.LinkName if c.IsLink else "Host Model"
+        pt_str = "{:.1f}, {:.1f}, {:.1f}".format(c.ClashPoint.X, c.ClashPoint.Y, c.ClashPoint.Z) if c.ClashPoint else "-"
+        
+        rows.append([
+            str(idx + 1),
+            status,
+            cat1,
+            id1,
+            cat2,
+            id2,
+            link,
+            "{:.0f}".format(c.OverlapMm),
+            "{:.0f}".format(c.ElevDiffMm),
+            getattr(c, "ClashType", "HARD"),
+            pt_str
+        ])
+        
+    sheet_data = {
+        "Clash Results": {
+            "headers": headers,
+            "rows": rows
+        }
+    }
+    return write_excel_workbook(file_path, sheet_data)
+
+
+def import_clash_report(doc, file_path):
+    """
+    Imports clash items from an Excel file (.xlsx) exported by Check Clash.
+    Matches Element IDs against the active document and linked documents.
+    Returns a list of ClashItem instances.
+    """
+    from py.excel_io import read_excel_workbook
+
+    data = read_excel_workbook(file_path)
+    if not data:
+        return []
+
+    # Get primary sheet (prefer "Clash Results", fallback to first sheet)
+    sheet = data.get("Clash Results")
+    if not sheet and data:
+        first_key = list(data.keys())[0]
+        sheet = data[first_key]
+
+    if not sheet or "rows" not in sheet:
+        return []
+
+    rows = sheet["rows"]
+    if not rows:
+        return []
+
+    # Build cache of RevitLinkInstances
+    link_instances = list(FilteredElementCollector(doc).OfClass(RevitLinkInstance))
+
+    clashes = []
+    for r in rows:
+        id1_str = str(r.get("Element 1 ID", "")).strip()
+        id2_str = str(r.get("Element 2 ID", "")).strip()
+        if not id1_str or not id2_str:
+            continue
+
+        try:
+            id1 = int(float(id1_str))
+            id2 = int(float(id2_str))
+        except Exception:
+            continue
+
+        elem1 = doc.GetElement(ElementId(id1))
+        if not elem1:
+            continue
+
+        link_name = str(r.get("Link Model", "")).strip()
+        is_link2 = bool(link_name and link_name != "Host Model" and link_name != "-")
+        elem2 = None
+
+        if is_link2:
+            for li in link_instances:
+                lname = li.Name or ""
+                if link_name.lower() in lname.lower():
+                    ldoc = li.GetLinkDocument()
+                    if ldoc:
+                        elem2 = ldoc.GetElement(ElementId(id2))
+                        break
+        else:
+            elem2 = doc.GetElement(ElementId(id2))
+
+        if not elem2:
+            continue
+
+        # Parse Overlap & Elev Diff
+        overlap_mm = 0.0
+        elev_diff_mm = 0.0
+        try:
+            overlap_mm = float(str(r.get("Overlap (mm)", 0)).replace("mm", "").strip())
+        except Exception:
+            pass
+        try:
+            elev_diff_mm = float(str(r.get("Elevation Diff (mm)", 0)).replace("mm", "").strip())
+        except Exception:
+            pass
+
+        # Parse ClashPoint XYZ
+        clash_pt = None
+        loc_str = str(r.get("Location (X, Y, Z)", "")).strip()
+        if loc_str and loc_str != "-":
+            parts = loc_str.split(",")
+            if len(parts) >= 3:
+                try:
+                    clash_pt = XYZ(float(parts[0]), float(parts[1]), float(parts[2]))
+                except Exception:
+                    pass
+
+        if not clash_pt:
+            bb = elem1.get_BoundingBox(None)
+            if bb:
+                clash_pt = (bb.Min + bb.Max) * 0.5
+
+        status = str(r.get("Status", "ACTIVE")).strip().upper()
+        if "RESOLV" in status:
+            status = "RESOLVED"
+        else:
+            status = "ACTIVE"
+
+        clash_type = str(r.get("Clash Type", "HARD")).strip()
+
+        item = ClashItem(
+            elem1=elem1,
+            elem2=elem2,
+            clash_point=clash_pt,
+            clash_type=clash_type,
+            overlap_mm=overlap_mm,
+            elev_diff_mm=elev_diff_mm,
+            is_link1=False,
+            is_link2=is_link2,
+            link_name=link_name if is_link2 else ""
+        )
+        item.Status = status
+        item.StatusIcon = u"✅" if status == "RESOLVED" else u"🔴"
+        clashes.append(item)
+
+    return clashes
+

@@ -1,7 +1,8 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Notification" Width="430" SizeToContent="Height"
+        Title="Notification" Width="450" MaxWidth="520" SizeToContent="Height"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        ShowInTaskbar="False"
         Background="#FFFFFF" FontFamily="Segoe UI" FontSize="13"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
@@ -40,15 +41,16 @@
                    Foreground="#475569"
                    FontSize="12.5" Margin="0,0,0,20"
                    HorizontalAlignment="Center" TextAlignment="Center"
-                   MaxWidth="370"/>
+                   MaxWidth="400"/>
 
         <!-- ── Actions ────────────────────────────────────────────────────── -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
             <Button Name="btnCancel" Content="Cancel" Style="{DynamicResource GhostButton}"
                     Height="36" Width="110" FontSize="12.5" FontWeight="SemiBold"
-                    Margin="0,0,10,0" Visibility="Collapsed"/>
+                    Margin="0,0,10,0" Visibility="Collapsed" IsCancel="True"/>
             <Button Name="btnOk" Content="OK" Style="{DynamicResource PrimaryButton}"
-                    Height="36" Width="120" FontSize="12.5" FontWeight="Bold"/>
+                    Height="36" Width="120" FontSize="12.5" FontWeight="Bold"
+                    IsDefault="True"/>
         </StackPanel>
     </Grid>
 </Window>

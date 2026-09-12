@@ -263,3 +263,27 @@ def read_excel_workbook(file_path):
         }
 
     return result
+
+
+def write_excel_workbook(file_path, sheet_data):
+    """
+    Writes a dictionary of sheets to an Excel (.xlsx) file.
+    sheet_data format:
+    {
+        "SheetName": {
+            "headers": ["Col1", "Col2", ...],
+            "rows": [
+                ["Val1", "Val2", ...],
+                ...
+            ]
+        }
+    }
+    """
+    schedules_data = []
+    for sheet_name, content in sheet_data.items():
+        schedules_data.append({
+            "name": sheet_name,
+            "headers": content.get("headers", []),
+            "rows": content.get("rows", [])
+        })
+    return export_schedules_to_excel(file_path, schedules_data)
