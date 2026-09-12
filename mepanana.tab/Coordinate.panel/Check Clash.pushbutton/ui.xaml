@@ -51,7 +51,7 @@
             <TabControl.Resources>
                 <Style TargetType="TabItem">
                     <Setter Property="FontSize" Value="13"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="FontWeight" Value="Normal"/>
                     <Setter Property="Padding" Value="18,8"/>
                     <Setter Property="Cursor" Value="Hand"/>
                     <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
@@ -69,7 +69,7 @@
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter TargetName="bdrTab" Property="BorderBrush" Value="#10B981"/>
                                         <Setter Property="Foreground" Value="#0F172A"/>
-                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="FontWeight" Value="Normal"/>
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter TargetName="bdrTab" Property="Background" Value="#F1F5F9"/>
@@ -153,8 +153,8 @@
                                 <StackPanel>
                                     <!-- Header: Title & Percent -->
                                     <Grid Margin="0,0,0,6">
-                                        <TextBlock Text="RESOLUTION PROGRESS" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
-                                        <TextBlock Name="txtResolutionPercent" Text="0%" FontWeight="Bold" FontSize="12.5" Foreground="#059669" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock Text="RESOLUTION PROGRESS" FontWeight="Normal" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Name="txtResolutionPercent" Text="0%" FontWeight="Normal" FontSize="12.5" Foreground="#059669" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                     </Grid>
 
                                     <!-- Progress Bar -->
@@ -178,16 +178,16 @@
                                         <!-- Active Metric Card -->
                                         <Border Grid.Column="0" Background="#FEE2E2" BorderBrush="#FECACA" BorderThickness="1" CornerRadius="6" Padding="4,6">
                                             <StackPanel HorizontalAlignment="Center">
-                                                <TextBlock Name="txtActiveMetric" Text="0" FontSize="18" FontWeight="Bold" Foreground="#DC2626" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Active" FontSize="10.5" FontWeight="SemiBold" Foreground="#DC2626" HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                                                <TextBlock Name="txtActiveMetric" Text="0" FontSize="18" FontWeight="Normal" Foreground="#DC2626" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="Active" FontSize="10.5" FontWeight="Normal" Foreground="#DC2626" HorizontalAlignment="Center" Margin="0,1,0,0"/>
                                             </StackPanel>
                                         </Border>
 
                                         <!-- Resolved Metric Card -->
                                         <Border Grid.Column="2" Background="#D1FAE5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="6" Padding="4,6">
                                             <StackPanel HorizontalAlignment="Center">
-                                                <TextBlock Name="txtResolvedMetric" Text="0" FontSize="18" FontWeight="Bold" Foreground="#059669" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Resolved" FontSize="10.5" FontWeight="SemiBold" Foreground="#059669" HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                                                <TextBlock Name="txtResolvedMetric" Text="0" FontSize="18" FontWeight="Normal" Foreground="#059669" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="Resolved" FontSize="10.5" FontWeight="Normal" Foreground="#059669" HorizontalAlignment="Center" Margin="0,1,0,0"/>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
@@ -219,7 +219,7 @@
                                     <Border Grid.Column="0" Background="#E2E8F0" CornerRadius="8" Padding="3" Height="36">
                                         <StackPanel Orientation="Horizontal">
                                             <Button Name="btnTabActive" Height="30" Padding="14,0" Margin="0,0,2,0"
-                                                    Content="🔴 Active (0)" FontWeight="Bold" FontSize="12"
+                                                    Content="🔴 Active (0)" FontWeight="Normal" FontSize="12"
                                                     Background="White" Foreground="#DC2626" BorderThickness="0"
                                                     Cursor="Hand">
                                                 <Button.Resources>
@@ -230,7 +230,7 @@
                                             </Button>
 
                                             <Button Name="btnTabResolved" Height="30" Padding="14,0" Margin="0,0,2,0"
-                                                    Content="✅ Resolved (0)" FontWeight="SemiBold" FontSize="12"
+                                                    Content="✅ Resolved (0)" FontWeight="Normal" FontSize="12"
                                                     Background="Transparent" Foreground="#64748B" BorderThickness="0"
                                                     Cursor="Hand">
                                                 <Button.Resources>
@@ -241,7 +241,7 @@
                                             </Button>
 
                                             <Button Name="btnTabAll" Height="30" Padding="14,0"
-                                                    Content="All (0)" FontWeight="SemiBold" FontSize="12"
+                                                    Content="All (0)" FontWeight="Normal" FontSize="12"
                                                     Background="Transparent" Foreground="#64748B" BorderThickness="0"
                                                     Cursor="Hand">
                                                 <Button.Resources>
@@ -259,7 +259,7 @@
                                             CornerRadius="6" Padding="10,5">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="💡" Margin="0,0,5,0" FontSize="11.5"/>
-                                            <TextBlock Text="Double-click row to crop 3D Box" Foreground="{DynamicResource MutedTextBrush}" FontSize="11.5" FontWeight="SemiBold"/>
+                                            <TextBlock Text="Double-click row to crop 3D Box" Foreground="{DynamicResource MutedTextBrush}" FontSize="11.5" FontWeight="Normal"/>
                                         </StackPanel>
                                     </Border>
                                 </Grid>
@@ -285,7 +285,7 @@
                                         <Style TargetType="DataGridColumnHeader">
                                             <Setter Property="Background" Value="#F8FAFC"/>
                                             <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="FontWeight" Value="Normal"/>
                                             <Setter Property="FontSize" Value="11.5"/>
                                             <Setter Property="Height" Value="32"/>
                                             <Setter Property="Padding" Value="10,0"/>
@@ -299,7 +299,7 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Border Background="{Binding StatusBg}" CornerRadius="4" Padding="8,3" HorizontalAlignment="Left" Margin="4,2">
-                                                        <TextBlock Text="{Binding StatusDisplay}" Foreground="{Binding StatusColor}" FontWeight="Bold" FontSize="11.5" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding StatusDisplay}" Foreground="{Binding StatusColor}" FontWeight="Normal" FontSize="11.5" VerticalAlignment="Center"/>
                                                     </Border>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -310,7 +310,7 @@
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="VerticalAlignment" Value="Center"/>
                                                     <Setter Property="Foreground" Value="#DC2626"/>
-                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
                                                     <Setter Property="Padding" Value="6,0"/>
                                                 </Style>
                                             </DataGridTextColumn.ElementStyle>
@@ -321,7 +321,7 @@
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="VerticalAlignment" Value="Center"/>
                                                     <Setter Property="Foreground" Value="#2563EB"/>
-                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
                                                     <Setter Property="Padding" Value="6,0"/>
                                                 </Style>
                                             </DataGridTextColumn.ElementStyle>
@@ -332,7 +332,7 @@
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="VerticalAlignment" Value="Center"/>
                                                     <Setter Property="TextAlignment" Value="Right"/>
-                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="FontWeight" Value="Normal"/>
                                                     <Setter Property="Padding" Value="0,0,8,0"/>
                                                 </Style>
                                             </DataGridTextColumn.ElementStyle>
@@ -364,7 +364,7 @@
                                 <Border Name="borderEmptyState" Visibility="Visible" Background="Transparent" IsHitTestVisible="False" VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <StackPanel HorizontalAlignment="Center">
                                         <TextBlock Text="🔍" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,8" Opacity="0.4"/>
-                                        <TextBlock Name="txtEmptyTitle" Text="No clashes displayed in this view" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Name="txtEmptyTitle" Text="No clashes displayed in this view" FontWeight="Normal" FontSize="13.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center"/>
                                         <TextBlock Name="txtEmptySubtitle" Text="Click 'Scan Clashes' above or 'Import' from Excel to begin" FontSize="11.5" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                     </StackPanel>
                                 </Border>
@@ -450,7 +450,7 @@
                                 <Style TargetType="DataGridColumnHeader">
                                     <Setter Property="Background" Value="#F8FAFC"/>
                                     <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
-                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="FontWeight" Value="Normal"/>
                                     <Setter Property="FontSize" Value="11.5"/>
                                     <Setter Property="Height" Value="32"/>
                                     <Setter Property="Padding" Value="10,0"/>
@@ -476,7 +476,7 @@
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="VerticalAlignment" Value="Center"/>
-                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                            <Setter Property="FontWeight" Value="Normal"/>
                                             <Setter Property="Padding" Value="8,0"/>
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
@@ -487,7 +487,7 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Border Background="{Binding DiscBg}" CornerRadius="4" Padding="8,2" HorizontalAlignment="Left" Margin="4,2">
-                                                <TextBlock Text="{Binding Discipline}" Foreground="{Binding DiscColor}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Discipline}" Foreground="{Binding DiscColor}" FontWeight="Normal" FontSize="11" VerticalAlignment="Center"/>
                                             </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -510,7 +510,7 @@
                     <!-- Row 2: Status / Summary -->
                     <Grid Grid.Row="2" Margin="4,8,4,0">
                         <TextBlock Name="txtCatSummary" Text="Selected: 0 categories (0 elements in view)"
-                                   FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
+                                   FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
                         <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
                                    Text="💡 Click row or press Space to toggle. Click 'Scan Clashes' when ready."
                                    FontSize="11.5" Foreground="#64748B"/>

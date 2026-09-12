@@ -845,41 +845,41 @@ class CheckClashWindow(forms.WPFWindow):
             if self._current_tab == "ACTIVE":
                 self.btnTabActive.Background = white_brush
                 self.btnTabActive.Foreground = _hex_brush("#DC2626")
-                self.btnTabActive.FontWeight = FontWeights.Bold
+                self.btnTabActive.FontWeight = FontWeights.Normal
 
                 self.btnTabResolved.Background = transparent_brush
                 self.btnTabResolved.Foreground = text_muted
-                self.btnTabResolved.FontWeight = FontWeights.SemiBold
+                self.btnTabResolved.FontWeight = FontWeights.Normal
 
                 self.btnTabAll.Background = transparent_brush
                 self.btnTabAll.Foreground = text_muted
-                self.btnTabAll.FontWeight = FontWeights.SemiBold
+                self.btnTabAll.FontWeight = FontWeights.Normal
 
             elif self._current_tab == "RESOLVED":
                 self.btnTabActive.Background = transparent_brush
                 self.btnTabActive.Foreground = text_muted
-                self.btnTabActive.FontWeight = FontWeights.SemiBold
+                self.btnTabActive.FontWeight = FontWeights.Normal
 
                 self.btnTabResolved.Background = white_brush
                 self.btnTabResolved.Foreground = _hex_brush("#059669")
-                self.btnTabResolved.FontWeight = FontWeights.Bold
+                self.btnTabResolved.FontWeight = FontWeights.Normal
 
                 self.btnTabAll.Background = transparent_brush
                 self.btnTabAll.Foreground = text_muted
-                self.btnTabAll.FontWeight = FontWeights.SemiBold
+                self.btnTabAll.FontWeight = FontWeights.Normal
 
             else:  # "ALL"
                 self.btnTabActive.Background = transparent_brush
                 self.btnTabActive.Foreground = text_muted
-                self.btnTabActive.FontWeight = FontWeights.SemiBold
+                self.btnTabActive.FontWeight = FontWeights.Normal
 
                 self.btnTabResolved.Background = transparent_brush
                 self.btnTabResolved.Foreground = text_muted
-                self.btnTabResolved.FontWeight = FontWeights.SemiBold
+                self.btnTabResolved.FontWeight = FontWeights.Normal
 
                 self.btnTabAll.Background = white_brush
                 self.btnTabAll.Foreground = _hex_brush("#2563EB")
-                self.btnTabAll.FontWeight = FontWeights.Bold
+                self.btnTabAll.FontWeight = FontWeights.Normal
         except Exception:
             pass
 
