@@ -1208,12 +1208,11 @@ class CheckClashWindow(forms.WPFWindow):
 # -- Tool Entry Point ---------------------------------------------------------
 
 def main():
-    # Close any open pyRevit output window to keep workspace clean
+    import tempfile
+    log_path = os.path.join(tempfile.gettempdir(), "check_clash_launch.log")
     try:
-        from pyrevit import script as _pyscript
-        out = _pyscript.get_output()
-        if out:
-            out.close()
+        with open(log_path, "w") as f:
+            f.write("Check Clash main() started\n")
     except:
         pass
 
@@ -1247,8 +1246,18 @@ def main():
         ClashFocus3DHandler._wndw = win
         ClashRecheckHandler._wndw = win
         win.show(modal=False)
+        try:
+            with open(log_path, "a") as f:
+                f.write("Check Clash win.show(modal=False) SUCCESS\n")
+        except:
+            pass
     except:
         err = traceback.format_exc()
+        try:
+            with open(log_path, "a") as f:
+                f.write("Check Clash ERROR:\n" + err + "\n")
+        except:
+            pass
         try:
             from py.ui import show_error
             show_error(u"Failed to initialize Check Clash window:\n\n{}".format(err), title="Check Clash Error")
