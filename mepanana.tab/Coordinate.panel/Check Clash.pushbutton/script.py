@@ -186,15 +186,13 @@ class ClashRowVM(object):
 
 
 class CategoryItemVM(object):
-    """Plain Python view-model for Model Category item in Categories (VV) tab."""
+    """Plain Python view-model for Model Category item matching Revit VV dialog."""
 
-    def __init__(self, cat_id_int, name, discipline, is_checked=False, element_count=0):
+    def __init__(self, cat_id_int, name, discipline, is_checked=False):
         self.CatInt = int(cat_id_int)
         self.Name = name
         self.Discipline = discipline
         self.IsChecked = bool(is_checked)
-        self.ElementCount = element_count
-        self.CountDisplay = u"{} in view".format(element_count) if element_count > 0 else u"0 in view"
 
         # Color coding for discipline pill badge
         if discipline == "Piping":
@@ -315,19 +313,30 @@ def _classify_discipline(cat_id_int, name):
     return "General"
 
 
-def _collect_document_model_categories(doc, view):
-    """Extracts all top-level Model categories from document matching Revit VV Model Categories."""
-    element_counts = {}
-    if view:
-        try:
-            elems = FilteredElementCollector(doc, view.Id).WhereElementIsNotElementType().ToElements()
-            for el in elems:
-                if el.Category:
-                    cid = el.Category.Id.IntegerValue
-                    element_counts[cid] = element_counts.get(cid, 0) + 1
-        except Exception:
-            pass
+_EXCLUDED_BIPS = {
+    int(BuiltInCategory.OST_Views),
+    int(BuiltInCategory.OST_Viewers),
+    int(BuiltInCategory.OST_Sheets),
+    int(BuiltInCategory.OST_ProjectInformation),
+    int(BuiltInCategory.OST_Materials),
+    int(BuiltInCategory.OST_Cameras),
+    int(BuiltInCategory.OST_ScheduleGraphics),
+    int(BuiltInCategory.OST_Schedules),
+    int(BuiltInCategory.OST_RvtLinks),
+    int(BuiltInCategory.OST_Massing),
+    int(BuiltInCategory.OST_Phasing),
+}
 
+_EXCLUDED_CAT_NAMES = {
+    "views", "view", "sheets", "sheet", "project information",
+    "materials", "cameras", "schedule graphics", "schedules",
+    "rvt links", "revit links", "analysis results", "sun path",
+    "raster images", "import in families"
+}
+
+
+def _collect_document_model_categories(doc, view=None):
+    """Extracts all top-level Model categories strictly matching Revit VV Model Categories."""
     results = []
     for cat in doc.Settings.Categories:
         try:
@@ -335,15 +344,27 @@ def _collect_document_model_categories(doc, view):
                 continue
             if cat.Parent is not None:
                 continue
+            if hasattr(cat, "AllowsVisibilityControl") and not cat.AllowsVisibilityControl:
+                continue
             if hasattr(cat, "IsVisibleInUI") and not cat.IsVisibleInUI:
                 continue
             cid = cat.Id.IntegerValue
+            if cid in _EXCLUDED_BIPS:
+                continue
             name = cat.Name
             if not name or name.startswith("<") or name.startswith("{"):
                 continue
+            if name.strip().lower() in _EXCLUDED_CAT_NAMES:
+                continue
+            if view and hasattr(view, "CanCategoryBeHidden"):
+                try:
+                    if not view.CanCategoryBeHidden(cat.Id):
+                        continue
+                except Exception:
+                    pass
+
             disc = _classify_discipline(cid, name)
-            count = element_counts.get(cid, 0)
-            results.append((cid, name, disc, count))
+            results.append((cid, name, disc))
         except Exception:
             pass
 
@@ -430,9 +451,9 @@ class CheckClashWindow(forms.WPFWindow):
 
     def _init_categories(self):
         self._all_cat_vms = []
-        raw_cats = _collect_document_model_categories(self.doc, self.uidoc.ActiveView)
-        for cid, name, disc, count in raw_cats:
-            vm = CategoryItemVM(cid, name, disc, is_checked=False, element_count=count)
+        raw_cats = _collect_document_model_categories(self.doc, self.uidoc.ActiveView if self.uidoc else None)
+        for cid, name, disc in raw_cats:
+            vm = CategoryItemVM(cid, name, disc, is_checked=False)
             self._all_cat_vms.append(vm)
 
     def _on_cat_filter_changed(self, sender, e):
@@ -542,9 +563,9 @@ class CheckClashWindow(forms.WPFWindow):
     def _update_cat_summary(self):
         checked_cats = [vm for vm in self._all_cat_vms if vm.IsChecked]
         n_sel = len(checked_cats)
-        total_elems = sum(vm.ElementCount for vm in checked_cats)
+        total_cats = len(self._all_cat_vms)
         if hasattr(self, 'txtCatSummary'):
-            self.txtCatSummary.Text = u"Selected: {} categories ({} elements in active view)".format(n_sel, total_elems)
+            self.txtCatSummary.Text = u"Selected: {} / {} categories".format(n_sel, total_cats)
         if hasattr(self, 'tabCategories'):
             self.tabCategories.Header = u"📋 Categories ({})".format(n_sel)
 

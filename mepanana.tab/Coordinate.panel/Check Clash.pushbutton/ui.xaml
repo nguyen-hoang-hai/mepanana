@@ -492,24 +492,13 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-
-                                <!-- In Active View -->
-                                <DataGridTextColumn Header="In Active View" Binding="{Binding CountDisplay}" Width="130">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="VerticalAlignment" Value="Center"/>
-                                            <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
-                                            <Setter Property="Padding" Value="8,0"/>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Border>
 
                     <!-- Row 2: Status / Summary -->
                     <Grid Grid.Row="2" Margin="4,8,4,0">
-                        <TextBlock Name="txtCatSummary" Text="Selected: 0 categories (0 elements in view)"
+                        <TextBlock Name="txtCatSummary" Text="Selected: 0 categories"
                                    FontSize="12" FontWeight="Normal" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
                         <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
                                    Text="💡 Click row or press Space to toggle. Click 'Scan Clashes' when ready."
