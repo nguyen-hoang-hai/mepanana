@@ -33,12 +33,13 @@ clr.AddReference("RevitAPIUI")
 
 from System import Uri, UriKind
 from System.Windows import Visibility, ResourceDictionary, FontWeights
-from System.Windows.Media import SolidColorBrush, Color
+from System.Windows.Media import SolidColorBrush, Color, VisualTreeHelper
+from System.Windows.Controls import DataGridRow
 from System.Windows.Input import Key
 from System.Collections.ObjectModel import ObservableCollection
 
 from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
-from Autodesk.Revit.DB import BuiltInCategory
+from Autodesk.Revit.DB import BuiltInCategory, CategoryType, FilteredElementCollector, ElementId
 
 from py.core import get_doc, get_uidoc, get_id_value, safe_unicode
 from py.ui import setup_window
@@ -181,6 +182,172 @@ class ClashRowVM(object):
         self._refresh_status()
 
 
+class CategoryItemVM(object):
+    """Plain Python view-model for Model Category item in Categories (VV) tab."""
+
+    def __init__(self, cat_id_int, name, discipline, is_checked=False, element_count=0):
+        self.CatInt = int(cat_id_int)
+        self.Name = name
+        self.Discipline = discipline
+        self.IsChecked = bool(is_checked)
+        self.ElementCount = element_count
+        self.CountDisplay = u"{} in view".format(element_count) if element_count > 0 else u"0 in view"
+
+        # Color coding for discipline pill badge
+        if discipline == "Piping":
+            self.DiscBg = "#DBEAFE"
+            self.DiscColor = "#1E40AF"
+        elif discipline == "Mechanical":
+            self.DiscBg = "#E0E7FF"
+            self.DiscColor = "#3730A3"
+        elif discipline == "Electrical":
+            self.DiscBg = "#FEF3C7"
+            self.DiscColor = "#92400E"
+        elif discipline == "Structural":
+            self.DiscBg = "#FCE7F3"
+            self.DiscColor = "#9D174D"
+        elif discipline == "Architectural":
+            self.DiscBg = "#D1FAE5"
+            self.DiscColor = "#065F46"
+        else:
+            self.DiscBg = "#F1F5F9"
+            self.DiscColor = "#475569"
+
+
+# Grouping sets by BuiltInCategory integer ID
+_MEP_PIPING_BIPS = {
+    int(BuiltInCategory.OST_PipeCurves),
+    int(BuiltInCategory.OST_PipeFitting),
+    int(BuiltInCategory.OST_PipeAccessory),
+    int(BuiltInCategory.OST_FlexPipeCurves),
+    int(BuiltInCategory.OST_PipeInsulations),
+    int(BuiltInCategory.OST_PlumbingFixtures),
+    int(BuiltInCategory.OST_Sprinklers),
+}
+
+_MEP_MECH_BIPS = {
+    int(BuiltInCategory.OST_DuctCurves),
+    int(BuiltInCategory.OST_DuctFitting),
+    int(BuiltInCategory.OST_DuctAccessory),
+    int(BuiltInCategory.OST_DuctTerminal),
+    int(BuiltInCategory.OST_FlexDuctCurves),
+    int(BuiltInCategory.OST_DuctInsulations),
+    int(BuiltInCategory.OST_DuctLinings),
+    int(BuiltInCategory.OST_MechanicalEquipment),
+}
+
+_MEP_ELEC_BIPS = {
+    int(BuiltInCategory.OST_CableTray),
+    int(BuiltInCategory.OST_CableTrayFitting),
+    int(BuiltInCategory.OST_Conduit),
+    int(BuiltInCategory.OST_ConduitFitting),
+    int(BuiltInCategory.OST_ElectricalEquipment),
+    int(BuiltInCategory.OST_ElectricalFixtures),
+    int(BuiltInCategory.OST_LightingFixtures),
+    int(BuiltInCategory.OST_LightingDevices),
+    int(BuiltInCategory.OST_FireAlarmDevices),
+    int(BuiltInCategory.OST_DataDevices),
+    int(BuiltInCategory.OST_CommunicationDevices),
+    int(BuiltInCategory.OST_SecurityDevices),
+    int(BuiltInCategory.OST_TelephoneDevices),
+    int(BuiltInCategory.OST_NurseCallDevices),
+}
+
+_STRUCT_BIPS = {
+    int(BuiltInCategory.OST_StructuralFraming),
+    int(BuiltInCategory.OST_StructuralColumns),
+    int(BuiltInCategory.OST_StructuralFoundation),
+    int(BuiltInCategory.OST_StructuralFramingSystem),
+    int(BuiltInCategory.OST_StructuralStiffener),
+    int(BuiltInCategory.OST_StructConnections),
+    int(BuiltInCategory.OST_Rebar),
+}
+
+_ARCH_BIPS = {
+    int(BuiltInCategory.OST_Walls),
+    int(BuiltInCategory.OST_Floors),
+    int(BuiltInCategory.OST_Ceilings),
+    int(BuiltInCategory.OST_Roofs),
+    int(BuiltInCategory.OST_Doors),
+    int(BuiltInCategory.OST_Windows),
+    int(BuiltInCategory.OST_Stairs),
+    int(BuiltInCategory.OST_StairsRailing),
+    int(BuiltInCategory.OST_Ramps),
+    int(BuiltInCategory.OST_CurtainWallPanels),
+    int(BuiltInCategory.OST_CurtainWallMullions),
+    int(BuiltInCategory.OST_Columns),
+    int(BuiltInCategory.OST_GenericModel),
+    int(BuiltInCategory.OST_SpecialityEquipment),
+    int(BuiltInCategory.OST_Casework),
+    int(BuiltInCategory.OST_Furniture),
+    int(BuiltInCategory.OST_FurnitureSystems),
+}
+
+_DEFAULT_MEP_SET = _MEP_PIPING_BIPS | _MEP_MECH_BIPS | _MEP_ELEC_BIPS
+
+
+def _classify_discipline(cat_id_int, name):
+    if cat_id_int in _MEP_PIPING_BIPS:
+        return "Piping"
+    if cat_id_int in _MEP_MECH_BIPS:
+        return "Mechanical"
+    if cat_id_int in _MEP_ELEC_BIPS:
+        return "Electrical"
+    if cat_id_int in _STRUCT_BIPS:
+        return "Structural"
+    if cat_id_int in _ARCH_BIPS:
+        return "Architectural"
+
+    nl = name.lower()
+    if any(k in nl for k in ["pipe", "plumbing", "sprinkler"]):
+        return "Piping"
+    if any(k in nl for k in ["duct", "air", "mechanical", "hvac"]):
+        return "Mechanical"
+    if any(k in nl for k in ["cable", "conduit", "tray", "electric", "lighting", "device", "alarm", "data", "wire"]):
+        return "Electrical"
+    if any(k in nl for k in ["struct", "framing", "column", "foundation", "rebar"]):
+        return "Structural"
+    if any(k in nl for k in ["wall", "floor", "ceiling", "roof", "door", "window", "stair", "rail", "ramp", "curtain", "furniture", "panel", "mullion", "casework", "room"]):
+        return "Architectural"
+    return "General"
+
+
+def _collect_document_model_categories(doc, view):
+    """Extracts all top-level Model categories from document matching Revit VV Model Categories."""
+    element_counts = {}
+    if view:
+        try:
+            elems = FilteredElementCollector(doc, view.Id).WhereElementIsNotElementType().ToElements()
+            for el in elems:
+                if el.Category:
+                    cid = el.Category.Id.IntegerValue
+                    element_counts[cid] = element_counts.get(cid, 0) + 1
+        except Exception:
+            pass
+
+    results = []
+    for cat in doc.Settings.Categories:
+        try:
+            if cat.CategoryType != CategoryType.Model:
+                continue
+            if cat.Parent is not None:
+                continue
+            if hasattr(cat, "IsVisibleInUI") and not cat.IsVisibleInUI:
+                continue
+            cid = cat.Id.IntegerValue
+            name = cat.Name
+            if not name or name.startswith("<") or name.startswith("{"):
+                continue
+            disc = _classify_discipline(cid, name)
+            count = element_counts.get(cid, 0)
+            results.append((cid, name, disc, count))
+        except Exception:
+            pass
+
+    results.sort(key=lambda x: x[1])
+    return results
+
+
 # -- Main Controller Window ---------------------------------------------------
 
 class CheckClashWindow(forms.WPFWindow):
@@ -211,24 +378,27 @@ class CheckClashWindow(forms.WPFWindow):
         self.btnExportExcel.Click += self._on_export_excel
         self.btnClose.Click += lambda s, e: self.Close()
 
-        # Category checkbox events (master group toggles + sub-items + persistence)
-        self._updating_mep_group = False
-        self.chkGroupMep.Checked   += self._on_mep_group_changed
-        self.chkGroupMep.Unchecked += self._on_mep_group_changed
-        self.chkCatPipe.Checked      += self._on_mep_sub_changed
-        self.chkCatPipe.Unchecked    += self._on_mep_sub_changed
-        self.chkCatDuct.Checked      += self._on_mep_sub_changed
-        self.chkCatDuct.Unchecked    += self._on_mep_sub_changed
-        self.chkCatCableTray.Checked   += self._on_mep_sub_changed
-        self.chkCatCableTray.Unchecked += self._on_mep_sub_changed
-        self.chkCatConduit.Checked   += self._on_mep_sub_changed
-        self.chkCatConduit.Unchecked += self._on_mep_sub_changed
-        self.chkGroupStructural.Checked   += self._on_cat_changed
-        self.chkGroupStructural.Unchecked += self._on_cat_changed
-        self.chkGroupArch.Checked   += self._on_cat_changed
-        self.chkGroupArch.Unchecked += self._on_cat_changed
-        self.btnCatReset.Click += self._on_cat_reset
-        self._load_cat_prefs()
+        # Categories (VV) Tab wiring & initialization
+        self._all_cat_vms = []
+        self._displayed_cat_vms = ObservableCollection[object]()
+        self.dgCategories.ItemsSource = self._displayed_cat_vms
+
+        self.txtCatSearch.TextChanged += self._on_cat_filter_changed
+        self.cmbCatDiscipline.SelectionChanged += self._on_cat_filter_changed
+
+        self.btnPresetMep.Click += self._on_preset_mep
+        self.btnPresetAll.Click += self._on_preset_all
+        self.btnPresetNone.Click += self._on_preset_none
+        self.btnPresetStruct.Click += self._on_preset_struct
+        self.btnPresetArch.Click += self._on_preset_arch
+
+        self.dgCategories.PreviewMouseLeftButtonDown += self._on_cat_grid_click
+        self.dgCategories.MouseDoubleClick += lambda s, e: self._toggle_selected_category_row()
+
+        self._init_categories()
+        self._load_category_prefs()
+        self._apply_cat_filter()
+        self._update_cat_summary()
 
         # Tab Switching
         self.btnTabActive.Click += lambda s, e: self._switch_tab("ACTIVE")
@@ -252,140 +422,155 @@ class CheckClashWindow(forms.WPFWindow):
         ClashRecheckHandler._wndw = None
 
     # -------------------------------------------------------------------------
-    # Category Selection Handlers
+    # Categories (VV) Tab Handlers
     # -------------------------------------------------------------------------
 
-    def _on_mep_group_changed(self, sender, e):
-        """Master MEP checkbox → toggle all MEP sub-checkboxes."""
-        if self._updating_mep_group:
-            return
-        self._updating_mep_group = True
+    def _init_categories(self):
+        self._all_cat_vms = []
+        raw_cats = _collect_document_model_categories(self.doc, self.uidoc.ActiveView)
+        for cid, name, disc, count in raw_cats:
+            vm = CategoryItemVM(cid, name, disc, is_checked=False, element_count=count)
+            self._all_cat_vms.append(vm)
+
+    def _on_cat_filter_changed(self, sender, e):
+        self._apply_cat_filter()
+
+    def _apply_cat_filter(self):
+        q = self.txtCatSearch.Text.strip().lower() if (hasattr(self, 'txtCatSearch') and self.txtCatSearch.Text) else ""
+        disc_idx = self.cmbCatDiscipline.SelectedIndex if hasattr(self, 'cmbCatDiscipline') else 0
+
+        self._displayed_cat_vms.Clear()
+        for vm in self._all_cat_vms:
+            # Discipline dropdown filter
+            if disc_idx == 1:  # MEP Only
+                if vm.Discipline not in ["Mechanical", "Electrical", "Piping"]:
+                    continue
+            elif disc_idx == 2:  # Mechanical
+                if vm.Discipline != "Mechanical":
+                    continue
+            elif disc_idx == 3:  # Electrical
+                if vm.Discipline != "Electrical":
+                    continue
+            elif disc_idx == 4:  # Piping
+                if vm.Discipline != "Piping":
+                    continue
+            elif disc_idx == 5:  # Structure
+                if vm.Discipline != "Structural":
+                    continue
+            elif disc_idx == 6:  # Architecture
+                if vm.Discipline != "Architectural":
+                    continue
+
+            # Search text query
+            if q and (q not in vm.Name.lower()) and (q not in vm.Discipline.lower()):
+                continue
+
+            self._displayed_cat_vms.Add(vm)
+
         try:
-            state = bool(self.chkGroupMep.IsChecked)
-            self.chkCatPipe.IsChecked      = state
-            self.chkCatDuct.IsChecked      = state
-            self.chkCatCableTray.IsChecked = state
-            self.chkCatConduit.IsChecked   = state
-        finally:
-            self._updating_mep_group = False
-        self._save_cat_prefs()
+            self.dgCategories.Items.Refresh()
+        except Exception:
+            pass
 
-    def _on_mep_sub_changed(self, sender, e):
-        """Any MEP sub-checkbox changed → sync master MEP checkbox state."""
-        if self._updating_mep_group:
-            return
-        self._updating_mep_group = True
+    def _on_cat_grid_click(self, sender, e):
+        """Clicking on row in categories DataGrid toggles selection."""
         try:
-            any_on = (
-                bool(self.chkCatPipe.IsChecked) or
-                bool(self.chkCatDuct.IsChecked) or
-                bool(self.chkCatCableTray.IsChecked) or
-                bool(self.chkCatConduit.IsChecked)
-            )
-            self.chkGroupMep.IsChecked = any_on
-        finally:
-            self._updating_mep_group = False
-        self._save_cat_prefs()
+            dep = e.OriginalSource
+            while dep is not None and not isinstance(dep, DataGridRow):
+                dep = VisualTreeHelper.GetParent(dep)
+            if dep and isinstance(dep, DataGridRow):
+                item = dep.Item
+                if item and isinstance(item, CategoryItemVM):
+                    item.IsChecked = not item.IsChecked
+                    self.dgCategories.Items.Refresh()
+                    self._update_cat_summary()
+                    self._save_category_prefs()
+        except Exception:
+            pass
 
-    def _on_cat_changed(self, sender, e):
-        """Structural / Architectural group changed → persist."""
-        self._save_cat_prefs()
-
-    def _on_cat_reset(self, sender, e):
-        """Reset categories to MEP-only defaults."""
-        self._updating_mep_group = True
+    def _toggle_selected_category_row(self):
         try:
-            self.chkGroupMep.IsChecked       = True
-            self.chkCatPipe.IsChecked        = True
-            self.chkCatDuct.IsChecked        = True
-            self.chkCatCableTray.IsChecked   = True
-            self.chkCatConduit.IsChecked     = True
-            self.chkGroupStructural.IsChecked = False
-            self.chkGroupArch.IsChecked       = False
-        finally:
-            self._updating_mep_group = False
-        self._save_cat_prefs()
+            item = self.dgCategories.SelectedItem
+            if item and isinstance(item, CategoryItemVM):
+                item.IsChecked = not item.IsChecked
+                self.dgCategories.Items.Refresh()
+                self._update_cat_summary()
+                self._save_category_prefs()
+        except Exception:
+            pass
 
-    def _build_selected_categories(self):
-        """Return list of BuiltInCategory based on current checkbox state."""
-        cats = []
-        if bool(self.chkCatPipe.IsChecked):
-            cats += [
-                BuiltInCategory.OST_PipeCurves,
-                BuiltInCategory.OST_PipeFitting,
-                BuiltInCategory.OST_PipeAccessory,
-            ]
-        if bool(self.chkCatDuct.IsChecked):
-            cats += [
-                BuiltInCategory.OST_DuctCurves,
-                BuiltInCategory.OST_DuctFitting,
-                BuiltInCategory.OST_DuctAccessory,
-            ]
-        if bool(self.chkCatCableTray.IsChecked):
-            cats += [
-                BuiltInCategory.OST_CableTray,
-                BuiltInCategory.OST_CableTrayFitting,
-            ]
-        if bool(self.chkCatConduit.IsChecked):
-            cats += [
-                BuiltInCategory.OST_Conduit,
-                BuiltInCategory.OST_ConduitFitting,
-            ]
-        if bool(self.chkGroupStructural.IsChecked):
-            cats += [
-                BuiltInCategory.OST_StructuralFraming,
-                BuiltInCategory.OST_StructuralColumns,
-                BuiltInCategory.OST_StructuralFoundation,
-            ]
-        if bool(self.chkGroupArch.IsChecked):
-            cats += [
-                BuiltInCategory.OST_Walls,
-                BuiltInCategory.OST_Floors,
-                BuiltInCategory.OST_Ceilings,
-                BuiltInCategory.OST_Doors,
-                BuiltInCategory.OST_Windows,
-                BuiltInCategory.OST_Roofs,
-            ]
-        return cats
+    def _on_preset_mep(self, sender, e):
+        for vm in self._all_cat_vms:
+            vm.IsChecked = (vm.CatInt in _DEFAULT_MEP_SET)
+        self.dgCategories.Items.Refresh()
+        self._update_cat_summary()
+        self._save_category_prefs()
 
-    def _save_cat_prefs(self):
-        """Persist category checkbox states via pyrevit config."""
+    def _on_preset_all(self, sender, e):
+        for vm in self._displayed_cat_vms:
+            vm.IsChecked = True
+        self.dgCategories.Items.Refresh()
+        self._update_cat_summary()
+        self._save_category_prefs()
+
+    def _on_preset_none(self, sender, e):
+        for vm in self._displayed_cat_vms:
+            vm.IsChecked = False
+        self.dgCategories.Items.Refresh()
+        self._update_cat_summary()
+        self._save_category_prefs()
+
+    def _on_preset_struct(self, sender, e):
+        for vm in self._all_cat_vms:
+            if vm.Discipline == "Structural":
+                vm.IsChecked = True
+        self.dgCategories.Items.Refresh()
+        self._update_cat_summary()
+        self._save_category_prefs()
+
+    def _on_preset_arch(self, sender, e):
+        for vm in self._all_cat_vms:
+            if vm.Discipline == "Architectural":
+                vm.IsChecked = True
+        self.dgCategories.Items.Refresh()
+        self._update_cat_summary()
+        self._save_category_prefs()
+
+    def _update_cat_summary(self):
+        checked_cats = [vm for vm in self._all_cat_vms if vm.IsChecked]
+        n_sel = len(checked_cats)
+        total_elems = sum(vm.ElementCount for vm in checked_cats)
+        if hasattr(self, 'txtCatSummary'):
+            self.txtCatSummary.Text = u"Selected: {} categories ({} elements in active view)".format(n_sel, total_elems)
+        if hasattr(self, 'tabCategories'):
+            self.tabCategories.Header = u"📋 Categories ({})".format(n_sel)
+
+    def _save_category_prefs(self):
         try:
             cfg = _script.get_config()
-            cfg.cat_pipe        = bool(self.chkCatPipe.IsChecked)
-            cfg.cat_duct        = bool(self.chkCatDuct.IsChecked)
-            cfg.cat_cable_tray  = bool(self.chkCatCableTray.IsChecked)
-            cfg.cat_conduit     = bool(self.chkCatConduit.IsChecked)
-            cfg.cat_structural  = bool(self.chkGroupStructural.IsChecked)
-            cfg.cat_arch        = bool(self.chkGroupArch.IsChecked)
+            checked_ids = [vm.CatInt for vm in self._all_cat_vms if vm.IsChecked]
+            cfg.selected_category_ids = checked_ids
             _script.save_config()
         except Exception:
             pass
 
-    def _load_cat_prefs(self):
-        """Restore category checkbox states from pyrevit config (safe defaults: MEP on)."""
+    def _load_category_prefs(self):
         try:
             cfg = _script.get_config()
-            self._updating_mep_group = True
-            try:
-                self.chkCatPipe.IsChecked        = getattr(cfg, 'cat_pipe', True)
-                self.chkCatDuct.IsChecked        = getattr(cfg, 'cat_duct', True)
-                self.chkCatCableTray.IsChecked   = getattr(cfg, 'cat_cable_tray', True)
-                self.chkCatConduit.IsChecked     = getattr(cfg, 'cat_conduit', True)
-                self.chkGroupStructural.IsChecked = getattr(cfg, 'cat_structural', False)
-                self.chkGroupArch.IsChecked       = getattr(cfg, 'cat_arch', False)
-                # Sync MEP master checkbox
-                any_mep = (
-                    bool(self.chkCatPipe.IsChecked) or
-                    bool(self.chkCatDuct.IsChecked) or
-                    bool(self.chkCatCableTray.IsChecked) or
-                    bool(self.chkCatConduit.IsChecked)
-                )
-                self.chkGroupMep.IsChecked = any_mep
-            finally:
-                self._updating_mep_group = False
+            saved_ids = getattr(cfg, 'selected_category_ids', None)
+            if saved_ids and isinstance(saved_ids, (list, set)):
+                saved_set = set(int(x) for x in saved_ids)
+                for vm in self._all_cat_vms:
+                    vm.IsChecked = (vm.CatInt in saved_set)
+                return
         except Exception:
             pass
+        # Default to MEP categories
+        for vm in self._all_cat_vms:
+            vm.IsChecked = (vm.CatInt in _DEFAULT_MEP_SET)
+
+    def _get_active_category_ids(self):
+        return [vm.CatInt for vm in self._all_cat_vms if vm.IsChecked]
 
     def _on_key_down(self, sender, e):
         if e.Key == Key.Escape:
@@ -395,8 +580,12 @@ class CheckClashWindow(forms.WPFWindow):
             self._on_recheck_clicked(sender, e)
             e.Handled = True
         elif e.Key == Key.Space:
-            self._on_focus3d_clicked(sender, e)
-            e.Handled = True
+            if hasattr(self, 'dgCategories') and self.dgCategories.IsKeyboardFocusWithin:
+                self._toggle_selected_category_row()
+                e.Handled = True
+            else:
+                self._on_focus3d_clicked(sender, e)
+                e.Handled = True
 
     def _show_topmost_dialog(self, message, title="Notification", dialog_type=None, is_error=False):
         """Displays modern branded MEPANANA alert dialog properly parented to this window."""
@@ -436,9 +625,15 @@ class CheckClashWindow(forms.WPFWindow):
                     return
                 selected_ids = list(sel)
 
-            cats = self._build_selected_categories()
+            cats = self._get_active_category_ids()
             if not cats:
-                self.txtStatus.Text = u"⚠️ No categories selected. Please check at least one category in the left panel."
+                self.txtStatus.Text = u"⚠️ No categories selected. Please go to 'Categories' tab and select at least one."
+                self._show_topmost_dialog(
+                    u"No categories selected for clash check!\n\n"
+                    u"Please click the '📋 Categories' tab and check the categories you want to inspect.",
+                    title="No Categories Selected",
+                    dialog_type="WARNING"
+                )
                 return
 
             clashes = scan_clashes(
@@ -459,6 +654,10 @@ class CheckClashWindow(forms.WPFWindow):
 
             self._all_clash_vms = [ClashRowVM(c) for c in clashes]
             self._apply_filter()
+
+            # Automatically switch to Inspector tab to review results
+            if hasattr(self, 'tabMain'):
+                self.tabMain.SelectedIndex = 0
 
             if clashes:
                 self.dgClashes.SelectedIndex = 0

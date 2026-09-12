@@ -740,7 +740,8 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
             tf = link_inst.GetTotalTransform()
             link_name = link_inst.Name
             
-            for cat_item in ALL_LINKED_CATEGORIES:
+            target_link_cats = [c for c in cat_ints] if cat_ints else ALL_LINKED_CATEGORIES
+            for cat_item in target_link_cats:
                 try:
                     c_id = ElementId(int(cat_item))
                     col_link = FilteredElementCollector(link_doc).OfCategoryId(c_id).WhereElementIsNotElementType()
