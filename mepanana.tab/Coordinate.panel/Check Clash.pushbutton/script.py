@@ -16,6 +16,7 @@ import traceback
 import clr
 
 from pyrevit import forms
+from pyrevit import script as _script
 import py.auth as _auth
 
 # -- 6-Line Security Gatekeeper -----------------------------------------------
@@ -210,6 +211,25 @@ class CheckClashWindow(forms.WPFWindow):
         self.btnExportExcel.Click += self._on_export_excel
         self.btnClose.Click += lambda s, e: self.Close()
 
+        # Category checkbox events (master group toggles + sub-items + persistence)
+        self._updating_mep_group = False
+        self.chkGroupMep.Checked   += self._on_mep_group_changed
+        self.chkGroupMep.Unchecked += self._on_mep_group_changed
+        self.chkCatPipe.Checked      += self._on_mep_sub_changed
+        self.chkCatPipe.Unchecked    += self._on_mep_sub_changed
+        self.chkCatDuct.Checked      += self._on_mep_sub_changed
+        self.chkCatDuct.Unchecked    += self._on_mep_sub_changed
+        self.chkCatCableTray.Checked   += self._on_mep_sub_changed
+        self.chkCatCableTray.Unchecked += self._on_mep_sub_changed
+        self.chkCatConduit.Checked   += self._on_mep_sub_changed
+        self.chkCatConduit.Unchecked += self._on_mep_sub_changed
+        self.chkGroupStructural.Checked   += self._on_cat_changed
+        self.chkGroupStructural.Unchecked += self._on_cat_changed
+        self.chkGroupArch.Checked   += self._on_cat_changed
+        self.chkGroupArch.Unchecked += self._on_cat_changed
+        self.btnCatReset.Click += self._on_cat_reset
+        self._load_cat_prefs()
+
         # Tab Switching
         self.btnTabActive.Click += lambda s, e: self._switch_tab("ACTIVE")
         self.btnTabResolved.Click += lambda s, e: self._switch_tab("RESOLVED")
@@ -230,6 +250,142 @@ class CheckClashWindow(forms.WPFWindow):
         ClashFocus3DHandler._wndw = None
         ClashFocus3DHandler._clash_item = None
         ClashRecheckHandler._wndw = None
+
+    # -------------------------------------------------------------------------
+    # Category Selection Handlers
+    # -------------------------------------------------------------------------
+
+    def _on_mep_group_changed(self, sender, e):
+        """Master MEP checkbox → toggle all MEP sub-checkboxes."""
+        if self._updating_mep_group:
+            return
+        self._updating_mep_group = True
+        try:
+            state = bool(self.chkGroupMep.IsChecked)
+            self.chkCatPipe.IsChecked      = state
+            self.chkCatDuct.IsChecked      = state
+            self.chkCatCableTray.IsChecked = state
+            self.chkCatConduit.IsChecked   = state
+        finally:
+            self._updating_mep_group = False
+        self._save_cat_prefs()
+
+    def _on_mep_sub_changed(self, sender, e):
+        """Any MEP sub-checkbox changed → sync master MEP checkbox state."""
+        if self._updating_mep_group:
+            return
+        self._updating_mep_group = True
+        try:
+            any_on = (
+                bool(self.chkCatPipe.IsChecked) or
+                bool(self.chkCatDuct.IsChecked) or
+                bool(self.chkCatCableTray.IsChecked) or
+                bool(self.chkCatConduit.IsChecked)
+            )
+            self.chkGroupMep.IsChecked = any_on
+        finally:
+            self._updating_mep_group = False
+        self._save_cat_prefs()
+
+    def _on_cat_changed(self, sender, e):
+        """Structural / Architectural group changed → persist."""
+        self._save_cat_prefs()
+
+    def _on_cat_reset(self, sender, e):
+        """Reset categories to MEP-only defaults."""
+        self._updating_mep_group = True
+        try:
+            self.chkGroupMep.IsChecked       = True
+            self.chkCatPipe.IsChecked        = True
+            self.chkCatDuct.IsChecked        = True
+            self.chkCatCableTray.IsChecked   = True
+            self.chkCatConduit.IsChecked     = True
+            self.chkGroupStructural.IsChecked = False
+            self.chkGroupArch.IsChecked       = False
+        finally:
+            self._updating_mep_group = False
+        self._save_cat_prefs()
+
+    def _build_selected_categories(self):
+        """Return list of BuiltInCategory based on current checkbox state."""
+        cats = []
+        if bool(self.chkCatPipe.IsChecked):
+            cats += [
+                BuiltInCategory.OST_PipeCurves,
+                BuiltInCategory.OST_PipeFitting,
+                BuiltInCategory.OST_PipeAccessory,
+            ]
+        if bool(self.chkCatDuct.IsChecked):
+            cats += [
+                BuiltInCategory.OST_DuctCurves,
+                BuiltInCategory.OST_DuctFitting,
+                BuiltInCategory.OST_DuctAccessory,
+            ]
+        if bool(self.chkCatCableTray.IsChecked):
+            cats += [
+                BuiltInCategory.OST_CableTray,
+                BuiltInCategory.OST_CableTrayFitting,
+            ]
+        if bool(self.chkCatConduit.IsChecked):
+            cats += [
+                BuiltInCategory.OST_Conduit,
+                BuiltInCategory.OST_ConduitFitting,
+            ]
+        if bool(self.chkGroupStructural.IsChecked):
+            cats += [
+                BuiltInCategory.OST_StructuralFraming,
+                BuiltInCategory.OST_StructuralColumns,
+                BuiltInCategory.OST_StructuralFoundation,
+            ]
+        if bool(self.chkGroupArch.IsChecked):
+            cats += [
+                BuiltInCategory.OST_Walls,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Ceilings,
+                BuiltInCategory.OST_Doors,
+                BuiltInCategory.OST_Windows,
+                BuiltInCategory.OST_Roofs,
+            ]
+        return cats
+
+    def _save_cat_prefs(self):
+        """Persist category checkbox states via pyrevit config."""
+        try:
+            cfg = _script.get_config()
+            cfg.cat_pipe        = bool(self.chkCatPipe.IsChecked)
+            cfg.cat_duct        = bool(self.chkCatDuct.IsChecked)
+            cfg.cat_cable_tray  = bool(self.chkCatCableTray.IsChecked)
+            cfg.cat_conduit     = bool(self.chkCatConduit.IsChecked)
+            cfg.cat_structural  = bool(self.chkGroupStructural.IsChecked)
+            cfg.cat_arch        = bool(self.chkGroupArch.IsChecked)
+            _script.save_config()
+        except Exception:
+            pass
+
+    def _load_cat_prefs(self):
+        """Restore category checkbox states from pyrevit config (safe defaults: MEP on)."""
+        try:
+            cfg = _script.get_config()
+            self._updating_mep_group = True
+            try:
+                self.chkCatPipe.IsChecked        = getattr(cfg, 'cat_pipe', True)
+                self.chkCatDuct.IsChecked        = getattr(cfg, 'cat_duct', True)
+                self.chkCatCableTray.IsChecked   = getattr(cfg, 'cat_cable_tray', True)
+                self.chkCatConduit.IsChecked     = getattr(cfg, 'cat_conduit', True)
+                self.chkGroupStructural.IsChecked = getattr(cfg, 'cat_structural', False)
+                self.chkGroupArch.IsChecked       = getattr(cfg, 'cat_arch', False)
+                # Sync MEP master checkbox
+                any_mep = (
+                    bool(self.chkCatPipe.IsChecked) or
+                    bool(self.chkCatDuct.IsChecked) or
+                    bool(self.chkCatCableTray.IsChecked) or
+                    bool(self.chkCatConduit.IsChecked)
+                )
+                self.chkGroupMep.IsChecked = any_mep
+            finally:
+                self._updating_mep_group = False
+        except Exception:
+            pass
 
     def _on_key_down(self, sender, e):
         if e.Key == Key.Escape:
@@ -280,18 +436,10 @@ class CheckClashWindow(forms.WPFWindow):
                     return
                 selected_ids = list(sel)
 
-            cats = [
-                BuiltInCategory.OST_CableTray,
-                BuiltInCategory.OST_CableTrayFitting,
-                BuiltInCategory.OST_Conduit,
-                BuiltInCategory.OST_ConduitFitting,
-                BuiltInCategory.OST_DuctCurves,
-                BuiltInCategory.OST_DuctFitting,
-                BuiltInCategory.OST_DuctAccessory,
-                BuiltInCategory.OST_PipeCurves,
-                BuiltInCategory.OST_PipeFitting,
-                BuiltInCategory.OST_PipeAccessory,
-            ]
+            cats = self._build_selected_categories()
+            if not cats:
+                self.txtStatus.Text = u"⚠️ No categories selected. Please check at least one category in the left panel."
+                return
 
             clashes = scan_clashes(
                 doc, uidoc.ActiveView,
