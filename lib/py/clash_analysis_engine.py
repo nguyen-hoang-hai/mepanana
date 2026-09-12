@@ -147,6 +147,11 @@ class ClashItem(System.Object):
         id1 = get_id_value(elem1) if elem1 else 0
         id2 = get_id_value(elem2) if elem2 else 0
         
+        self.Elem1IdInt = id1
+        self.Elem2IdInt = id2
+        self.Elem1CatName = name1
+        self.Elem2CatName = name2
+
         if is_link2:
             self.DisplayName = u"{} [{}] ⚡ {} [{}] (Link)".format(name1, id1, name2, id2)
         elif is_link1:
@@ -962,7 +967,20 @@ def focus_clash_3d(doc, uidoc, clash_item, padding_mm=800):
     try:
         clash_pt = clash_item.ClashPoint
         if not clash_pt:
-            bb = clash_item.Element1.get_BoundingBox(None)
+            bb = None
+            el1 = getattr(clash_item, "Element1", None)
+            if el1 and getattr(el1, "IsValidObject", False):
+                try:
+                    bb = el1.get_BoundingBox(None)
+                except Exception:
+                    bb = None
+            if not bb:
+                el2 = getattr(clash_item, "Element2", None)
+                if el2 and getattr(el2, "IsValidObject", False):
+                    try:
+                        bb = el2.get_BoundingBox(None)
+                    except Exception:
+                        bb = None
             if bb:
                 clash_pt = XYZ((bb.Min.X + bb.Max.X) * 0.5, (bb.Min.Y + bb.Max.Y) * 0.5, (bb.Min.Z + bb.Max.Z) * 0.5)
             else:
@@ -1026,10 +1044,20 @@ def focus_clash_3d(doc, uidoc, clash_item, padding_mm=800):
 
         # 5. Highlight clashing elements
         sel_ids = List[ElementId]()
-        if clash_item.Element1 and not clash_item.IsLink1:
-            sel_ids.Add(clash_item.Element1.Id)
-        if clash_item.Element2 and not clash_item.IsLink2:
-            sel_ids.Add(clash_item.Element2.Id)
+        el1 = getattr(clash_item, "Element1", None)
+        el2 = getattr(clash_item, "Element2", None)
+        if el1 and not getattr(clash_item, "IsLink1", False):
+            try:
+                if getattr(el1, "IsValidObject", False):
+                    sel_ids.Add(el1.Id)
+            except Exception:
+                pass
+        if el2 and not getattr(clash_item, "IsLink2", False):
+            try:
+                if getattr(el2, "IsValidObject", False):
+                    sel_ids.Add(el2.Id)
+            except Exception:
+                pass
 
         if sel_ids.Count > 0:
             uidoc.Selection.SetElementIds(sel_ids)
@@ -1074,6 +1102,187 @@ def focus_clash_3d(doc, uidoc, clash_item, padding_mm=800):
     except Exception as ex:
         print("focus_clash_3d error: {}".format(ex))
         return False
+
+
+def check_element_exists(doc, elem, elem_id_int=None, is_link=False, link_name=""):
+    """
+    Safely verifies if an element still physically exists and is valid in the Revit project or link document.
+    Returns: (exists: bool, live_element: Element or None, transform: Transform or None)
+    """
+    try:
+        if elem_id_int is None and elem:
+            try:
+                elem_id_int = get_id_value(elem)
+            except Exception:
+                pass
+
+        target_doc = doc
+        tf = None
+        if is_link and link_name:
+            col = FilteredElementCollector(doc).OfClass(RevitLinkInstance).WhereElementIsNotElementType()
+            for li in col:
+                if li.Name == link_name:
+                    tf = li.GetTotalTransform()
+                    ldoc = li.GetLinkDocument()
+                    if ldoc:
+                        target_doc = ldoc
+                    break
+
+        if elem_id_int:
+            try:
+                el = target_doc.GetElement(ElementId(elem_id_int))
+                if el is not None and getattr(el, "IsValidObject", False):
+                    _ = el.Id
+                    return (True, el, tf)
+            except Exception:
+                pass
+            return (False, None, tf)
+
+        if elem is not None:
+            try:
+                if getattr(elem, "IsValidObject", False):
+                    el = target_doc.GetElement(elem.Id)
+                    if el is not None:
+                        return (True, el, tf)
+            except Exception:
+                pass
+
+        return (False, None, tf)
+    except Exception:
+        return (False, None, None)
+
+
+def focus_element_3d(doc, uidoc, elem, padding_mm=1000, transform=None, is_link=False):
+    """
+    Navigates to or creates an isometric 3D View and sets Section Box around a single element.
+    Used when one clashing element was deleted and user needs to inspect the surviving element.
+    Returns: (success: bool, view_name: str)
+    """
+    try:
+        if not elem:
+            return (False, "")
+
+        bb = elem.get_BoundingBox(None)
+        if not bb:
+            return (False, "")
+
+        pad_ft = mm_to_ft(padding_mm)
+        min_pt = bb.Min
+        max_pt = bb.Max
+
+        if transform and is_link:
+            pt1 = transform.OfPoint(min_pt)
+            pt2 = transform.OfPoint(max_pt)
+            min_x = min(pt1.X, pt2.X) - pad_ft
+            min_y = min(pt1.Y, pt2.Y) - pad_ft
+            min_z = min(pt1.Z, pt2.Z) - pad_ft
+            max_x = max(pt1.X, pt2.X) + pad_ft
+            max_y = max(pt1.Y, pt2.Y) + pad_ft
+            max_z = max(pt1.Z, pt2.Z) + pad_ft
+        else:
+            min_x = min_pt.X - pad_ft
+            min_y = min_pt.Y - pad_ft
+            min_z = min_pt.Z - pad_ft
+            max_x = max_pt.X + pad_ft
+            max_y = max_pt.Y + pad_ft
+            max_z = max_pt.Z + pad_ft
+
+        # Determine target 3D view name based on Worksharing status
+        if getattr(doc, "IsWorkshared", False):
+            try:
+                username = doc.Application.Username
+            except Exception:
+                username = "User"
+            view_name = "{3D - " + str(username) + "}"
+        else:
+            view_name = "{3D}"
+
+        # Search for existing 3D view
+        target_view = None
+        col = FilteredElementCollector(doc).OfClass(View3D).WhereElementIsNotElementType()
+        for v in col:
+            if not v.IsTemplate and v.Name.strip().lower() == view_name.strip().lower():
+                target_view = v
+                break
+
+        # Create view if not found & configure Section Box
+        with SafeTransaction(doc, "MEPANANA Focus Element 3D"):
+            if not target_view:
+                vft_col = FilteredElementCollector(doc).OfClass(ViewFamilyType)
+                iso_vft = None
+                for vft in vft_col:
+                    if vft.ViewFamily == ViewFamily.ThreeDimensional:
+                        iso_vft = vft
+                        break
+                if not iso_vft:
+                    return (False, "")
+                target_view = View3D.CreateIsometric(doc, iso_vft.Id)
+                try:
+                    target_view.Name = view_name
+                except Exception:
+                    try:
+                        target_view.Name = "MEPANANA_Clash_3D"
+                    except Exception:
+                        pass
+
+            box = BoundingBoxXYZ()
+            box.Min = XYZ(min_x, min_y, min_z)
+            box.Max = XYZ(max_x, max_y, max_z)
+
+            try:
+                target_view.IsSectionBoxActive = True
+                target_view.SetSectionBox(box)
+            except Exception as ex_box:
+                print("Warning: Could not set Section Box: {}".format(ex_box))
+
+        try:
+            doc.Regenerate()
+        except Exception:
+            pass
+
+        # Highlight element if in host
+        sel_ids = List[ElementId]()
+        if not is_link and hasattr(elem, "Id"):
+            try:
+                if getattr(elem, "IsValidObject", False):
+                    sel_ids.Add(elem.Id)
+                    uidoc.Selection.SetElementIds(sel_ids)
+            except Exception:
+                pass
+
+        if uidoc and target_view:
+            for uv in uidoc.GetOpenUIViews():
+                if uv.ViewId == target_view.Id:
+                    try:
+                        uv.ZoomToFit()
+                    except Exception:
+                        pass
+                    break
+
+            if uidoc.ActiveView.Id == target_view.Id:
+                if sel_ids.Count > 0:
+                    try:
+                        uidoc.ShowElements(sel_ids)
+                    except Exception:
+                        pass
+            else:
+                switched = False
+                if hasattr(uidoc, "RequestViewChange"):
+                    try:
+                        uidoc.RequestViewChange(target_view)
+                        switched = True
+                    except Exception:
+                        pass
+                if not switched:
+                    try:
+                        uidoc.ActiveView = target_view
+                    except Exception:
+                        pass
+
+        return (True, target_view.Name if target_view else "")
+    except Exception as ex:
+        print("focus_element_3d error: {}".format(ex))
+        return (False, "")
 
 
 def export_clash_report(clashes, file_path):

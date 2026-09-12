@@ -44,7 +44,8 @@ from Autodesk.Revit.DB import BuiltInCategory, CategoryType, FilteredElementColl
 from py.core import get_doc, get_uidoc, get_id_value, safe_unicode
 from py.ui import setup_window
 from py.clash_analysis_engine import (
-    scan_clashes, recheck_single_clash, focus_clash_3d, export_clash_report, import_clash_report
+    scan_clashes, recheck_single_clash, focus_clash_3d, focus_element_3d, check_element_exists,
+    export_clash_report, import_clash_report
 )
 
 
@@ -77,16 +78,18 @@ class ClashFocus3DHandler(IExternalEventHandler):
     """Focuses 3D view Section Box on Revit UI thread."""
     _wndw = None
     _clash_item = None
+    _row_vm = None
 
     def Execute(self, uiapp):
         try:
             wndw = ClashFocus3DHandler._wndw
             item = ClashFocus3DHandler._clash_item
+            row_vm = ClashFocus3DHandler._row_vm
             if not wndw or not item:
                 return
             doc = uiapp.ActiveUIDocument.Document
             uidoc = uiapp.ActiveUIDocument
-            wndw._do_focus_3d(doc, uidoc, item)
+            wndw._do_focus_3d(doc, uidoc, item, row_vm=row_vm)
         except Exception:
             print("ClashFocus3DHandler Error:\n" + traceback.format_exc())
 
@@ -679,6 +682,17 @@ class CheckClashWindow(forms.WPFWindow):
     # -------------------------------------------------------------------------
 
     def _on_grid_double_click(self, sender, e):
+        # Ignore double-clicks originating from column headers or scrollbars
+        try:
+            from System.Windows.Media import VisualTreeHelper
+            from System.Windows.Controls.Primitives import DataGridColumnHeader
+            dep = e.OriginalSource
+            while dep is not None:
+                if isinstance(dep, DataGridColumnHeader):
+                    return
+                dep = VisualTreeHelper.GetParent(dep)
+        except Exception:
+            pass
         self._on_focus3d_clicked(sender, e)
 
     def _on_focus3d_clicked(self, sender, e):
@@ -687,22 +701,135 @@ class CheckClashWindow(forms.WPFWindow):
             return
         ClashFocus3DHandler._wndw = self
         ClashFocus3DHandler._clash_item = selected.RawItem
+        ClashFocus3DHandler._row_vm = selected
         _EXT_EVENT_FOCUS.Raise()
 
-    def _do_focus_3d(self, doc, uidoc, clash_item):
+    def _do_focus_3d(self, doc, uidoc, clash_item, row_vm=None):
         """Called by ClashFocus3DHandler on Revit UI thread."""
-        success = focus_clash_3d(doc, uidoc, clash_item)
-        el1 = clash_item.Element1
-        el2 = clash_item.Element2
-        if success and el1 and el2:
-            cat1 = el1.Category.Name if el1.Category else "Element"
-            cat2 = el2.Category.Name if el2.Category else "Element"
-            vname = getattr(clash_item, "LastViewName", None) or (uidoc.ActiveView.Name if uidoc and uidoc.ActiveView else "3D")
-            self.txtStatus.Text = u"Focus [{}]: {} [{}] vs {} [{}]".format(
-                vname, cat1, get_id_value(el1), cat2, get_id_value(el2)
+        is_resolved = False
+        if row_vm:
+            is_resolved = bool(row_vm.IsResolved)
+        elif getattr(clash_item, "Status", "ACTIVE") == "RESOLVED":
+            is_resolved = True
+
+        id1 = getattr(clash_item, "Elem1IdInt", None) or get_id_value(getattr(clash_item, "Element1", None))
+        id2 = getattr(clash_item, "Elem2IdInt", None) or get_id_value(getattr(clash_item, "Element2", None))
+        cat1 = getattr(clash_item, "Elem1CatName", "Element")
+        cat2 = getattr(clash_item, "Elem2CatName", "Element")
+
+        exists1, live_el1, tf1 = check_element_exists(
+            doc, getattr(clash_item, "Element1", None),
+            elem_id_int=id1,
+            is_link=getattr(clash_item, "IsLink1", False),
+            link_name=getattr(clash_item, "LinkName", "") if getattr(clash_item, "IsLink1", False) else ""
+        )
+        exists2, live_el2, tf2 = check_element_exists(
+            doc, getattr(clash_item, "Element2", None),
+            elem_id_int=id2,
+            is_link=getattr(clash_item, "IsLink2", False),
+            link_name=getattr(clash_item, "LinkName", "") if getattr(clash_item, "IsLink2", False) else ""
+        )
+
+        if exists1 and live_el1:
+            clash_item.Element1 = live_el1
+        if exists2 and live_el2:
+            clash_item.Element2 = live_el2
+
+        # ── Trường hợp 1: Cả 2 đối tượng đều không còn tồn tại trong mô hình ──
+        if not exists1 and not exists2:
+            if row_vm:
+                row_vm.mark_resolved()
+                row_vm.OverlapDisplay = u"0 mm (Đã xoá)"
+                self._apply_filter()
+            msg = (
+                u"Không thể tìm thấy đối tượng trong mô hình:\n\n"
+                u"Cả 2 đối tượng trong va chạm này đã bị xoá khỏi mô hình:\n"
+                u"• {} [{}]\n"
+                u"• {} [{}]\n\n"
+                u"Va chạm này đã tự động được đánh dấu là Resolved do đối tượng không còn tồn tại."
+            ).format(cat1, id1, cat2, id2)
+            self.txtStatus.Text = u"⚠️ Cả 2 đối tượng ({} [{}] & {} [{}]) đã bị xoá khỏi mô hình.".format(
+                cat1, id1, cat2, id2
             )
-        elif not success:
-            self.txtStatus.Text = "Could not open 3D Section Box for this clash."
+            self._show_topmost_dialog(msg, title="Đối Tượng Đã Bị Xoá", dialog_type="INFO")
+            return
+
+        # ── Trường hợp 2: Chỉ còn 1 đối tượng tồn tại (đối tượng kia đã bị xoá) ─
+        if exists1 and not exists2:
+            surviving_el = live_el1
+            surv_is_link = getattr(clash_item, "IsLink1", False)
+            surv_tf = tf1
+            surv_info = u"{} [{}]".format(cat1, id1)
+            del_info = u"{} [{}]".format(cat2, id2)
+
+            success, vname = focus_element_3d(doc, uidoc, surviving_el, padding_mm=1000, transform=surv_tf, is_link=surv_is_link)
+            if row_vm:
+                row_vm.mark_resolved()
+                row_vm.OverlapDisplay = u"0 mm (Đã xoá 1 bên)"
+                self._apply_filter()
+            self.txtStatus.Text = u"Focus [{}]: {} còn tồn tại ({} đã bị xoá). Va chạm đã giải quyết.".format(
+                vname or "3D", surv_info, del_info
+            )
+            return
+
+        if exists2 and not exists1:
+            surviving_el = live_el2
+            surv_is_link = getattr(clash_item, "IsLink2", False)
+            surv_tf = tf2
+            surv_info = u"{} [{}]".format(cat2, id2)
+            del_info = u"{} [{}]".format(cat1, id1)
+
+            success, vname = focus_element_3d(doc, uidoc, surviving_el, padding_mm=1000, transform=surv_tf, is_link=surv_is_link)
+            if row_vm:
+                row_vm.mark_resolved()
+                row_vm.OverlapDisplay = u"0 mm (Đã xoá 1 bên)"
+                self._apply_filter()
+            self.txtStatus.Text = u"Focus [{}]: {} còn tồn tại ({} đã bị xoá). Va chạm đã giải quyết.".format(
+                vname or "3D", surv_info, del_info
+            )
+            return
+
+        # ── Trường hợp 3: Cả 2 đối tượng đều đang tồn tại ─────────────────────
+        success = focus_clash_3d(doc, uidoc, clash_item)
+        vname = getattr(clash_item, "LastViewName", None) or (uidoc.ActiveView.Name if uidoc and uidoc.ActiveView else "3D")
+
+        # Nếu là va chạm đã RESOLVED (người dùng double-click để kiểm tra lại sau khi chỉnh sửa):
+        if is_resolved:
+            tol_mm = 0.0
+            try:
+                tol_mm = float(self.txtTolerance.Text.strip())
+            except Exception:
+                pass
+
+            still_clashing, overlap_mm, _ = recheck_single_clash(doc, clash_item, tolerance_mm=tol_mm)
+            if still_clashing:
+                if row_vm:
+                    row_vm.update_overlap(overlap_mm)
+                    row_vm.RawItem.Status = "ACTIVE"
+                    row_vm._refresh_status()
+                    self._apply_filter()
+                self.txtStatus.Text = u"⚠️ Phát hiện va chạm xuất hiện trở lại: {:.0f} mm overlap! Đã chuyển về ACTIVE.".format(overlap_mm)
+                warn_msg = (
+                    u"⚠️ Cảnh báo: Sau khi kiểm tra lại mô hình, 2 đối tượng này đã VA CHẠM TRỞ LẠI!\n\n"
+                    u"• {} [{}] ⚡ {} [{}]\n"
+                    u"• Độ giao cắt (overlap): {:.0f} mm\n\n"
+                    u"Trạng thái va chạm đã được tự động chuyển lại về 'Active' để bạn tiếp tục xử lý."
+                ).format(cat1, id1, cat2, id2, overlap_mm)
+                self._show_topmost_dialog(warn_msg, title="Va Chạm Tái Xuất Hiện", dialog_type="WARN")
+            else:
+                if row_vm:
+                    row_vm.mark_resolved()
+                    self._apply_filter()
+                self.txtStatus.Text = u"Focus [{}]: {} [{}] vs {} [{}] - ✅ Đã kiểm tra lại: Không còn va chạm.".format(
+                    vname, cat1, id1, cat2, id2
+                )
+        else:
+            if success:
+                self.txtStatus.Text = u"Focus [{}]: {} [{}] vs {} [{}]".format(
+                    vname, cat1, id1, cat2, id2
+                )
+            elif not success:
+                self.txtStatus.Text = "Could not open 3D Section Box for this clash."
 
     # -------------------------------------------------------------------------
     # 3. Recheck
@@ -728,6 +855,48 @@ class CheckClashWindow(forms.WPFWindow):
             tol_mm = float(self.txtTolerance.Text.strip())
         except Exception:
             pass
+
+        # Check existence first
+        clash_item = selected.RawItem
+        id1 = getattr(clash_item, "Elem1IdInt", None) or get_id_value(getattr(clash_item, "Element1", None))
+        id2 = getattr(clash_item, "Elem2IdInt", None) or get_id_value(getattr(clash_item, "Element2", None))
+        cat1 = getattr(clash_item, "Elem1CatName", "Element")
+        cat2 = getattr(clash_item, "Elem2CatName", "Element")
+
+        exists1, live_el1, _ = check_element_exists(
+            doc, getattr(clash_item, "Element1", None),
+            elem_id_int=id1,
+            is_link=getattr(clash_item, "IsLink1", False),
+            link_name=getattr(clash_item, "LinkName", "") if getattr(clash_item, "IsLink1", False) else ""
+        )
+        exists2, live_el2, _ = check_element_exists(
+            doc, getattr(clash_item, "Element2", None),
+            elem_id_int=id2,
+            is_link=getattr(clash_item, "IsLink2", False),
+            link_name=getattr(clash_item, "LinkName", "") if getattr(clash_item, "IsLink2", False) else ""
+        )
+
+        if not exists1 and not exists2:
+            selected.mark_resolved()
+            selected.OverlapDisplay = u"0 mm (Đã xoá)"
+            self._apply_filter()
+            self.txtStatus.Text = u"✅ Cả 2 đối tượng đã bị xoá khỏi mô hình. Đã chuyển sang Resolved."
+            self._auto_advance(doc, uidoc)
+            return
+
+        if exists1 != exists2:
+            selected.mark_resolved()
+            selected.OverlapDisplay = u"0 mm (Đã xoá 1 bên)"
+            self._apply_filter()
+            surv_info = u"{} [{}]".format(cat1, id1) if exists1 else u"{} [{}]".format(cat2, id2)
+            self.txtStatus.Text = u"✅ Đối tượng kia đã bị xoá ({} còn tồn tại). Đã chuyển sang Resolved.".format(surv_info)
+            self._auto_advance(doc, uidoc)
+            return
+
+        if exists1 and live_el1:
+            clash_item.Element1 = live_el1
+        if exists2 and live_el2:
+            clash_item.Element2 = live_el2
 
         still_clashing, overlap_mm, _ = recheck_single_clash(
             doc, selected.RawItem, tolerance_mm=tol_mm
