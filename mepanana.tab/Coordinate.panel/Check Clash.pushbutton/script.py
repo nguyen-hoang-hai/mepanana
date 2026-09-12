@@ -756,39 +756,39 @@ class CheckClashWindow(forms.WPFWindow):
         if exists2 and live_el2:
             clash_item.Element2 = live_el2
 
-        # ── Trường hợp 1: Cả 2 đối tượng đều không còn tồn tại trong mô hình ──
+        # ── Case 1: Neither element exists in model ───────────────────────────
         if not exists1 and not exists2:
             if row_vm:
                 row_vm.mark_resolved()
-                row_vm.OverlapDisplay = u"0 mm (Đã xoá)"
+                row_vm.OverlapDisplay = "0 mm (Deleted)"
                 self._apply_filter()
             msg = (
-                u"Không thể tìm thấy đối tượng trong mô hình:\n\n"
-                u"Cả 2 đối tượng trong va chạm này đã bị xoá khỏi mô hình:\n"
-                u"• {} [{}]\n"
-                u"• {} [{}]\n\n"
-                u"Va chạm này đã tự động được đánh dấu là Resolved do đối tượng không còn tồn tại."
+                "Elements not found in model:\n\n"
+                "Both elements in this clash have been deleted from the model:\n"
+                "• {} [{}]\n"
+                "• {} [{}]\n\n"
+                "This clash has been automatically marked as Resolved."
             ).format(cat1, id1, cat2, id2)
-            self.txtStatus.Text = u"⚠️ Cả 2 đối tượng ({} [{}] & {} [{}]) đã bị xoá khỏi mô hình.".format(
+            self.txtStatus.Text = "⚠️ Both elements ({} [{}] & {} [{}]) were deleted from the model.".format(
                 cat1, id1, cat2, id2
             )
-            self._show_topmost_dialog(msg, title="Đối Tượng Đã Bị Xoá", dialog_type="INFO")
+            self._show_topmost_dialog(msg, title="Elements Deleted", dialog_type="INFO")
             return
 
-        # ── Trường hợp 2: Chỉ còn 1 đối tượng tồn tại (đối tượng kia đã bị xoá) ─
+        # ── Case 2: Exactly one element survives (other element was deleted) ──
         if exists1 and not exists2:
             surviving_el = live_el1
             surv_is_link = getattr(clash_item, "IsLink1", False)
             surv_tf = tf1
-            surv_info = u"{} [{}]".format(cat1, id1)
-            del_info = u"{} [{}]".format(cat2, id2)
+            surv_info = "{} [{}]".format(cat1, id1)
+            del_info = "{} [{}]".format(cat2, id2)
 
             success, vname = focus_element_3d(doc, uidoc, surviving_el, padding_mm=1000, transform=surv_tf, is_link=surv_is_link)
             if row_vm:
                 row_vm.mark_resolved()
-                row_vm.OverlapDisplay = u"0 mm (Đã xoá 1 bên)"
+                row_vm.OverlapDisplay = "0 mm (1 Deleted)"
                 self._apply_filter()
-            self.txtStatus.Text = u"Focus [{}]: {} còn tồn tại ({} đã bị xoá). Va chạm đã giải quyết.".format(
+            self.txtStatus.Text = "Focus [{}]: {} exists ({} deleted). Clash resolved.".format(
                 vname or "3D", surv_info, del_info
             )
             return
@@ -797,24 +797,24 @@ class CheckClashWindow(forms.WPFWindow):
             surviving_el = live_el2
             surv_is_link = getattr(clash_item, "IsLink2", False)
             surv_tf = tf2
-            surv_info = u"{} [{}]".format(cat2, id2)
-            del_info = u"{} [{}]".format(cat1, id1)
+            surv_info = "{} [{}]".format(cat2, id2)
+            del_info = "{} [{}]".format(cat1, id1)
 
             success, vname = focus_element_3d(doc, uidoc, surviving_el, padding_mm=1000, transform=surv_tf, is_link=surv_is_link)
             if row_vm:
                 row_vm.mark_resolved()
-                row_vm.OverlapDisplay = u"0 mm (Đã xoá 1 bên)"
+                row_vm.OverlapDisplay = "0 mm (1 Deleted)"
                 self._apply_filter()
-            self.txtStatus.Text = u"Focus [{}]: {} còn tồn tại ({} đã bị xoá). Va chạm đã giải quyết.".format(
+            self.txtStatus.Text = "Focus [{}]: {} exists ({} deleted). Clash resolved.".format(
                 vname or "3D", surv_info, del_info
             )
             return
 
-        # ── Trường hợp 3: Cả 2 đối tượng đều đang tồn tại ─────────────────────
+        # ── Case 3: Both elements exist in model ──────────────────────────────
         success = focus_clash_3d(doc, uidoc, clash_item)
         vname = getattr(clash_item, "LastViewName", None) or (uidoc.ActiveView.Name if uidoc and uidoc.ActiveView else "3D")
 
-        # Nếu là va chạm đã RESOLVED (người dùng double-click để kiểm tra lại sau khi chỉnh sửa):
+        # If clash was RESOLVED (recheck if recent edits reintroduced clash):
         if is_resolved:
             tol_mm = 0.0
             try:
@@ -829,24 +829,24 @@ class CheckClashWindow(forms.WPFWindow):
                     row_vm.RawItem.Status = "ACTIVE"
                     row_vm._refresh_status()
                     self._apply_filter()
-                self.txtStatus.Text = u"⚠️ Phát hiện va chạm xuất hiện trở lại: {:.0f} mm overlap! Đã chuyển về ACTIVE.".format(overlap_mm)
+                self.txtStatus.Text = "⚠️ Clash reappeared: {:.0f} mm overlap! Status changed back to ACTIVE.".format(overlap_mm)
                 warn_msg = (
-                    u"⚠️ Cảnh báo: Sau khi kiểm tra lại mô hình, 2 đối tượng này đã VA CHẠM TRỞ LẠI!\n\n"
-                    u"• {} [{}] ⚡ {} [{}]\n"
-                    u"• Độ giao cắt (overlap): {:.0f} mm\n\n"
-                    u"Trạng thái va chạm đã được tự động chuyển lại về 'Active' để bạn tiếp tục xử lý."
+                    "⚠️ Warning: Following model modifications, these 2 elements are CLASHING AGAIN!\n\n"
+                    "• {} [{}] ⚡ {} [{}]\n"
+                    "• Overlap: {:.0f} mm\n\n"
+                    "Clash status has been automatically reverted to 'Active' for further coordination."
                 ).format(cat1, id1, cat2, id2, overlap_mm)
-                self._show_topmost_dialog(warn_msg, title="Va Chạm Tái Xuất Hiện", dialog_type="WARN")
+                self._show_topmost_dialog(warn_msg, title="Clash Reappeared", dialog_type="WARN")
             else:
                 if row_vm:
                     row_vm.mark_resolved()
                     self._apply_filter()
-                self.txtStatus.Text = u"Focus [{}]: {} [{}] vs {} [{}] - ✅ Đã kiểm tra lại: Không còn va chạm.".format(
+                self.txtStatus.Text = "Focus [{}]: {} [{}] vs {} [{}] - ✅ Rechecked: No clash detected.".format(
                     vname, cat1, id1, cat2, id2
                 )
         else:
             if success:
-                self.txtStatus.Text = u"Focus [{}]: {} [{}] vs {} [{}]".format(
+                self.txtStatus.Text = "Focus [{}]: {} [{}] vs {} [{}]".format(
                     vname, cat1, id1, cat2, id2
                 )
             elif not success:
@@ -899,18 +899,18 @@ class CheckClashWindow(forms.WPFWindow):
 
         if not exists1 and not exists2:
             selected.mark_resolved()
-            selected.OverlapDisplay = u"0 mm (Đã xoá)"
+            selected.OverlapDisplay = "0 mm (Deleted)"
             self._apply_filter()
-            self.txtStatus.Text = u"✅ Cả 2 đối tượng đã bị xoá khỏi mô hình. Đã chuyển sang Resolved."
+            self.txtStatus.Text = "✅ Both elements deleted from model. Marked as Resolved."
             self._auto_advance(doc, uidoc)
             return
 
         if exists1 != exists2:
             selected.mark_resolved()
-            selected.OverlapDisplay = u"0 mm (Đã xoá 1 bên)"
+            selected.OverlapDisplay = "0 mm (1 Deleted)"
             self._apply_filter()
-            surv_info = u"{} [{}]".format(cat1, id1) if exists1 else u"{} [{}]".format(cat2, id2)
-            self.txtStatus.Text = u"✅ Đối tượng kia đã bị xoá ({} còn tồn tại). Đã chuyển sang Resolved.".format(surv_info)
+            surv_info = "{} [{}]".format(cat1, id1) if exists1 else "{} [{}]".format(cat2, id2)
+            self.txtStatus.Text = "✅ Other element was deleted ({} still exists). Marked as Resolved.".format(surv_info)
             self._auto_advance(doc, uidoc)
             return
 
