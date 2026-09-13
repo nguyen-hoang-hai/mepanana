@@ -15,14 +15,14 @@ import sys
 import traceback
 import clr
 
-from pyrevit import forms
-from pyrevit import script as _script
-import py.auth as _auth
+# ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        sys.exit()
 
-# -- 6-Line Security Gatekeeper -----------------------------------------------
-if not _auth.is_authenticated():
-    _auth.show_locked_dialog()
-    sys.exit(0)
+from pyrevit import forms
 
 clr.AddReference("System")
 clr.AddReference("PresentationCore")

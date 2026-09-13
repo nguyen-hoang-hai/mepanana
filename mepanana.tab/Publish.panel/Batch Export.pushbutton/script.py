@@ -26,12 +26,12 @@ from System.Windows import Visibility
 from System.Collections.ObjectModel import ObservableCollection
 
 from pyrevit import forms
-import py.auth as _auth
-
-# -- 6-Line Security Gatekeeper -----------------------------------------------
-if not _auth.is_authenticated():
-    _auth.show_locked_dialog()
-    sys.exit(0)
+# ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        sys.exit()
 
 from py.core import get_doc, get_uidoc, safe_unicode
 from py.ui import setup_window, do_events, show_error, show_warning, _show_custom_dialog
