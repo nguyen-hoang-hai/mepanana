@@ -401,14 +401,27 @@ try:
             disc_filter = "All"
             try:
                 if self.cmbCatDiscipline.SelectedItem:
-                    disc_filter = str(self.cmbCatDiscipline.SelectedItem.Content)
+                    disc_filter = str(self.cmbCatDiscipline.SelectedItem.Content).strip()
             except Exception:
                 pass
 
             self._displayed_cat_vms.Clear()
             for vm in self._all_cat_vms:
-                if disc_filter != "All" and vm.Discipline != disc_filter:
+                # Discipline filter check
+                if disc_filter in ("All", "All Disciplines", ""):
+                    pass
+                elif disc_filter == "MEP Only":
+                    if vm.Discipline not in ("Piping", "Mechanical", "Electrical"):
+                        continue
+                elif disc_filter in ("Structure", "Structural"):
+                    if vm.Discipline != "Structural":
+                        continue
+                elif disc_filter in ("Architecture", "Architectural"):
+                    if vm.Discipline != "Architectural":
+                        continue
+                elif vm.Discipline.lower() != disc_filter.lower():
                     continue
+
                 if q and q not in vm.Name.lower():
                     continue
                 self._displayed_cat_vms.Add(vm)
@@ -430,20 +443,26 @@ try:
 
         def _on_cat_grid_click(self, sender, e):
             dep = e.OriginalSource
-            from System.Windows.Controls import CheckBox
+            from System.Windows.Controls import DataGridCell, DataGridRow
             while dep is not None:
-                if isinstance(dep, CheckBox):
-                    from System.Windows.Threading import DispatcherPriority
-                    def _after_check():
-                        self._update_cat_summary()
-                        self._save_category_prefs()
-                    self.Dispatcher.BeginInvoke(DispatcherPriority.Background, System.Action(_after_check))
-                    return
+                if isinstance(dep, DataGridCell):
+                    col = dep.Column
+                    # Toggle when clicking on the Check checkbox column (index 0)
+                    if col and getattr(col, "DisplayIndex", 1) == 0:
+                        row = DataGridRow.GetRowContainingElement(dep)
+                        item = row.Item if row else self.dgCategories.SelectedItem
+                        if item and isinstance(item, CategoryItemVM):
+                            item.IsChecked = not item.IsChecked
+                            self.dgCategories.Items.Refresh()
+                            self._update_cat_summary()
+                            self._save_category_prefs()
+                            e.Handled = True
+                        return
                 dep = VisualTreeHelper.GetParent(dep)
 
         def _on_preset_mep(self, sender, e):
             for vm in self._all_cat_vms:
-                vm.IsChecked = (vm.CatInt in _DEFAULT_MEP_SET)
+                vm.IsChecked = (vm.Discipline in ("Piping", "Mechanical", "Electrical") or vm.CatInt in _DEFAULT_MEP_SET)
             self.dgCategories.Items.Refresh()
             self._update_cat_summary()
             self._save_category_prefs()
@@ -464,14 +483,16 @@ try:
 
         def _on_preset_struct(self, sender, e):
             for vm in self._all_cat_vms:
-                vm.IsChecked = (vm.CatInt in _STRUCT_BIPS or vm.Discipline == "Structural")
+                if vm.Discipline == "Structural" or vm.CatInt in _STRUCT_BIPS:
+                    vm.IsChecked = True
             self.dgCategories.Items.Refresh()
             self._update_cat_summary()
             self._save_category_prefs()
 
         def _on_preset_arch(self, sender, e):
             for vm in self._all_cat_vms:
-                vm.IsChecked = (vm.CatInt in _ARCH_BIPS or vm.Discipline == "Architectural")
+                if vm.Discipline == "Architectural" or vm.CatInt in _ARCH_BIPS:
+                    vm.IsChecked = True
             self.dgCategories.Items.Refresh()
             self._update_cat_summary()
             self._save_category_prefs()
@@ -479,7 +500,8 @@ try:
         def _get_active_category_ids(self):
             selected = [vm.CatInt for vm in self._all_cat_vms if vm.IsChecked]
             if not selected:
-                return list(_DEFAULT_MEP_SET)
+                mep_ids = [vm.CatInt for vm in self._all_cat_vms if vm.Discipline in ("Piping", "Mechanical", "Electrical") or vm.CatInt in _DEFAULT_MEP_SET]
+                return mep_ids if mep_ids else [vm.CatInt for vm in self._all_cat_vms]
             return selected
 
         def _save_category_prefs(self):
@@ -496,16 +518,28 @@ try:
                 from pyrevit import script as _script
                 cfg = _script.get_config("MEPANANA_CheckClash")
                 saved_ids = getattr(cfg, 'selected_category_ids', None)
-                if saved_ids and isinstance(saved_ids, (list, set)):
+                if saved_ids and isinstance(saved_ids, (list, set)) and len(saved_ids) > 0:
                     saved_set = set(int(x) for x in saved_ids)
-                    if saved_set:
-                        for vm in self._all_cat_vms:
-                            vm.IsChecked = (vm.CatInt in saved_set)
+                    matched = False
+                    for vm in self._all_cat_vms:
+                        if vm.CatInt in saved_set:
+                            vm.IsChecked = True
+                            matched = True
+                        else:
+                            vm.IsChecked = False
+                    if matched:
                         return
             except Exception:
                 pass
+
+            # Default to MEP categories
             for vm in self._all_cat_vms:
-                vm.IsChecked = (vm.CatInt in _DEFAULT_MEP_SET)
+                vm.IsChecked = (vm.Discipline in ("Piping", "Mechanical", "Electrical") or vm.CatInt in _DEFAULT_MEP_SET)
+
+            # If no MEP categories in current model, select all available model categories
+            if not any(vm.IsChecked for vm in self._all_cat_vms):
+                for vm in self._all_cat_vms:
+                    vm.IsChecked = True
 
         # ---------------------------------------------------------------------
         # Keyboard Shortcuts
@@ -522,6 +556,9 @@ try:
                 e.Handled = True
             elif e.Key == Key.F5:
                 self._on_recheck_clicked(sender, e)
+                e.Handled = True
+            elif e.Key == Key.Space and (self.dgCategories.IsKeyboardFocusWithin or self.dgCategories.IsFocused):
+                self._toggle_selected_category_row()
                 e.Handled = True
             elif e.Key == Key.Escape:
                 self.Close()

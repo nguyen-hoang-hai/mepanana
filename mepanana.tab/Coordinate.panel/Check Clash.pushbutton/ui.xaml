@@ -406,11 +406,11 @@
                                 <ComboBox Grid.Column="2" Name="cmbCatDiscipline" Height="32" SelectedIndex="0">
                                     <ComboBoxItem Content="All Disciplines"/>
                                     <ComboBoxItem Content="MEP Only"/>
+                                    <ComboBoxItem Content="Piping"/>
                                     <ComboBoxItem Content="Mechanical"/>
                                     <ComboBoxItem Content="Electrical"/>
-                                    <ComboBoxItem Content="Piping"/>
-                                    <ComboBoxItem Content="Structure"/>
-                                    <ComboBoxItem Content="Architecture"/>
+                                    <ComboBoxItem Content="Structural"/>
+                                    <ComboBoxItem Content="Architectural"/>
                                 </ComboBox>
                             </Grid>
 
