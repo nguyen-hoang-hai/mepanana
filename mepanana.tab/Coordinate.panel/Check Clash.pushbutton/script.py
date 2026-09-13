@@ -116,15 +116,26 @@ class ClashRecheckHandler(IExternalEventHandler):
         return "MEPANANA ClashRecheckHandler"
 
 
-# Session-wide singleton ExternalEvent instances
+# Session-wide singleton ExternalEvent instances (lazily initialized on first use)
 _SCAN_HANDLER = ClashScanHandler()
-_EXT_EVENT_SCAN = ExternalEvent.Create(_SCAN_HANDLER)
+_EXT_EVENT_SCAN = None
 
 _FOCUS_HANDLER = ClashFocus3DHandler()
-_EXT_EVENT_FOCUS = ExternalEvent.Create(_FOCUS_HANDLER)
+_EXT_EVENT_FOCUS = None
 
 _RECHECK_HANDLER = ClashRecheckHandler()
-_EXT_EVENT_RECHECK = ExternalEvent.Create(_RECHECK_HANDLER)
+_EXT_EVENT_RECHECK = None
+
+
+def _ensure_external_events():
+    """Ensures ExternalEvent instances are created inside a valid Revit API context."""
+    global _EXT_EVENT_SCAN, _EXT_EVENT_FOCUS, _EXT_EVENT_RECHECK
+    if _EXT_EVENT_SCAN is None:
+        _EXT_EVENT_SCAN = ExternalEvent.Create(_SCAN_HANDLER)
+    if _EXT_EVENT_FOCUS is None:
+        _EXT_EVENT_FOCUS = ExternalEvent.Create(_FOCUS_HANDLER)
+    if _EXT_EVENT_RECHECK is None:
+        _EXT_EVENT_RECHECK = ExternalEvent.Create(_RECHECK_HANDLER)
 
 
 # -- DataGrid Row ViewModel (plain Python object) -----------------------------
@@ -645,6 +656,7 @@ class CheckClashWindow(forms.WPFWindow):
     # -------------------------------------------------------------------------
 
     def _on_scan_clicked(self, sender, e):
+        _ensure_external_events()
         self.btnScan.IsEnabled = False
         self.progressBar.Visibility = Visibility.Visible
         self.progressBar.IsIndeterminate = True
@@ -734,6 +746,7 @@ class CheckClashWindow(forms.WPFWindow):
         selected = self.dgClashes.SelectedItem
         if not selected or not isinstance(selected, ClashRowVM):
             return
+        _ensure_external_events()
         ClashFocus3DHandler._wndw = self
         ClashFocus3DHandler._clash_item = selected.RawItem
         ClashFocus3DHandler._row_vm = selected
@@ -875,6 +888,7 @@ class CheckClashWindow(forms.WPFWindow):
         if not selected or not isinstance(selected, ClashRowVM):
             self.txtStatus.Text = "⚠️ Please select a clash row from the table to recheck."
             return
+        _ensure_external_events()
         self.txtStatus.Text = "Rechecking..."
         ClashRecheckHandler._wndw = self
         _EXT_EVENT_RECHECK.Raise()
@@ -1225,11 +1239,23 @@ def main():
         return
 
     # Check if a modeless instance is already open and genuinely visible on screen
+    from System.Windows import Application, WindowState
+    try:
+        app = Application.Current
+        if app and app.Windows:
+            for w in app.Windows:
+                if w and type(w).__name__ == "CheckClashWindow" and getattr(w, "IsVisible", False):
+                    if w.WindowState == WindowState.Minimized:
+                        w.WindowState = WindowState.Normal
+                    w.Activate()
+                    return
+    except:
+        pass
+
     existing = getattr(CheckClashWindow, "_current_wndw", None)
     if existing:
         try:
             if getattr(existing, "IsVisible", False):
-                from System.Windows import WindowState
                 if existing.WindowState == WindowState.Minimized:
                     existing.WindowState = WindowState.Normal
                 existing.Activate()
@@ -1240,6 +1266,7 @@ def main():
         CheckClashWindow._current_wndw = None
 
     try:
+        _ensure_external_events()
         win = CheckClashWindow(doc, uidoc)
         CheckClashWindow._current_wndw = win
         ClashScanHandler._wndw = win
