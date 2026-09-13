@@ -48,7 +48,8 @@ try:
     clr.AddReference("RevitAPI")
     clr.AddReference("RevitAPIUI")
 
-    from System import Uri, UriKind
+    import System
+    from System import Uri, UriKind, Action
     from System.Windows import Visibility, ResourceDictionary, FontWeights
     from System.Windows.Media import SolidColorBrush, Color, VisualTreeHelper
     from System.Windows.Controls import DataGridRow
@@ -146,70 +147,77 @@ try:
                 self.DiscBg = "#F1F5F9"
                 self.DiscColor = "#475569"
 
+    def _bip(name):
+        try:
+            val = getattr(BuiltInCategory, name, None)
+            return int(val) if val is not None else None
+        except Exception:
+            return None
+
     # ── Category Discipline Sets ─────────────────────────────────────────────
-    _MEP_PIPING_BIPS = {
-        int(BuiltInCategory.OST_PipeCurves),
-        int(BuiltInCategory.OST_PipeFitting),
-        int(BuiltInCategory.OST_PipeAccessory),
-        int(BuiltInCategory.OST_FlexPipeCurves),
-        int(BuiltInCategory.OST_PipeInsulations),
-        int(BuiltInCategory.OST_PlumbingFixtures),
-        int(BuiltInCategory.OST_Sprinklers),
-    }
+    _MEP_PIPING_BIPS = {b for b in [
+        _bip("OST_PipeCurves"),
+        _bip("OST_PipeFitting"),
+        _bip("OST_PipeAccessory"),
+        _bip("OST_FlexPipeCurves"),
+        _bip("OST_PipeInsulations"),
+        _bip("OST_PlumbingFixtures"),
+        _bip("OST_Sprinklers"),
+    ] if b is not None}
 
-    _MEP_MECH_BIPS = {
-        int(BuiltInCategory.OST_DuctCurves),
-        int(BuiltInCategory.OST_DuctFitting),
-        int(BuiltInCategory.OST_DuctAccessory),
-        int(BuiltInCategory.OST_DuctTerminal),
-        int(BuiltInCategory.OST_FlexDuctCurves),
-        int(BuiltInCategory.OST_DuctInsulations),
-        int(BuiltInCategory.OST_DuctLinings),
-        int(BuiltInCategory.OST_MechanicalEquipment),
-    }
+    _MEP_MECH_BIPS = {b for b in [
+        _bip("OST_DuctCurves"),
+        _bip("OST_DuctFitting"),
+        _bip("OST_DuctAccessory"),
+        _bip("OST_DuctTerminal"),
+        _bip("OST_FlexDuctCurves"),
+        _bip("OST_DuctInsulations"),
+        _bip("OST_DuctLinings"),
+        _bip("OST_MechanicalEquipment"),
+    ] if b is not None}
 
-    _MEP_ELEC_BIPS = {
-        int(BuiltInCategory.OST_CableTray),
-        int(BuiltInCategory.OST_CableTrayFitting),
-        int(BuiltInCategory.OST_Conduit),
-        int(BuiltInCategory.OST_ConduitFitting),
-        int(BuiltInCategory.OST_ElectricalEquipment),
-        int(BuiltInCategory.OST_ElectricalFixtures),
-        int(BuiltInCategory.OST_LightingFixtures),
-        int(BuiltInCategory.OST_LightingDevices),
-        int(BuiltInCategory.OST_FireAlarmDevices),
-        int(BuiltInCategory.OST_DataDevices),
-        int(BuiltInCategory.OST_CommunicationDevices),
-        int(BuiltInCategory.OST_SecurityDevices),
-    }
+    _MEP_ELEC_BIPS = {b for b in [
+        _bip("OST_CableTray"),
+        _bip("OST_CableTrayFitting"),
+        _bip("OST_Conduit"),
+        _bip("OST_ConduitFitting"),
+        _bip("OST_ElectricalEquipment"),
+        _bip("OST_ElectricalFixtures"),
+        _bip("OST_LightingFixtures"),
+        _bip("OST_LightingDevices"),
+        _bip("OST_FireAlarmDevices"),
+        _bip("OST_DataDevices"),
+        _bip("OST_CommunicationDevices"),
+        _bip("OST_SecurityDevices"),
+    ] if b is not None}
 
-    _STRUCT_BIPS = {
-        int(BuiltInCategory.OST_StructuralFraming),
-        int(BuiltInCategory.OST_StructuralColumns),
-        int(BuiltInCategory.OST_StructuralFoundation),
-        int(BuiltInCategory.OST_Floors),
-        int(BuiltInCategory.OST_Walls),
-    }
+    _STRUCT_BIPS = {b for b in [
+        _bip("OST_StructuralFraming"),
+        _bip("OST_StructuralColumns"),
+        _bip("OST_StructuralFoundation"),
+        _bip("OST_Floors"),
+        _bip("OST_Walls"),
+    ] if b is not None}
 
-    _ARCH_BIPS = {
-        int(BuiltInCategory.OST_Walls),
-        int(BuiltInCategory.OST_Floors),
-        int(BuiltInCategory.OST_Ceilings),
-        int(BuiltInCategory.OST_Roofs),
-        int(BuiltInCategory.OST_Doors),
-        int(BuiltInCategory.OST_Windows),
-        int(BuiltInCategory.OST_Stairs),
-        int(BuiltInCategory.OST_Ramps),
-        int(BuiltInCategory.OST_Railings),
-        int(BuiltInCategory.OST_CurtainWallPanels),
-        int(BuiltInCategory.OST_CurtainWallMullions),
-        int(BuiltInCategory.OST_Columns),
-        int(BuiltInCategory.OST_GenericModel),
-        int(BuiltInCategory.OST_SpecialityEquipment),
-        int(BuiltInCategory.OST_Casework),
-        int(BuiltInCategory.OST_Furniture),
-        int(BuiltInCategory.OST_FurnitureSystems),
-    }
+    _ARCH_BIPS = {b for b in [
+        _bip("OST_Walls"),
+        _bip("OST_Floors"),
+        _bip("OST_Ceilings"),
+        _bip("OST_Roofs"),
+        _bip("OST_Doors"),
+        _bip("OST_Windows"),
+        _bip("OST_Stairs"),
+        _bip("OST_Ramps"),
+        _bip("OST_Railings"),
+        _bip("OST_CurtainWallPanels"),
+        _bip("OST_CurtainWallMullions"),
+        _bip("OST_Columns"),
+        _bip("OST_GenericModel"),
+        _bip("OST_SpecialityEquipment"),
+        _bip("OST_Casework"),
+        _bip("OST_Furniture"),
+        _bip("OST_FurnitureSystems"),
+    ] if b is not None}
 
     _DEFAULT_MEP_SET = _MEP_PIPING_BIPS | _MEP_MECH_BIPS | _MEP_ELEC_BIPS
 
@@ -238,25 +246,25 @@ try:
             return "Architectural"
         return "General"
 
-    _EXCLUDED_BIPS = {
-        int(BuiltInCategory.OST_Views),
-        int(BuiltInCategory.OST_Viewers),
-        int(BuiltInCategory.OST_Sheets),
-        int(BuiltInCategory.OST_ProjectInformation),
-        int(BuiltInCategory.OST_Materials),
-        int(BuiltInCategory.OST_Cameras),
-        int(BuiltInCategory.OST_ScheduleGraphics),
-        int(BuiltInCategory.OST_Schedules),
-        int(BuiltInCategory.OST_RvtLinks),
-        int(BuiltInCategory.OST_Massing),
-        int(BuiltInCategory.OST_Phasing),
-    }
+    _EXCLUDED_BIPS = {b for b in [
+        _bip("OST_Views"),
+        _bip("OST_Viewers"),
+        _bip("OST_Sheets"),
+        _bip("OST_ProjectInformation"),
+        _bip("OST_Materials"),
+        _bip("OST_Cameras"),
+        _bip("OST_ScheduleGraphics"),
+        _bip("OST_Schedules"),
+        _bip("OST_RvtLinks"),
+        _bip("OST_Massing"),
+        _bip("OST_Phases"),
+    ] if b is not None}
 
     _EXCLUDED_CAT_NAMES = {
         "views", "view", "sheets", "sheet", "project information",
         "materials", "cameras", "schedule graphics", "schedules",
         "rvt links", "revit links", "analysis results", "sun path",
-        "raster images", "import in families"
+        "raster images", "import in families", "phasing", "phases"
     }
 
     def _collect_document_model_categories(doc):
