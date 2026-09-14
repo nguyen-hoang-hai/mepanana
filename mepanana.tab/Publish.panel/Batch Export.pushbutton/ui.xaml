@@ -25,12 +25,12 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="📑" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <TextBlock Text="Batch Sheet Export" FontWeight="Bold" FontSize="15" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Batch Sheet Export" FontSize="15" Foreground="#0F172A" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Project & Counts Badge -->
                 <Border Grid.Column="1" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="6" Padding="12,4" VerticalAlignment="Center">
-                    <TextBlock Name="txtSheetCountBadge" Text="0 Sheets in Project" FontWeight="SemiBold" FontSize="12" Foreground="#1D4ED8"/>
+                    <TextBlock Name="txtSheetCountBadge" Text="0 Sheets in Project" FontSize="12" Foreground="#1D4ED8"/>
                 </Border>
             </Grid>
         </Border>
@@ -54,8 +54,7 @@
 
                     <!-- Header & Search Bar -->
                     <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                        <TextBlock Text="1. SELECT SHEETS" Style="{DynamicResource SectionTitle}" Margin="0,0,0,8"
-                                   FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                        <TextBlock Text="1. SELECT SHEETS" Style="{DynamicResource SectionTitle}" Margin="0,0,0,8"/>
                         <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -101,7 +100,6 @@
                             <Style TargetType="DataGridColumnHeader">
                                 <Setter Property="Background" Value="#F8FAFC"/>
                                 <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
                                 <Setter Property="FontSize" Value="11.5"/>
                                 <Setter Property="Height" Value="32"/>
                                 <Setter Property="Padding" Value="8,0"/>
@@ -151,7 +149,6 @@
                             <DataGridTextColumn Header="Sheet No." Binding="{Binding SheetNumber}" Width="110" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="SemiBold"/>
                                         <Setter Property="VerticalAlignment" Value="Center"/>
                                         <Setter Property="Padding" Value="6,0"/>
                                         <Setter Property="Foreground" Value="#0F172A"/>
@@ -177,7 +174,6 @@
                                     <Style TargetType="TextBlock">
                                         <Setter Property="VerticalAlignment" Value="Center"/>
                                         <Setter Property="HorizontalAlignment" Value="Center"/>
-                                        <Setter Property="FontWeight" Value="SemiBold"/>
                                         <Setter Property="Foreground" Value="#059669"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
@@ -209,7 +205,7 @@
                             <Button Name="btnInvertSelect" Content="Invert" Style="{DynamicResource GhostButton}" Height="28" Padding="10,0"/>
                         </StackPanel>
                         <TextBlock Grid.Column="2" Name="txtSelectionCount" Text="Selected: 0 / 0"
-                                   VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#2563EB"/>
+                                   VerticalAlignment="Center" Foreground="#2563EB"/>
                     </Grid>
                 </Grid>
             </Border>
@@ -221,13 +217,12 @@
                     <!-- Card 1: Output Formats & Engine Options -->
                     <Border Style="{DynamicResource CardStyle}" Margin="0,0,0,10" Padding="14,12">
                         <StackPanel>
-                            <TextBlock Text="2. EXPORT FORMATS" Style="{DynamicResource SectionTitle}" Margin="0,0,0,8" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                            <TextBlock Text="2. EXPORT FORMATS" Style="{DynamicResource SectionTitle}" Margin="0,0,0,8"/>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <CheckBox Name="chkFormatPdf" Content="PDF (Native 2022+)" IsChecked="True"
-                                          FontWeight="SemiBold" Margin="0,0,22,0"/>
-                                <CheckBox Name="chkFormatDwg" Content="DWG (AutoCAD 2018)" IsChecked="False"
-                                          FontWeight="SemiBold"/>
+                                          Margin="0,0,22,0"/>
+                                <CheckBox Name="chkFormatDwg" Content="DWG (AutoCAD 2018)" IsChecked="False"/>
                             </StackPanel>
 
                             <!-- PDF Specific Config -->
@@ -311,9 +306,9 @@
                             <!-- Live Preview Box -->
                             <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="12,8">
                                 <StackPanel>
-                                    <TextBlock Name="lblLivePreviewTitle" Text="Live Filename Preview:" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,3"/>
+                                    <TextBlock Name="lblLivePreviewTitle" Text="Live Filename Preview:" FontSize="11" Foreground="#64748B" Margin="0,0,0,3"/>
                                     <TextBlock Name="txtLivePreview" Text="A101 - Unnamed.pdf"
-                                               FontFamily="Consolas" FontWeight="SemiBold" FontSize="12" Foreground="#0F172A"
+                                               FontFamily="Consolas" FontSize="12" Foreground="#0F172A"
                                                TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Border>
@@ -351,7 +346,7 @@
             </Grid.RowDefinitions>
 
             <!-- 100% Span 4px High Progress Bar -->
-            <ProgressBar Grid.Row="0" Name="progressBar" Height="4" Margin="0,0,0,10"
+            <ProgressBar Grid.Row="0" Name="progressBar" Height="4" Margin="0,0,0,8"
                          Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"
                          Background="#E2E8F0" Foreground="#2563EB">
                 <ProgressBar.Resources>
@@ -377,7 +372,7 @@
                     <Button Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}"
                             Height="34" Width="90" Margin="0,0,8,0" IsCancel="True"/>
                     <Button Name="btnExport" Content="🚀 Export All" Style="{DynamicResource PrimaryButton}"
-                            Height="34" Width="140" FontWeight="Bold"/>
+                            Height="34" Width="140"/>
                 </StackPanel>
             </Grid>
         </Grid>

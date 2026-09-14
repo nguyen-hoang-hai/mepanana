@@ -49,3 +49,45 @@ All tools with background or batch operations (CAD conversion, wiring, piping, c
 2. **Execution & Message Pump**:
    - Always pump the WPF dispatcher queue using `from py.ui import do_events` during loop iterations to ensure immediate, non-blocking UI animation and prevent window freezing.
    - Standard 4-step lifecycle: Disable Run button & show ProgressBar (0%) -> Update progress & do_events() in loop -> Set 100% on complete -> Re-enable button & collapse ProgressBar in `finally` block.
+
+## 🪟 MANDATORY WINDOW LIFECYCLE (MODELESS VS MODAL)
+1. **Interactive Tools (Check Clash, Display Clash, Section Box, 3D Navigator)**:
+   - **MUST USE** the True Modeless pattern: `win.Show()` + `Dispatcher.PushFrame(frame)` + `WindowInteropHelper.Owner`:
+     ```python
+     helper = WindowInteropHelper(win)
+     helper.Owner = System.IntPtr(uidoc.Application.MainWindowHandle)
+     frame = DispatcherFrame()
+     win.Closed += lambda s, e: setattr(frame, 'Continue', False)
+     win.Show()
+     Dispatcher.PushFrame(frame)
+     ```
+   - **NEVER use bare `win.Show()` alone!** In IronPython, bare `Show()` exits script scope immediately, Garbage Collector cleans up the window while Revit holds Win32 pointers, causing an unrecoverable **FATAL ACCESS VIOLATION CRASH**.
+2. **Short Configuration / Batch Export Tools (Batch Export, Shortcut Manager, Family Local)**:
+   - Use standard modal `win.ShowDialog()`.
+3. **Anti-Deadlock Object Picking**:
+   - Always wrap `uidoc.Selection.PickObject()` or `PickElementsByRectangle()` in `with forms.HideWindow(self):` to prevent modal window mouse deadlocks.
+
+## 🔤 MANDATORY TYPOGRAPHY STANDARD (STRICT ZERO BOLD RULE)
+1. **Zero Bold / SemiBold in UI Body**:
+   - All XAML TextBlocks, Labels, RadioButtons, CheckBoxes, and Badges **MUST USE** default `FontWeight="Normal"`.
+   - **STRICTLY PROHIBITED:** `FontWeight="Bold"` or `FontWeight="SemiBold"` anywhere in XAML files (bolding is reserved exclusively for Theme SectionTitle styles).
+2. **Theme DynamicResource Keys**:
+   - Valid keys in `theme.xaml`: `CardStyle`, `CardBgBrush`, `WindowBgBrush`, `BorderBrush`, `SectionTitle`, `FieldLabel`, `PrimaryButton`, `GhostButton`, `AccentBrush`, `MutedTextBrush`.
+   - **`TextBrush` DOES NOT EXIST** in `theme.xaml`! Never reference `{DynamicResource TextBrush}`. Use hardcoded `#0F172A` or `{DynamicResource MutedTextBrush}`.
+
+## 🎨 MANDATORY TRANSIENT VISUALIZATION STANDARD (AVF 3-COLOR)
+1. **Transient Analysis Visualization Framework (AVF)**:
+   - For all transient visual overlays (clash displays, highlight zones), **ALWAYS USE** Revit's native `SpatialFieldManager` (`Autodesk.Revit.DB.Analysis`).
+   - **NEVER USE** `OverrideGraphicSettings` for clash visualization (it dirties model database, breaks View Templates, and cannot be cleanly undone).
+2. **3-Tier Color Scheme**:
+   - 🔴 **Red (`#EF4444` / `Color(239, 68, 68)`)**: Primary Host Model element.
+   - 🟠 **Orange (`#F59E0B` / `Color(245, 158, 11)`)**: Secondary Host Model element (when 2 elements in the **SAME MODEL** clash).
+   - 🟢 **Green (`#22C55E` / `Color(34, 197, 94)`)**: Linked Model element.
+3. **Full Element Geometry**:
+   - Extrude full element footprint from $P_0$ to $P_1$ with actual element width in **Counter-Clockwise (CCW)** vertex order for valid Revit extrusion solid faces.
+
+## ⚙️ MANDATORY REVIT 2022+ API COMPATIBILITY CHECKLIST
+1. **ElementId**: Always use `elem.Id.IntegerValue` (or `get_id_value()` in `core.py`). **NEVER** use `.Value` (Revit 2024+ only, crashes on Revit 2022).
+2. **DWG / PDF Export**: Use `ExportPaperFormat.UseSheetSize` (Revit 2022). **NEVER** use `ExportPaperFormat.Default` (does not exist in Revit 2022).
+3. **Collector Scoping**: Prefer view-scoped `FilteredElementCollector(doc, view.Id)` over document-scoped collectors. Always chain Quick Filters before Slow Filters.
+4. **Transaction Integrity**: Group atomic operations into a single `SafeTransaction(doc, "Action")` for clean 1-step undo (Ctrl + Z).

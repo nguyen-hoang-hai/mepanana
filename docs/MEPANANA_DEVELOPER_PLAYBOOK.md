@@ -170,6 +170,86 @@ finally:
 
 ---
 
+### 2.5. Quy Chuẩn Quản Lý Cửa Sổ (Window Lifecycle: Modeless vs Modal):
+> [!IMPORTANT]
+> **TIÊU CHUẨN ĐIỀU KHIỂN CỬA SỔ & TƯƠNG TÁC REVIT (WINDOW LIFECYCLE STANDARD):**
+> Việc lựa chọn giữa Modal (`ShowDialog`) và Modeless (`Show` + `PushFrame`) phải tuân thủ nghiêm ngặt theo mục đích tương tác của từng công cụ:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 1. CỬA SỔ KHÔNG CHẶN (MODELESS): Show() + Dispatcher.PushFrame()                                │
+│    ➔ DÀNH CHO: Công cụ cần người dùng vừa xem tool vừa xoay/pan/zoom Revit, chọn phần tử hoặc   │
+│                 điều hướng 3D liên tục (Check Clash, Display Clash, Section Box Navigator).     │
+│    ➔ CẤM GỌI Show() TRẦN TRỤI: Gọi win.Show() đơn thuần sẽ khiến Python scope bị thu gom rác    │
+│       (GC) làm hỏng con trỏ callback, dẫn đến CRASH VĂNG REVIT ngay lập tức!                   │
+│    ➔ MẪU CHUẨN BẮT BUỘC:                                                                        │
+│       helper = WindowInteropHelper(win)                                                         │
+│       helper.Owner = System.IntPtr(uidoc.Application.MainWindowHandle)                          │
+│       frame = DispatcherFrame()                                                                 │
+│       win.Closed += lambda s, e: setattr(frame, 'Continue', False)                              │
+│       win.Show()                                                                                │
+│       Dispatcher.PushFrame(frame)  # Giữ scope Python sống, bơm tin nhắn, không khóa ribbon     │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 2. CỬA SỔ CHẶN (MODAL): ShowDialog()                                                            │
+│    ➔ DÀNH CHO: Công cụ cấu hình ngắn, xuất dữ liệu hàng loạt (Batch Export, Shortcut Manager,   │
+│                 Family Local/Cloud), nơi người dùng cần tập trung xác nhận trước khi làm việc. │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 3. CHỐNG TREO DEADLOCK KHI PICK PHẦN TỬ: with forms.HideWindow(self):                           │
+│    ➔ Khi đang ở cửa sổ Modal mà cần gọi PickObject / PickElementsByRectangle, BẮT BUỘC phải bọc│
+│       trong 'with forms.HideWindow(self):' để ẩn form tạm thời, tránh khóa chết chuột của Revit. │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 2.6. Quy Chuẩn Typography & Bảng Màu DynamicResource (Zero Bold Rule):
+> [!IMPORTANT]
+> **TIÊU CHUẨN ĐỘ ĐẬM CHỮ TUYỆT ĐỐI (STRICT ZERO BOLD RULE):**
+> 1. **Toàn bộ UI Controls (TextBlock, Label, RadioButton, CheckBox, ComboBoxItem):**
+>    - **TUYỆT ĐỐI KHÔNG DÙNG** `FontWeight="Bold"` hoặc `FontWeight="SemiBold"` trong thân giao diện và badge trạng thái.
+>    - Tất cả phải sử dụng độ đậm chữ `FontWeight="Normal"` mặc định.
+>    - Độ đậm chỉ được phép áp dụng tự động thông qua các Style chuẩn trong `theme.xaml` (ví dụ `SectionTitle`).
+> 2. **Bảng Danh Mục DynamicResource Hợp Lệ từ `lib/py/theme.xaml`:**
+>    - Nền cửa sổ: `Background="{DynamicResource WindowBgBrush}"`
+>    - Thẻ chứa nội dung: `Style="{DynamicResource CardStyle}"`, nền thẻ: `Background="{DynamicResource CardBgBrush}"`
+>    - Đường viền: `BorderBrush="{DynamicResource BorderBrush}"`
+>    - Tiêu đề mục: `Style="{DynamicResource SectionTitle}"`
+>    - Nhãn trường nhập liệu: `Style="{DynamicResource FieldLabel}"`
+>    - Nút hành động chính: `Style="{DynamicResource PrimaryButton}"`
+>    - Nút phụ / Đóng: `Style="{DynamicResource GhostButton}"`
+>    - Màu nhấn thương hiệu: `Foreground="{DynamicResource AccentBrush}"`
+>    - Chữ mờ / chú thích: `Foreground="{DynamicResource MutedTextBrush}"`
+>    - ⚠️ **CẢNH BÁO QUAN TRỌNG:** Key `TextBrush` **KHÔNG TỒN TẠI** trong `theme.xaml`! Tuyệt đối không gọi `{DynamicResource TextBrush}` vì sẽ làm chữ bị trong suốt hoặc rơi về màu đen mặc định lỗi. Dùng mã màu trực tiếp `#0F172A` hoặc `{DynamicResource MutedTextBrush}`.
+
+---
+
+### 2.7. Quy Chuẩn Hiển Thị Trực Quan AVF (Transient Analysis Visualization Standard):
+> [!IMPORTANT]
+> **TIÊU CHUẨN HIỂN THỊ VA CHẠM BẰNG REVIT ANALYSIS VISUALIZATION FRAMEWORK (AVF):**
+> 1. **Tính chất Transient 100%:** Sử dụng `SpatialFieldManager` của Revit (`Autodesk.Revit.DB.Analysis`) để hiển thị lớp polygon va chạm trực tiếp trên Active View. **TUYỆT ĐỐI KHÔNG DÙNG** `OverrideGraphicSettings` để hiển thị va chạm vì sẽ làm bẩn database mô hình, gây xung đột View Template và không dọn sạch được.
+> 2. **Bảng Phân Bổ 3 Màu Chuẩn Nhận Diện:**
+>    - 🔴 **Màu Đỏ (`#EF4444` / `Color(239, 68, 68)`):** Cấu kiện Host 1 trong mô hình nội bộ.
+>    - 🟠 **Màu Cam (`#F59E0B` / `Color(245, 158, 11)`):** Cấu kiện Host 2 khi va chạm giữa 2 cấu kiện **CÙNG TRONG MỘT MODEL** (giúp phân biệt ngay 2 ống/ống gió cắt nhau).
+>    - 🟢 **Màu Xanh Lục (`#22C55E` / `Color(34, 197, 94)`):** Cấu kiện thuộc **FILE LINK**.
+> 3. **Hình Học Trực Quan Toàn Cấu Kiện (Full Element Footprint):**
+>    - Không chỉ vẽ dải ngắn tại điểm cắt. Bắt buộc vẽ polygon trải dài toàn bộ chiều dài cấu kiện từ đầu $P_0$ đến cuối $P_1$ theo đúng bề rộng thực tế của ống/ống gió/máng cáp/tường.
+>    - Thứ tự 4 đỉnh polygon phải tuân thủ nghiêm ngặt chiều **Ngược Chiều Kim Đồng Hồ (Counter-Clockwise - CCW)** để lệnh `CreateExtrusionGeometry` của Revit tạo khối hợp lệ.
+> 4. **Khử Trùng Lặp & Xóa Sạch Tức Thì:**
+>    - Mỗi cấu kiện chỉ tạo 1 polygon AVF duy nhất (Deduplication theo ElementId).
+>    - Hàm `clear_clash_analysis(doc, view)` gọi `sfm.Clear()` xóa sạch ngay lập tức trong 0.01 giây.
+
+---
+
+### 2.8. Quy Chuẩn Xử Lý Tác Vụ Nặng Đa Luồng (Non-blocking Background Threading):
+> [!IMPORTANT]
+> **TIÊU CHUẨN XỬ LÝ NỀN KHÔNG KHÓA GIAO DIỆN (BACKGROUND WORKER THREAD STANDARD):**
+> Đối với các tác vụ tốn nhiều thời gian (> 2 giây) như gọi công cụ AutoCAD console (`accoreconsole`), xử lý hình học mảng lớn, nạp file đám mây hoặc xuất nhập Excel:
+> 1. **Tách luồng Worker:** Luôn đẩy lệnh thực thi sang luồng phụ `threading.Thread(target=worker)`.
+> 2. **Vòng lặp Polling & Dispatcher:** Luồng chính WPF chạy vòng lặp kiểm tra trạng thái luồng phụ mỗi $100\text{ms}$ (`time.sleep(0.1)`) và gọi `do_events()` để đảm bảo thanh `ProgressBar` và cửa sổ luôn phản hồi mượt mà.
+> 3. **Cơ chế Timeout An Toàn:** Luôn đặt giới hạn thời gian (Timeout ví dụ $120\text{s}$) kèm cờ hủy để tránh tiến trình mồ côi (Zombie Process) làm đầy bộ nhớ máy tính.
+
+---
+
 ## 💻 3. QUY ĐỊNH TRÌNH BÀY & BỐ CỤC CODE (CODE ARCHITECTURE)
 
 ### 3.1. Cấu Trúc Thư Mục Một Công Cụ Mới:
@@ -244,12 +324,25 @@ class MainWindow(forms.WPFWindow):
     pass
 
 
-# 7. WINDOW LAUNCHER
+# 7. WINDOW LAUNCHER (CHỌN 1 TRONG 2 MẪU CHUẨN)
 if __name__ == "__main__":
-  doc = get_doc()
-  if doc:
-    win = MainWindow()
-    win.ShowDialog()
+    doc = get_doc()
+    if doc:
+        win = MainWindow()
+        
+        # ── LỰA CHỌN A: Cửa sổ Modal (Công cụ cấu hình, xuất dữ liệu) ──
+        # win.ShowDialog()
+        
+        # ── LỰA CHỌN B: Cửa sổ Modeless (Công cụ điều hướng, soi va chạm) ──
+        try:
+            helper = WindowInteropHelper(win)
+            helper.Owner = System.IntPtr(get_uidoc().Application.MainWindowHandle)
+        except Exception:
+            pass
+        frame = DispatcherFrame()
+        win.Closed += lambda s, e: setattr(frame, 'Continue', False)
+        win.Show()
+        Dispatcher.PushFrame(frame)
 ```
 
 ### 3.3. Tách Biệt Lõi Tính Toán (`lib/py/`):
@@ -268,7 +361,7 @@ if __name__ == "__main__":
 
 ---
 
-## ⚠️ 4. BẢNG KIỂM SOÁT PHÒNG NGỪA 6 LỖI KINH ĐIỂN (PRE-FLIGHT QUALITY GATE)
+## ⚠️ 4. BẢNG KIỂM SOÁT PHÒNG NGỪA 10 LỖI KINH ĐIỂN (PRE-FLIGHT QUALITY GATE)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -295,6 +388,23 @@ if __name__ == "__main__":
 │ 🔴 LỖI 6: HOÀN TÁC PHẢI BẤM CTRL + Z NHIỀU LẦN                                                           │
 │ ➔ NGUYÊN NHÂN: Chạy nhiều transaction con riêng lẻ.                                                      │
 │ ➔ GIẢI PHÁP: Bọc toàn bộ các thao tác tạo trong 1 SafeTransaction duy nhất (Hoàn tác 1 bước).            │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 7: GỌI win.Show() ĐƠN THUẦN LÀM CRASH VĂNG REVIT (ACCESS VIOLATION)                               │
+│ ➔ NGUYÊN NHÂN: Scope Python kết thúc ngay khi lệnh trả về, GC thu gom window biến mất trong khi Revit    │
+│    vẫn giữ con trỏ Win32, gây lỗi bộ nhớ nghiêm trọng (Fatal Crash).                                     │
+│ ➔ GIẢI PHÁP: Dùng mẫu 'win.Show() + Dispatcher.PushFrame(frame)' và gán WindowInteropHelper.Owner.       │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 8: DÙNG NHẦM API REVIT 2024+ TRÊN MÔI TRƯỜNG REVIT 2022                                           │
+│ ➔ NGUYÊN NHÂN: Dùng ElementId.Value (chỉ có từ 2024, kiểu Int64) hoặc ExportPaperFormat.Default.          │
+│ ➔ GIẢI PHÁP: Luôn dùng ElementId.IntegerValue (hoặc helper get_id_value) và ExportPaperFormat.UseSheetSize. │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 9: LỆNH NẶNG / TIẾN TRÌNH CON ĐÓNG BĂNG GIAO DIỆN (NOT RESPONDING)                                │
+│ ➔ NGUYÊN NHÂN: Chạy lệnh subprocess/accoreconsole/tính toán lớn trực tiếp trên Main UI Thread.           │
+│ ➔ GIẢI PHÁP: Đẩy sang worker thread nền + vòng lặp thăm dò time.sleep(0.1) bơm tin nhắn qua do_events().  │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 10: DÙNG OverrideGraphicSettings ĐỂ HIỂN THỊ VA CHẠM THAY VÌ AVF                                  │
+│ ➔ NGUYÊN NHÂN: Ghi đè màu đối tượng làm bẩn file, mất View Template của người dùng và khó hoàn tác.     │
+│ ➔ GIẢI PHÁP: Luôn dùng SpatialFieldManager (AVF) cho hiển thị trực quan tạm thời (Transient Layer).      │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -306,7 +416,7 @@ if __name__ == "__main__":
 graph TD
     Step1["1. Thiết kế UI Bố cục Card 3 tầng & Tiếng Anh 100%"] --> Step2["2. Tạo Icon 256x256 chuẩn SL bằng py lib/py/make_icon.py"]
     Step2 --> Step3["3. Tách Core Engine vào lib/py/, bọc SafeTransaction"]
-    Step3 --> Step4["4. Đối soát 6 Lỗi thường gặp tại Mục 4"]
+    Step3 --> Step4["4. Đối soát 10 Lỗi thường gặp tại Mục 4"]
     Step4 --> Step5["5. Chạy py_compile kiểm tra 100% file không lỗi"]
     Step5 --> Step6["✅ Nghiệm thu & Bàn giao sản phẩm"]
 ```

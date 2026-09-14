@@ -51,6 +51,8 @@ try:
     import System
     from System import Uri, UriKind, Action
     from System.Windows import Visibility, ResourceDictionary, FontWeights
+    from System.Windows.Interop import WindowInteropHelper
+    from System.Windows.Threading import Dispatcher, DispatcherFrame, DispatcherPriority
     from System.Windows.Media import SolidColorBrush, Color, VisualTreeHelper
     from System.Windows.Controls import DataGridRow
     from System.Windows.Controls.Primitives import DataGridColumnHeader
@@ -1153,7 +1155,34 @@ try:
         sys.exit()
 
     win = CheckClashWindow(doc, uidoc)
-    win.ShowDialog()
+
+    # ── TRUE MODELESS WINDOW — pyRevit-compatible pattern ────────────────────
+    # ShowDialog() = modal: disables ALL Revit interaction (ribbon + viewport)
+    # Show() alone = crashes: script scope GC'd immediately → Python handlers lost
+    #
+    # Solution: Show() + Dispatcher.PushFrame()
+    #   - Show()         → modeless, Revit stays fully interactive (ribbon + 3D view)
+    #   - PushFrame()    → nested WPF message loop, keeps Python scope alive
+    #   - frame.Continue → set to False on Closed → exits loop cleanly
+    #
+    # This is the same pattern pyRevit uses internally for its own modeless tools
+    # (e.g. Section Box Navigator).
+    # ─────────────────────────────────────────────────────────────────────────
+    try:
+        revit_handle = System.IntPtr(uidoc.Application.MainWindowHandle)
+        helper = WindowInteropHelper(win)
+        helper.Owner = revit_handle
+    except Exception:
+        pass
+
+    frame = DispatcherFrame()
+
+    def _on_win_closed(s, e):
+        frame.Continue = False
+
+    win.Closed += _on_win_closed
+    win.Show()
+    Dispatcher.PushFrame(frame)  # blocks here (keeps scope alive) but pumps all Windows msgs
 
 except Exception as ex:
     err = traceback.format_exc()

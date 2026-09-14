@@ -28,7 +28,13 @@ import System
 from Autodesk.Revit.DB import (
     BuiltInCategory, BuiltInParameter, FilteredElementCollector, XYZ, Line, Curve,
     Color, RevitLinkInstance, BoundingBoxXYZ, Transform, ElementId, Solid, CategoryType,
-    View3D, ViewFamilyType, ViewFamily
+    View3D, ViewFamilyType, ViewFamily,
+    CurveLoop, GeometryCreationUtilities, PlanarFace, UV
+)
+from Autodesk.Revit.DB.Analysis import (
+    SpatialFieldManager, AnalysisDisplayStyle, AnalysisDisplayColoredSurfaceSettings,
+    AnalysisDisplayColorSettings, AnalysisDisplayLegendSettings, AnalysisResultSchema,
+    FieldDomainPointsByUV, FieldValues, ValueAtPoint
 )
 
 from py.core import SafeTransaction, mm_to_ft, ft_to_mm, get_id_value, safe_unicode
@@ -502,53 +508,46 @@ def get_point_device_corners(bb_world, padding_ft=0.08):
     return (pA, pB, pC, pD)
 
 
-def get_snug_clash_band(p0, p1, half_w, clash_pt, other_half_w=0.5, is_wall=False):
+def get_full_element_corners(data, min_half_w_ft=0.25):
     """
-    Computes a crisp, compact rectangular band snugly hugging the exact element geometry
-    at the clash zone without oversized footprint carpets.
+    Computes a counter-clockwise 4-corner polygon representing the ENTIRE element
+    footprint on the floor plan (XY plane) for AVF rendering:
+    - Linear elements (Pipes, Ducts, Cable Trays, Conduits, Walls):
+      Extends along the full centerline from p0 to p1 with the element's actual width.
+    - Point/device elements (Fittings, Equipment, Fixtures, Columns):
+      Uses bounding box footprint with a slight margin.
     """
-    dx = p1.X - p0.X
-    dy = p1.Y - p0.Y
-    length = math.sqrt(dx * dx + dy * dy)
-    
-    eff_half_w = max(0.05, min(half_w, 1.2))
-    
-    if length < 1e-5:
-        return (
-            (clash_pt.X - eff_half_w, clash_pt.Y - eff_half_w),
-            (clash_pt.X + eff_half_w, clash_pt.Y - eff_half_w),
-            (clash_pt.X + eff_half_w, clash_pt.Y + eff_half_w),
-            (clash_pt.X - eff_half_w, clash_pt.Y + eff_half_w)
-        )
-        
-    ux = dx / length
-    uy = dy / length
-    nx = -uy
-    ny = ux
-    
-    t = ((clash_pt.X - p0.X) * dx + (clash_pt.Y - p0.Y) * dy) / (length * length)
-    t = max(0.0, min(1.0, t))
-    center_x = p0.X + t * dx
-    center_y = p0.Y + t * dy
-    
-    # Compact span along element centerline (~250mm - 350mm)
-    if is_wall:
-        half_span = min(1.2, max(other_half_w + 0.35, 0.65))
-    else:
-        half_span = min(1.2, max(eff_half_w * 1.3, 0.75))
-        
-    half_span = min(length / 2.0, half_span)
-    
-    s0_x = center_x - ux * half_span
-    s0_y = center_y - uy * half_span
-    s1_x = center_x + ux * half_span
-    s1_y = center_y + uy * half_span
-    
-    pA = (s0_x + nx * eff_half_w, s0_y + ny * eff_half_w)
-    pB = (s1_x + nx * eff_half_w, s1_y + ny * eff_half_w)
-    pC = (s1_x - nx * eff_half_w, s1_y - ny * eff_half_w)
-    pD = (s0_x - nx * eff_half_w, s0_y - ny * eff_half_w)
-    return (pA, pB, pC, pD)
+    try:
+        if data.get("has_curve") and data.get("p0") and data.get("p1"):
+            p0 = data["p0"]
+            p1 = data["p1"]
+            dx = p1.X - p0.X
+            dy = p1.Y - p0.Y
+            length = math.sqrt(dx * dx + dy * dy)
+            eff_w = max(data.get("half_w", 0.3), min_half_w_ft)
+            
+            if length > 1e-4:
+                ux = dx / length
+                uy = dy / length
+                # Normal vector pointing 90 degrees counter-clockwise
+                nx = -uy
+                ny = ux
+                
+                # 4 corners in counter-clockwise order:
+                # pA = Start-Right, pB = End-Right, pC = End-Left, pD = Start-Left
+                pA = (p0.X - nx * eff_w, p0.Y - ny * eff_w)
+                pB = (p1.X - nx * eff_w, p1.Y - ny * eff_w)
+                pC = (p1.X + nx * eff_w, p1.Y + ny * eff_w)
+                pD = (p0.X + nx * eff_w, p0.Y + ny * eff_w)
+                return (pA, pB, pC, pD)
+                
+        # Point-based elements (Fittings, Equipment, Fixtures) or zero-length
+        bb = data.get("bb")
+        if bb:
+            return get_point_device_corners(bb, padding_ft=min_half_w_ft * 0.5)
+    except Exception:
+        pass
+    return None
 
 
 def check_clash_between_elements(data1, data2):
@@ -605,29 +604,13 @@ def check_clash_between_elements(data1, data2):
     is_link2 = data2.get("is_link", False)
     link_name = data1.get("link_name") or data2.get("link_name", "")
     
-    # ── Compute Snug Polygon Band for Host Element 1 (RED) ────────────────────
-    if data1.get("has_curve"):
-        other_hw = data2["half_w"] if data2.get("has_curve") else min((data2["bb"].Max.X - data2["bb"].Min.X) / 2.0, (data2["bb"].Max.Y - data2["bb"].Min.Y) / 2.0)
-        host_band = get_snug_clash_band(
-            p0, p1, data1["half_w"], clash_center,
-            other_half_w=other_hw, is_wall=data1.get("is_wall", False)
-        )
-    else:
-        host_band = get_point_device_corners(data1["bb"])
-        
-    host_top_z = max(p0.Z, p1.Z) + data1["half_h"]
+    # ── Compute Full Element Footprint Polygon for Host Element 1 (RED) ───────
+    host_band = get_full_element_corners(data1)
+    host_top_z = (max(p0.Z, p1.Z) + data1["half_h"]) if data1.get("has_curve") else bb1.Max.Z
     
-    # ── Compute Snug Polygon Band for Element 2 (GREEN if Link, RED if Host 2) ──
-    if data2.get("has_curve"):
-        other_hw = data1["half_w"] if data1.get("has_curve") else min((data1["bb"].Max.X - data1["bb"].Min.X) / 2.0, (data1["bb"].Max.Y - data1["bb"].Min.Y) / 2.0)
-        link_band = get_snug_clash_band(
-            q0, q1, data2["half_w"], clash_center,
-            other_half_w=other_hw, is_wall=data2.get("is_wall", False)
-        )
-    else:
-        link_band = get_point_device_corners(data2["bb"])
-        
-    link_top_z = max(q0.Z, q1.Z) + data2["half_h"]
+    # ── Compute Full Element Footprint Polygon for Element 2 (GREEN if Link, RED if Host 2) ──
+    link_band = get_full_element_corners(data2)
+    link_top_z = (max(q0.Z, q1.Z) + data2["half_h"]) if data2.get("has_curve") else bb2.Max.Z
     
     return ClashItem(
         elem1, elem2, clash_center,
@@ -840,76 +823,261 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
     return clashes
 
 
-# ── Pure Native AVF (Analysis Results 1) Renderer ───────────────────────────
+# ── 3-Color Native AVF (Analysis Results 1) Renderer ─────────────────────────
+
+def _get_or_create_analysis_style(doc, style_name, color):
+    """Retrieves or creates an AnalysisDisplayStyle for a specific color."""
+    try:
+        for s in FilteredElementCollector(doc).OfClass(AnalysisDisplayStyle):
+            if s.Name == style_name:
+                return s
+    except Exception:
+        pass
+
+    try:
+        surf_settings = AnalysisDisplayColoredSurfaceSettings()
+        surf_settings.ShowGridLines = False
+        surf_settings.GridColor = Color(255, 255, 255)
+        surf_settings.GridLineWeight = 1
+
+        color_settings = AnalysisDisplayColorSettings()
+        color_settings.MinColor = color
+        color_settings.MaxColor = color
+
+        legend_settings = AnalysisDisplayLegendSettings()
+        legend_settings.ShowLegend = False
+
+        return AnalysisDisplayStyle.CreateAnalysisDisplayStyle(
+            doc, style_name, surf_settings, color_settings, legend_settings
+        )
+    except Exception as ex:
+        print(u"Failed to create analysis style {}: {}".format(style_name, safe_unicode(ex)))
+        return None
+
+
+def _render_polygon_avf(sfm, corners, z, schema_idx):
+    """Renders a single 4-corner polygon to the SpatialFieldManager."""
+    try:
+        pA, pB, pC, pD = corners
+        p1 = XYZ(float(pA[0]), float(pA[1]), float(z))
+        p2 = XYZ(float(pB[0]), float(pB[1]), float(z))
+        p3 = XYZ(float(pC[0]), float(pC[1]), float(z))
+        p4 = XYZ(float(pD[0]), float(pD[1]), float(z))
+
+        loop = CurveLoop()
+        loop.Append(Line.CreateBound(p1, p2))
+        loop.Append(Line.CreateBound(p2, p3))
+        loop.Append(Line.CreateBound(p3, p4))
+        loop.Append(Line.CreateBound(p4, p1))
+
+        loop_list = List[CurveLoop]()
+        loop_list.Add(loop)
+
+        solid = GeometryCreationUtilities.CreateExtrusionGeometry(loop_list, XYZ.BasisZ, 0.05)
+        if not solid:
+            return False
+
+        top_face = None
+        for face in solid.Faces:
+            if isinstance(face, PlanarFace) and abs(face.FaceNormal.Z) > 0.99:
+                top_face = face
+                break
+
+        if not top_face:
+            return False
+
+        prim_id = sfm.AddSpatialFieldPrimitive(top_face, Transform.Identity)
+
+        bb_uv = top_face.GetBoundingBox()
+        u_mid = (bb_uv.Min.U + bb_uv.Max.U) / 2.0
+        v_mid = (bb_uv.Min.V + bb_uv.Max.V) / 2.0
+
+        uv_list = List[UV]()
+        uv_list.Add(UV(u_mid, v_mid))
+        pnts = FieldDomainPointsByUV(uv_list)
+
+        val_doubles = List[System.Double]()
+        val_doubles.Add(1.0)
+        val_point = ValueAtPoint(val_doubles)
+
+        val_list = List[ValueAtPoint]()
+        val_list.Add(val_point)
+        vals = FieldValues(val_list)
+
+        sfm.UpdateSpatialFieldPrimitive(prim_id, pnts, vals, schema_idx)
+        return True
+    except Exception:
+        return False
+
+
+def _render_clashes_via_dll(doc, view, clashes):
+    """Fallback to compiled C# MepananaAvf.dll if direct Python AVF encounters an issue."""
+    try:
+        poly_list = List[ClashPolygonData]()
+        for clash in clashes:
+            if clash.IsLink and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
+                lA, lB, lC, lD = clash.LinkPolygonCorners
+                link_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.01
+                poly_list.Add(ClashPolygonData(
+                    float(lA[0]), float(lA[1]), float(lB[0]), float(lB[1]),
+                    float(lC[0]), float(lC[1]), float(lD[0]), float(lD[1]),
+                    float(link_z), 1.0, True
+                ))
+            if clash.HostPolygonCorners and len(clash.HostPolygonCorners) == 4:
+                hA, hB, hC, hD = clash.HostPolygonCorners
+                host_z = getattr(clash, "HostTopZ", clash.ClashPoint.Z) + 0.05
+                poly_list.Add(ClashPolygonData(
+                    float(hA[0]), float(hA[1]), float(hB[0]), float(hB[1]),
+                    float(hC[0]), float(hC[1]), float(hD[0]), float(hD[1]),
+                    float(host_z), 1.0, False
+                ))
+            if not clash.IsLink and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
+                lA, lB, lC, lD = clash.LinkPolygonCorners
+                host2_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.03
+                poly_list.Add(ClashPolygonData(
+                    float(lA[0]), float(lA[1]), float(lB[0]), float(lB[1]),
+                    float(lC[0]), float(lC[1]), float(lD[0]), float(lD[1]),
+                    float(host2_z), 1.0, False
+                ))
+        return ClashVisualizer.RenderClashPolygons(doc, view, poly_list)
+    except Exception as ex:
+        print(u"DLL AVF Fallback exception: {}".format(safe_unicode(ex)))
+        return 0
+
 
 def render_clashes_avf(doc, view, clashes):
     """
-    Renders pure native Revit Analysis Results (1):
-    1. 🟢 GREEN (#22C55E) localized band on the Linked Model element around the clash zone.
-    2. 🔴 RED (#EF4444) localized band on the Host Model element around the clash zone (rendered strictly on top).
-    via compiled C# MepananaAvf.dll.
+    Renders pure native Revit Analysis Results (1) using AVF (SpatialFieldManager):
+    - 🟢 GREEN  (#22C55E) on the entire Linked Model element footprint.
+    - 🔴 RED    (#EF4444) on Host Model Element 1 footprint.
+    - 🟠 ORANGE (#F59E0B) on Host Model Element 2 footprint (when both elements are in the SAME model!).
+    This cleanly distinguishes all roles on the floor plan!
+    Transient visual layer directly on the view - zero database clutter.
     """
     try:
         if not clashes:
             clear_clash_analysis(doc, view)
             return 0
-            
-        poly_list = List[ClashPolygonData]()
-        
-        # Step 1: Render localized GREEN bands on Linked Elements (underneath)
+
+        sfm = SpatialFieldManager.GetSpatialFieldManager(view)
+        if not sfm:
+            sfm = SpatialFieldManager.CreateSpatialFieldManager(view, 1)
+        if not sfm:
+            return _render_clashes_via_dll(doc, view, clashes)
+
+        sfm.Clear()
+
+        # 1. Ensure 3 distinct AnalysisDisplayStyles exist
+        style_red    = _get_or_create_analysis_style(doc, "MEPANANA_Clash_Host1_Red",    Color(239, 68, 68))   # #EF4444 Red
+        style_orange = _get_or_create_analysis_style(doc, "MEPANANA_Clash_Host2_Orange", Color(245, 158, 11))  # #F59E0B Orange
+        style_green  = _get_or_create_analysis_style(doc, "MEPANANA_Clash_Link_Green",   Color(34, 197, 94))   # #22C55E Green
+
+        # 2. Register or retrieve schemas
+        schema_red_idx    = -1
+        schema_orange_idx = -1
+        schema_green_idx  = -1
+
+        NAME_RED    = "MEPANANA Host 1 (Red)"
+        NAME_ORANGE = "MEPANANA Host 2 (Orange)"
+        NAME_GREEN  = "MEPANANA Link (Green)"
+
+        for res_id in sfm.GetRegisteredResults():
+            try:
+                s = sfm.GetResultSchema(res_id)
+                if s.Name == NAME_RED:
+                    schema_red_idx = res_id
+                elif s.Name == NAME_ORANGE:
+                    schema_orange_idx = res_id
+                elif s.Name == NAME_GREEN:
+                    schema_green_idx = res_id
+            except Exception:
+                pass
+
+        if schema_red_idx == -1 and style_red:
+            s_red = AnalysisResultSchema(NAME_RED, "Clash Analysis")
+            s_red.AnalysisDisplayStyleId = style_red.Id
+            schema_red_idx = sfm.RegisterResult(s_red)
+
+        if schema_orange_idx == -1 and style_orange:
+            s_orange = AnalysisResultSchema(NAME_ORANGE, "Clash Analysis")
+            s_orange.AnalysisDisplayStyleId = style_orange.Id
+            schema_orange_idx = sfm.RegisterResult(s_orange)
+
+        if schema_green_idx == -1 and style_green:
+            s_green = AnalysisResultSchema(NAME_GREEN, "Clash Analysis")
+            s_green.AnalysisDisplayStyleId = style_green.Id
+            schema_green_idx = sfm.RegisterResult(s_green)
+
+        count = 0
+        seen_link_keys = set()
+        seen_host_ids  = set()
+
+        # Step A: Render GREEN AVF on Linked Elements (underneath)
         for clash in clashes:
             if clash.IsLink and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
-                lA, lB, lC, lD = clash.LinkPolygonCorners
+                link_elem = clash.Element2 if clash.IsLink2 else (clash.Element1 if clash.IsLink1 else None)
+                link_id = get_id_value(link_elem) if link_elem else None
+                link_key = (getattr(clash, "LinkName", ""), link_id)
+                if link_key in seen_link_keys:
+                    continue
+                seen_link_keys.add(link_key)
+
                 link_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.01
-                poly_green = ClashPolygonData(
-                    lA[0], lA[1],
-                    lB[0], lB[1],
-                    lC[0], lC[1],
-                    lD[0], lD[1],
-                    link_z, 1.0, True  # IsLink=True -> GREEN
-                )
-                poly_list.Add(poly_green)
-                
-        # Step 2: Render localized RED bands on Host Elements (STRICTLY ON TOP)
+                target_schema = schema_green_idx if schema_green_idx != -1 else (schema_red_idx if schema_red_idx != -1 else 0)
+                if _render_polygon_avf(sfm, clash.LinkPolygonCorners, link_z, target_schema):
+                    count += 1
+
+        # Step B: Render Host Elements (Primary -> Red, Secondary in same model -> Orange)
         for clash in clashes:
-            if clash.HostPolygonCorners and len(clash.HostPolygonCorners) == 4:
-                hA, hB, hC, hD = clash.HostPolygonCorners
-                host_z = getattr(clash, "HostTopZ", clash.ClashPoint.Z) + 0.05
-                poly_red = ClashPolygonData(
-                    hA[0], hA[1],
-                    hB[0], hB[1],
-                    hC[0], hC[1],
-                    hD[0], hD[1],
-                    host_z, 1.0, False  # IsLink=False -> RED
-                )
-                poly_list.Add(poly_red)
-                
-            # If Host vs Host clash (both elements in Host), also render Element 2 in RED
-            if not clash.IsLink and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
-                lA, lB, lC, lD = clash.LinkPolygonCorners
-                link_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.05
-                poly_red2 = ClashPolygonData(
-                    lA[0], lA[1],
-                    lB[0], lB[1],
-                    lC[0], lC[1],
-                    lD[0], lD[1],
-                    link_z, 1.0, False  # IsLink=False -> RED
-                )
-                poly_list.Add(poly_red2)
-            
-        count = ClashVisualizer.RenderClashPolygons(doc, view, poly_list)
+            # Primary host element -> 🔴 RED
+            host_elem = clash.Element1 if not clash.IsLink1 else (clash.Element2 if not clash.IsLink2 else None)
+            if host_elem and clash.HostPolygonCorners and len(clash.HostPolygonCorners) == 4:
+                h_id = get_id_value(host_elem)
+                if h_id not in seen_host_ids:
+                    seen_host_ids.add(h_id)
+                    host_z = getattr(clash, "HostTopZ", clash.ClashPoint.Z) + 0.05
+                    target_schema = schema_red_idx if schema_red_idx != -1 else 0
+                    if _render_polygon_avf(sfm, clash.HostPolygonCorners, host_z, target_schema):
+                        count += 1
+
+            # If Host vs Host clash: Element 2 is ALSO in the same model!
+            # -> Render Element 2 in 🟠 ORANGE so the user can easily distinguish the 2 clashing elements!
+            if not clash.IsLink and clash.Element2 and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
+                h2_id = get_id_value(clash.Element2)
+                if h2_id not in seen_host_ids:
+                    seen_host_ids.add(h2_id)
+                    host2_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.03
+                    target_schema = schema_orange_idx if schema_orange_idx != -1 else (schema_red_idx if schema_red_idx != -1 else 0)
+                    if _render_polygon_avf(sfm, clash.LinkPolygonCorners, host2_z, target_schema):
+                        count += 1
+
         return count
+
     except Exception as ex:
-        print("AVF Rendering exception: {}".format(ex))
-        return 0
+        print(u"AVF Native Rendering exception: {}".format(safe_unicode(ex)))
+        return _render_clashes_via_dll(doc, view, clashes)
 
 
 def clear_clash_analysis(doc, view):
-    """Clears all native Analysis Results (1) from the view."""
+    """Clears all native AVF Analysis Results (1) from the view."""
+    cleared = False
     try:
-        return ClashVisualizer.ClearClashAnalysis(view)
+        sfm = SpatialFieldManager.GetSpatialFieldManager(view)
+        if sfm:
+            sfm.Clear()
+            cleared = True
     except Exception:
-        return False
+        pass
+
+    try:
+        if ClashVisualizer.ClearClashAnalysis(view):
+            cleared = True
+    except Exception:
+        pass
+
+    return cleared
+
+
 
 
 # ── Interactive 3D Navigation & Instant Recheck Functions ────────────────────

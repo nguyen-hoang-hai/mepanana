@@ -13,6 +13,8 @@ import re
 import shutil
 import tempfile
 import subprocess
+import threading
+import time
 
 try:
     from py.core import safe_unicode
@@ -72,65 +74,76 @@ def _clean_layout_name(name):
 
 
 def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
-                                 offset_mm=500000.0):
+                                 offset_mm=2000.0):
     """
     Generates an AutoLISP script to merge dwg_files into a single DWG with multiple layouts.
     - dwg_files[0] serves as the base drawing.
-    - dwg_files[1:] are inserted into Model Space with offset (i * offset_mm, 0, 0),
-      their layouts are imported via ._layout _template, renamed to sheet_names[i],
-      and all Viewports in that layout have their view center (DXF 12) shifted by (+offset, 0).
-    - Unused default layouts (e.g. Layout2) are deleted.
-    - Output saved to output_dwg_path in AutoCAD 2018 DWG format.
+    - dwg_files[1:] are inserted into Model Space at (i * 2000mm, 0) and exploded,
+      then their Layout1 is imported via ._layout _template and viewports shifted.
+    - offset_mm=2000: compact spacing (A0 max 1189mm wide), keeps extents manageable.
+    - All interactive dialogs suppressed (EXPERT 5, ATTDIA 0, ATTREQ 0, CMDECHO 0, FILEDIA 0).
+    - Layout detection uses snapshot-diff for correct parenthesis balance on any number of sheets.
     """
     out_dwg_norm = output_dwg_path.replace("\\", "/")
     lines = []
+
+    # Suppress ALL interactive prompts — critical for accoreconsole to run non-interactively
     lines.append('(setvar "FILEDIA" 0)')
     lines.append('(setvar "CMDDIA" 0)')
+    lines.append('(setvar "CMDECHO" 0)')
     lines.append('(setvar "EXPERT" 5)')
+    lines.append('(setvar "ATTDIA" 0)')
+    lines.append('(setvar "ATTREQ" 0)')
+    lines.append('(setvar "INSUNITS" 0)')
+    lines.append('(setvar "PROXYGRAPHICS" 1)')
     lines.append('(setvar "CTAB" "Model")')
     lines.append('(princ "\\n=== MEPANANA DWG MERGE START ===")')
 
+    # Helper: collect all current layout names into a list
+    lines.append('(defun mep-get-layouts (/ d item result)')
+    lines.append('  (setq result (list))')
+    lines.append('  (setq d (dictsearch (namedobjdict) "ACAD_LAYOUT"))')
+    lines.append('  (foreach item d')
+    lines.append('    (if (= (car item) 3)')
+    lines.append('      (setq result (append result (list (cdr item))))')
+    lines.append('    )')
+    lines.append('  )')
+    lines.append('  result')
+    lines.append(')')
+
     # Step 1: Rename base layout (Sheet 0)
     base_name = _clean_layout_name(sheet_names[0]) if len(sheet_names) > 0 else "Sheet_1"
-    # In base drawing, layout is typically "Layout1"
     lines.append('(command "._layout" "_rename" "Layout1" "{}")'.format(base_name))
 
-    # Step 2: Loop through remaining sheets
+    # Step 2: For each additional sheet — INSERT + EXPLODE + layout template
     for i in range(1, len(dwg_files)):
         dwg_path = dwg_files[i].replace("\\", "/")
         sheet_nm = _clean_layout_name(sheet_names[i]) if i < len(sheet_names) else "Sheet_{}".format(i + 1)
         curr_offset = float(i) * float(offset_mm)
 
-        lines.append('(princ "\\n--- Merging Sheet: {} ---")'.format(sheet_nm))
+        lines.append('(princ "\\n--- Sheet: {} ---")'.format(sheet_nm))
 
-        # A: Insert model space block at offset
+        # A: Snapshot existing layouts BEFORE template import
+        lines.append('(setq mep_before (mep-get-layouts))')
+
+        # B: Insert DWG as block at offset, then explode to bring model geometry in-place
         lines.append('(setq ins_pt (list {} 0.0 0.0))'.format(curr_offset))
         lines.append('(command "._-insert" "{}" ins_pt "1" "1" "0")'.format(dwg_path))
-        lines.append('(command "._explode" (entlast))')
+        lines.append('(if (entlast) (command "._explode" (entlast)))')
 
-        # B: Import layout via template
+        # C: Import Layout1 from source DWG as a new layout tab in current drawing
         lines.append('(command "._layout" "_template" "{}" "Layout1")'.format(dwg_path))
 
-        # C: Detect newly added layout in ACAD_LAYOUT dictionary
-        lines.append('(setq l-dict (dictsearch (namedobjdict) "ACAD_LAYOUT"))')
+        # D: Find the newly added layout by diff (name not in snapshot)
+        lines.append('(setq mep_after (mep-get-layouts))')
         lines.append('(setq new_lay_name nil)')
-        lines.append('(foreach item l-dict')
-        lines.append('  (if (= (car item) 3)')
-        lines.append('    (progn')
-        lines.append('      (setq nm (cdr item))')
-        lines.append('      (if (and (/= nm "Model") (/= nm "Layout2") (/= nm "{}"))'.format(base_name))
-        for prev_k in range(1, i):
-            prev_nm = _clean_layout_name(sheet_names[prev_k])
-            lines.append('        (if (/= nm "{}")'.format(prev_nm))
-        lines.append('          (setq new_lay_name nm)')
-        for prev_k in range(1, i):
-            lines.append('        )')
-        lines.append('      )')
-        lines.append('    )')
+        lines.append('(foreach nm mep_after')
+        lines.append('  (if (not (member nm mep_before))')
+        lines.append('    (setq new_lay_name nm)')
         lines.append('  )')
         lines.append(')')
 
-        # D: Rename imported layout & shift viewports
+        # E: Rename imported layout & shift viewport view centers by curr_offset
         lines.append('(if new_lay_name')
         lines.append('  (progn')
         lines.append('    (command "._layout" "_rename" new_lay_name "{}")'.format(sheet_nm))
@@ -153,16 +166,19 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
         lines.append('  )')
         lines.append(')')
 
-    # Step 3: Delete default unused layout "Layout2" if present
+    # Step 3: Delete the default "Layout2" placeholder if it was not used
     lines.append('(command "._layout" "_delete" "Layout2")')
 
-    # Step 4: Save as 2018 format
+    # Step 4: Save as AutoCAD 2018 DWG
     lines.append('(command "._saveas" "2018" "{}")'.format(out_dwg_norm))
     lines.append('(princ "\\n=== MEPANANA DWG MERGE COMPLETE ===")')
     lines.append('QUIT')
     lines.append('Y')
 
     return "\n".join(lines) + "\n"
+
+
+
 
 
 def combine_dwgs_to_multilayout(dwg_files, sheet_names, output_dwg_path,
@@ -232,7 +248,60 @@ def combine_dwgs_to_multilayout(dwg_files, sheet_names, output_dwg_path,
             shell=False
         )
 
-        stdout_data, stderr_data = proc.communicate()
+        # --- Non-blocking subprocess: run communicate() in a background thread
+        # so the WPF UI thread stays alive via do_events() during accoreconsole execution.
+        _result = [None, None, False]  # [stdout_bytes, stderr_bytes, done_flag]
+
+        def _communicate_bg():
+            try:
+                out, err = proc.communicate()
+                _result[0] = out
+                _result[1] = err
+            finally:
+                _result[2] = True  # always signal done, even on exception
+
+        bg_thread = threading.Thread(target=_communicate_bg)
+        bg_thread.daemon = True
+        bg_thread.start()
+
+        # Poll until done or timeout (2 minutes = 120 s)
+        # accoreconsole cold-start ~20-30s + processing. If > 120s → something is wrong.
+        TIMEOUT_SECONDS = 120
+        start_time = time.time()
+        elapsed = 0.0
+
+        try:
+            from py.ui import do_events as _do_events
+        except Exception:
+            _do_events = None
+
+        while not _result[2]:
+            elapsed = time.time() - start_time
+            if elapsed > TIMEOUT_SECONDS:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                return (False,
+                    u"AutoCAD Core Console did not complete within {} seconds.\n"
+                    u"This usually means accoreconsole.exe is hanging or the DWG script failed.\n"
+                    u"Try using 'Separate Files' DWG mode instead — it works without AutoCAD.".format(int(elapsed)))
+
+            time.sleep(0.1)  # yield 100ms between polls
+
+            if _do_events:
+                try:
+                    _do_events()
+                except Exception:
+                    pass
+
+            # Update progress smoothly while waiting (30% → 85%)
+            if progress_callback:
+                pct = 30 + int(min(elapsed / TIMEOUT_SECONDS, 0.9) * 55)
+                progress_callback(pct, u"Executing AutoCAD Core Console engine... ({:.0f}s)".format(elapsed))
+
+        stdout_data = _result[0]
+        stderr_data = _result[1]
 
         if progress_callback:
             progress_callback(90, "Verifying combined DWG file...")

@@ -168,8 +168,8 @@ class BatchExportWindow(forms.WPFWindow):
 
     def _update_counts(self):
         selected_count = sum(1 for item in self._all_sheet_vms if item.IsSelected)
-        total_count = len(self._all_sheet_vms)
-        self.txtSelectionCount.Text = "Selected: {} / {}".format(selected_count, total_count)
+        displayed_count = len(self._displayed_vms)
+        self.txtSelectionCount.Text = "Selected: {} / {}".format(selected_count, displayed_count)
 
     # -------------------------------------------------------------------------
     # Filename Builder & Live Preview
@@ -389,11 +389,21 @@ class BatchExportWindow(forms.WPFWindow):
                     self.txtStatus.Text = "Initiating Multi-Layout DWG Combine..."
                     do_events()
 
-                    temp_dwg_dir = os.path.join(tempfile.gettempdir(), "mepanana_dwg_tmp_{}".format(os.getpid()))
-                    if not os.path.exists(temp_dwg_dir):
-                        os.makedirs(temp_dwg_dir)
+                    # Use output_dir as base for temp folder — more reliable than tempfile.gettempdir()
+                    # which returns unpredictable paths in IronPython / Revit process context.
+                    temp_dwg_dir = os.path.join(output_dir, "._mep_tmp_{}".format(os.getpid()))
 
+                    # Pre-clean to avoid "file already in use" from a previous crashed session
+                    if os.path.exists(temp_dwg_dir):
+                        shutil.rmtree(temp_dwg_dir, ignore_errors=True)
                     try:
+                        os.makedirs(temp_dwg_dir)
+                    except Exception as ex:
+                        all_errors.append(u"Cannot create temp directory: {}".format(safe_unicode(ex)))
+                        temp_dwg_dir = None
+
+                    if temp_dwg_dir:
+                      try:
                         # Export individual sheets to temp directory
                         dwg_temp_template = "mep_[Sheet Number]"
                         t_count, t_errs = export_sheets_to_dwg(
@@ -405,14 +415,34 @@ class BatchExportWindow(forms.WPFWindow):
                         )
                         all_errors.extend(t_errs)
 
-                        # Match exported files with sheets in order
+                        # Match exported files with sheets in order.
+                        # Revit with MergedViews=True sometimes writes "_<name>.dwg" (underscore prefix)
+                        # instead of "<name>.dwg" — check both variants, then fallback to dir scan.
                         dwg_files = []
                         sheet_labels = []
                         for item in selected_items:
                             expected_name = build_sheet_filename(self.doc, item.Sheet, dwg_temp_template)
-                            candidate = os.path.join(temp_dwg_dir, expected_name + ".dwg")
+                            candidate     = os.path.join(temp_dwg_dir, expected_name + ".dwg")
+                            candidate_alt = os.path.join(temp_dwg_dir, "_" + expected_name + ".dwg")
+
+                            found = None
                             if os.path.isfile(candidate):
-                                dwg_files.append(candidate)
+                                found = candidate
+                            elif os.path.isfile(candidate_alt):
+                                found = candidate_alt
+                            else:
+                                # Last resort: scan temp dir for any .dwg file matching sheet number
+                                sheet_num = (item.SheetNumber or "").replace("/", "_").replace("\\", "_")
+                                try:
+                                    for f in os.listdir(temp_dwg_dir):
+                                        if f.lower().endswith(".dwg") and sheet_num.lower() in f.lower():
+                                            found = os.path.join(temp_dwg_dir, f)
+                                            break
+                                except Exception:
+                                    pass
+
+                            if found:
+                                dwg_files.append(found)
                                 sheet_lbl = item.SheetNumber or item.SheetName or "Sheet"
                                 sheet_labels.append(sheet_lbl)
 
@@ -434,8 +464,11 @@ class BatchExportWindow(forms.WPFWindow):
                             else:
                                 all_errors.append(u"DWG Combine Failed: {}".format(safe_unicode(m_res)))
                         else:
-                            all_errors.append("No intermediate DWG files were found to combine.")
-                    finally:
+                            all_errors.append(
+                                u"No intermediate DWG files found in temp dir: {}. "
+                                u"Revit may have written files to a different path.".format(temp_dwg_dir)
+                            )
+                      finally:
                         shutil.rmtree(temp_dwg_dir, ignore_errors=True)
 
                 else:

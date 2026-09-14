@@ -107,23 +107,23 @@ def detect_sheet_paper_format(doc, sheet):
     if not tb:
         return ("A1", "Landscape", default_format, default_ori)
 
-    # 1. Try reading standard TitleBlock width and height parameters
-    w_param = tb.get_Parameter(BuiltInParameter.SHEET_WIDTH)
-    h_param = tb.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
-
+    # Use TitleBlock BoundingBox geometry as primary source (most reliable across all families).
+    # SHEET_WIDTH / SHEET_HEIGHT BIPs are not consistently populated on TitleBlock instances.
     w_mm = 0.0
     h_mm = 0.0
 
-    if w_param and h_param and w_param.HasValue and h_param.HasValue:
-        w_mm = w_param.AsDouble() * 304.8
-        h_mm = h_param.AsDouble() * 304.8
+    bb = tb.get_BoundingBox(sheet)
+    if bb:
+        w_mm = abs(bb.Max.X - bb.Min.X) * 304.8
+        h_mm = abs(bb.Max.Y - bb.Min.Y) * 304.8
 
-    # 2. Fallback to geometry BoundingBox on sheet view
+    # Fallback: try reading standard SHEET_WIDTH / SHEET_HEIGHT parameters
     if w_mm <= 10.0 or h_mm <= 10.0:
-        bb = tb.get_BoundingBox(sheet)
-        if bb:
-            w_mm = abs(bb.Max.X - bb.Min.X) * 304.8
-            h_mm = abs(bb.Max.Y - bb.Min.Y) * 304.8
+        w_param = tb.get_Parameter(BuiltInParameter.SHEET_WIDTH)
+        h_param = tb.get_Parameter(BuiltInParameter.SHEET_HEIGHT)
+        if w_param and h_param and w_param.HasValue and h_param.HasValue:
+            w_mm = w_param.AsDouble() * 304.8
+            h_mm = h_param.AsDouble() * 304.8
 
     if w_mm <= 10.0 or h_mm <= 10.0:
         return ("A1", "Landscape", default_format, default_ori)
@@ -346,11 +346,12 @@ def export_sheets_to_pdf(doc, sheet_items, output_folder, naming_template,
             opts.HideScopeBoxes = True
             opts.StopOnError = False
 
-            # Auto format or forced
+            # Auto format: UseSheetSize lets each sheet define its own paper from sheet properties
             if force_paper_format:
                 opts.PaperFormat = force_paper_format
             else:
-                opts.PaperFormat = getattr(ExportPaperFormat, "Default", ExportPaperFormat.ISO_A1)
+                opts.PaperFormat = getattr(ExportPaperFormat, "UseSheetSize",
+                                   getattr(ExportPaperFormat, "ISO_A1", None))
 
             auto_ori = getattr(PageOrientationType, "Auto", None)
             if auto_ori:
@@ -458,8 +459,12 @@ def export_sheets_to_dwg(doc, sheet_items, output_folder, naming_template,
             single_id = List[ElementId]()
             single_id.Add(sheet.Id)
 
-            doc.Export(output_folder, curr_name, single_id, opts)
-            success_count += 1
+            ok = doc.Export(output_folder, curr_name, single_id, opts)
+            if ok:
+                success_count += 1
+            else:
+                errors.append(u"{} ({}): Revit DWG export returned failure (no exception raised).".format(
+                    sheet.SheetNumber, curr_name))
         except Exception as ex:
             errors.append(u"{} ({}): {}".format(sheet.SheetNumber, curr_name, safe_unicode(ex)))
 

@@ -54,7 +54,8 @@ try:
 
     import System
     from System.Windows import Visibility
-    from System.Windows.Threading import Dispatcher, DispatcherPriority
+    from System.Windows.Interop import WindowInteropHelper
+    from System.Windows.Threading import Dispatcher, DispatcherFrame, DispatcherPriority
     from System.Collections.ObjectModel import ObservableCollection
     from System.Collections.Generic import List as CSharpList
     from Autodesk.Revit.DB import BuiltInCategory, ElementId, CategoryType
@@ -376,7 +377,7 @@ try:
                         self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
                             len(cached_items), host_count, link_count
                         )
-                        self.txtStatus.Text = "Active analysis: {} clash zones highlighted in view.".format(len(cached_items))
+                        self.txtStatus.Text = "Active analysis: {} clash elements highlighted in view.".format(len(cached_items))
                         return
             except Exception:
                 pass
@@ -488,17 +489,18 @@ try:
                 self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
                     len(clashes), host_count, link_count
                 )
-                self.txtStatus.Text = "Analysis complete: {} clash zones highlighted in view.".format(len(clashes))
+                self.txtStatus.Text = "Analysis complete: {} clash elements highlighted in view.".format(len(clashes))
                 self.progressBar.Value = 100
                 do_events()
 
                 if len(clashes) > 0:
                     show_success(
                         "Detected {} hard clashes:\n"
-                        "• 🔴 {} Host Model Clashes (Red)\n"
-                        "• 🟢 {} Linked Model Clashes (Green)\n\n"
-                        "Transient visual clash markers have been rendered directly in Active View '{}'.".format(
-                            len(clashes), host_count, link_count, self.active_view.Name
+                        "• 🔴 Primary Host Elements (Red)\n"
+                        "• 🟠 Secondary Host Elements in same model (Orange)\n"
+                        "• 🟢 Linked Model Elements (Green)\n\n"
+                        "Transient visual AVF markers have been rendered directly in Active View '{}'.".format(
+                            len(clashes), self.active_view.Name
                         ),
                         "Clash Analysis Complete"
                     )
@@ -529,9 +531,26 @@ try:
             self.Close()
 
 
-    # ── Launcher (Direct execution for pyRevit) ──────────────────────────────────
+    # ── Launcher ──────────────────────────────────────────────────────────────
     win = DisplayClashWindow()
-    win.ShowDialog()
+
+    # Modeless: Show() + Dispatcher.PushFrame() keeps Python scope alive without
+    # blocking Revit (same pattern as Check Clash tool).
+    try:
+        revit_handle = System.IntPtr(uidoc.Application.MainWindowHandle)
+        helper = WindowInteropHelper(win)
+        helper.Owner = revit_handle
+    except Exception:
+        pass
+
+    frame = DispatcherFrame()
+
+    def _on_closed(s, e):
+        frame.Continue = False
+
+    win.Closed += _on_closed
+    win.Show()
+    Dispatcher.PushFrame(frame)
 
 except Exception as ex:
     _fatal_alert(u"Display Clash Initialization Error:\n\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()))
