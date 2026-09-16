@@ -40,6 +40,8 @@ class RouteWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, xaml_file_name)
         setup_window(self)
 
+        self.angle_value = None
+
         # Wire event handlers dynamically (Zero inline events in XAML rule)
         self.btnCancel.Click += self.OnCancel
         self.btnRoute.Click += self.OnPickAndRoute
@@ -47,7 +49,8 @@ class RouteWindow(forms.WPFWindow):
         self.txtCustom.TextChanged += self.OnCustomTextChanged
 
     def OnCancel(self, sender, args):
-        """Closes the dialog."""
+        """Closes the dialog without routing."""
+        self.angle_value = None
         self.Close()
 
     def OnAngleChanged(self, sender, args):
@@ -115,30 +118,35 @@ class RouteWindow(forms.WPFWindow):
                 return 45.0
 
     def OnPickAndRoute(self, sender, args):
-        """
-        Hides the window and runs a continuous element-picking loop.
-        Re-displays the window gracefully when the user presses ESC.
-        """
+        """Validates angle, stores it, and closes dialog to begin picking."""
         angle_val = self.get_selected_angle()
         if angle_val is None:
             return
 
-        picked_count = 0
-        self.txtStatus.Text = "Picking elements in Revit..."
+        self.angle_value = angle_val
+        self.Close()
 
-        # Anti-deadlock window hiding during interactive picking
-        with forms.HideWindow(self):
+
+if __name__ == "__main__":
+    xaml_path = script.get_bundle_file("ui.xaml")
+    if os.path.exists(xaml_path):
+        win = RouteWindow(xaml_path)
+        win.ShowDialog()
+
+        if win.angle_value is not None:
+            angle_val = win.angle_value
+            # Continuous selection loop on Revit main thread
             while True:
                 try:
                     ref1 = uidoc.Selection.PickObject(
                         ObjectType.Element,
                         MEPElementFilter(),
-                        "Select FIRST parallel MEP Element (Press ESC to return to window)"
+                        "Select FIRST parallel MEP Element (Press ESC to finish)"
                     )
                     ref2 = uidoc.Selection.PickObject(
                         ObjectType.Element,
                         MEPElementFilter(),
-                        "Select SECOND parallel MEP Element (Press ESC to return to window)"
+                        "Select SECOND parallel MEP Element (Press ESC to finish)"
                     )
 
                     elem1 = doc.GetElement(ref1)
@@ -151,28 +159,14 @@ class RouteWindow(forms.WPFWindow):
 
                     # Execute routing
                     success, msg = route_mep_elements(doc, elem1, elem2, angle_val)
-                    if success:
-                        picked_count += 1
-                    else:
+                    if not success:
                         show_warning(msg)
 
                 except OperationCanceledException:
-                    # User pressed ESC to finish / return to configuration
+                    # User pressed ESC to finish gracefully
                     break
                 except Exception as ex:
                     show_error("Routing operation failed:\n{}".format(safe_unicode(ex)))
                     break
-
-        if picked_count > 0:
-            self.txtStatus.Text = "Completed {} angled route(s). Ready.".format(picked_count)
-        else:
-            self.txtStatus.Text = "Ready"
-
-
-if __name__ == "__main__":
-    xaml_path = script.get_bundle_file("ui.xaml")
-    if os.path.exists(xaml_path):
-        win = RouteWindow(xaml_path)
-        win.ShowDialog()
     else:
         show_error("UI file 'ui.xaml' not found.")
