@@ -7,12 +7,12 @@ Part of mepanana.extension.
 Author: Hai Nguyen
 """
 # ── GATEKEEPER BOILERPLATE (MANDATORY) ───────────────────────────────────────
-from py.auth import is_authorized
-if not is_authorized():
-    from py.ui import show_warning
-    show_warning("MEPANANA Access Required", "Your license is invalid or expired.\nPlease activate your extension.")
-    import sys
-    sys.exit()
+import sys
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        sys.exit()
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
@@ -28,6 +28,9 @@ from py.mep_route_engine import MEPElementFilter, route_mep_elements
 
 doc = get_doc()
 uidoc = get_uidoc()
+if not doc:
+    show_warning(u"Please open a Revit project before using MEP Route.", "Warning")
+    sys.exit()
 
 
 class RouteWindow(forms.WPFWindow):
