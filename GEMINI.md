@@ -62,7 +62,7 @@ All tools with background or batch operations (CAD conversion, wiring, piping, c
      Dispatcher.PushFrame(frame)
      ```
    - **NEVER use bare `win.Show()` alone!** In IronPython, bare `Show()` exits script scope immediately, Garbage Collector cleans up the window while Revit holds Win32 pointers, causing an unrecoverable **FATAL ACCESS VIOLATION CRASH**.
-2. **Short Configuration / Batch Export Tools (Batch Export, Shortcut Manager, Family Local)**:
+2. **Short Configuration / Modal Tools (Shortcut Manager, Family Local)**:
    - Use standard modal `win.ShowDialog()`.
 3. **Anti-Deadlock Object Picking**:
    - Always wrap `uidoc.Selection.PickObject()` or `PickElementsByRectangle()` in `with forms.HideWindow(self):` to prevent modal window mouse deadlocks.

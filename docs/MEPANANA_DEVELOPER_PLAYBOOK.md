@@ -191,7 +191,7 @@ finally:
 │       Dispatcher.PushFrame(frame)  # Giữ scope Python sống, bơm tin nhắn, không khóa ribbon     │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 2. CỬA SỔ CHẶN (MODAL): ShowDialog()                                                            │
-│    ➔ DÀNH CHO: Công cụ cấu hình ngắn, xuất dữ liệu hàng loạt (Batch Export, Shortcut Manager,   │
+│    ➔ DÀNH CHO: Công cụ cấu hình ngắn, xuất dữ liệu hàng loạt (Schedule Link, Shortcut Manager,  │
 │                 Family Local/Cloud), nơi người dùng cần tập trung xác nhận trước khi làm việc. │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 3. CHỐNG TREO DEADLOCK KHI PICK PHẦN TỬ: with forms.HideWindow(self):                           │
