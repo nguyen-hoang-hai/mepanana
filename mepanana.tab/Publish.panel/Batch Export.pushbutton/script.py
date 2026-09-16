@@ -518,8 +518,20 @@ class BatchExportWindow(forms.WPFWindow):
                                     self.txtStatus.Text = u"Combining {} DWG layouts into single DWG...".format(len(temp_dwgs))
                                     do_events()
 
+                                    sheet_labels = []
+                                    for idx, item in enumerate(selected_items):
+                                        s_num = getattr(item.Sheet, "SheetNumber", "") or ""
+                                        s_name = getattr(item.Sheet, "Name", "") or ""
+                                        if s_num and s_name:
+                                            lbl = u"{} - {}".format(s_num, s_name)
+                                        elif s_num:
+                                            lbl = s_num
+                                        else:
+                                            lbl = u"Sheet_{}".format(idx + 1)
+                                        sheet_labels.append(lbl)
+
                                     c_ok, c_msg = combine_dwgs_to_multilayout(
-                                        temp_dwgs, final_dwg,
+                                        temp_dwgs, sheet_labels, final_dwg,
                                         progress_callback=dwg_cb
                                     )
                                     if c_ok:

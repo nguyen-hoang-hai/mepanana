@@ -25,6 +25,11 @@ except Exception:
         except Exception:
             return str(val)
 
+try:
+    string_types = (basestring,)
+except NameError:
+    string_types = (str,)
+
 
 def find_accoreconsole():
     """
@@ -73,7 +78,7 @@ def _clean_layout_name(name):
     return cleaned[:250] if cleaned else "Layout"
 
 
-def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
+def generate_combine_lisp_script(dwg_files, sheet_names=None, output_dwg_path=None,
                                  offset_mm=300000.0):
     """
     Generates an AutoLISP script to merge dwg_files into a single DWG with multiple layouts.
@@ -83,6 +88,33 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
     - Suppresses interactive dialogs and optimizes AutoCAD system variables.
     - Layout detection uses snapshot-diff for correct parenthesis balance on any number of sheets.
     """
+    if output_dwg_path is None and isinstance(sheet_names, string_types):
+        output_dwg_path = sheet_names
+        sheet_names = None
+
+    if not output_dwg_path:
+        output_dwg_path = "output.dwg"
+
+    if not sheet_names:
+        sheet_names = [
+            os.path.splitext(os.path.basename(f))[0]
+            for f in dwg_files
+        ]
+
+    # Ensure unique layout names to prevent AutoCAD duplicate layout collisions
+    unique_names = []
+    seen_names = set()
+    for idx, s_name in enumerate(sheet_names):
+        cleaned = _clean_layout_name(s_name)
+        candidate = cleaned
+        counter = 1
+        while candidate.lower() in seen_names:
+            candidate = u"{}_{}".format(cleaned[:240], counter)
+            counter += 1
+        seen_names.add(candidate.lower())
+        unique_names.append(candidate)
+    sheet_names = unique_names
+
     out_dwg_norm = output_dwg_path.replace("\\", "/")
     lines = []
 
@@ -208,22 +240,38 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
 
 
 
-def combine_dwgs_to_multilayout(dwg_files, sheet_names, output_dwg_path,
+def combine_dwgs_to_multilayout(dwg_files, sheet_names=None, output_dwg_path=None,
                                 progress_callback=None):
     """
     Combines a list of DWG files into a single master DWG with multiple Layout tabs.
-    
+    Supports both signatures:
+      - combine_dwgs_to_multilayout(dwg_files, sheet_names, output_dwg_path, progress_callback)
+      - combine_dwgs_to_multilayout(dwg_files, output_dwg_path, progress_callback)
+
     Args:
         dwg_files (list[str]): Paths to individual DWG files.
-        sheet_names (list[str]): Names for the layout tabs corresponding to each dwg.
+        sheet_names (list[str] or str): Names for the layout tabs, or output_dwg_path if 2 positional args.
         output_dwg_path (str): Destination path for the combined DWG.
         progress_callback (callable): Optional callback(percent, msg).
 
     Returns:
         tuple: (success (bool), message (str))
     """
+    if output_dwg_path is None and isinstance(sheet_names, string_types):
+        output_dwg_path = sheet_names
+        sheet_names = None
+
     if not dwg_files:
         return (False, "No DWG files provided to combine.")
+
+    if not output_dwg_path:
+        return (False, "No destination output DWG path specified.")
+
+    if not sheet_names:
+        sheet_names = [
+            os.path.splitext(os.path.basename(f))[0]
+            for f in dwg_files
+        ]
 
     if len(dwg_files) == 1:
         # Only 1 file: simple copy is sufficient
