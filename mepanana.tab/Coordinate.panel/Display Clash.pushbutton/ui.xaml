@@ -27,41 +27,55 @@
         </Grid.RowDefinitions>
 
         <!-- ── Top Card 0: Scope, Extent, Options & Legend ────────────────── -->
-        <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12" Padding="14,10">
+        <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12" Padding="14,12">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="370"/> <!-- Matches Left Column Categories -->
+                    <ColumnDefinition Width="14"/>  <!-- Matches Column Gap -->
+                    <ColumnDefinition Width="*"/>   <!-- Matches Right Column Clashes -->
+                </Grid.ColumnDefinitions>
 
-                <!-- Row 0: Analysis Scope & Check Same Model -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,8">
-                    <TextBlock Text="Analysis Scope:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <ComboBox Name="cmbScope" Width="185" Height="30" VerticalContentAlignment="Center">
+                <!-- Left Column: Scope & Extent (Aligned Form Grid) -->
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="105"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Row 0: Analysis Scope -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Analysis Scope:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" Name="cmbScope" Height="30" VerticalContentAlignment="Center" Margin="0,0,0,8">
                         <ComboBoxItem Content="Active View (All Elements)"/>
                         <ComboBoxItem Content="Selected Elements Only"/>
                     </ComboBox>
-                    <CheckBox Name="chkIncludeHost" Content="Check Same Model (Host vs Host)"
-                              IsChecked="True" VerticalAlignment="Center" Margin="18,0,0,0"
-                              ToolTip="When enabled, detects clashes between elements within the current host model as well as linked models."/>
-                </StackPanel>
 
-                <!-- Row 1: Highlight Extent & Color Legend Badges -->
-                <Grid Grid.Row="1">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/> <!-- Highlight Extent -->
-                        <ColumnDefinition Width="*"/>    <!-- Elastic Spacer -->
-                        <ColumnDefinition Width="Auto"/> <!-- Color Legend Badges -->
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Highlight Extent:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBox Name="txtExtent" Text="600" Width="52" Height="28"
+                    <!-- Row 1: Highlight Extent -->
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Highlight Extent:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBox Name="txtExtent" Text="600" Width="55" Height="28"
                                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
                         <TextBlock Text="mm" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                     </StackPanel>
+                </Grid>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Right Column: Check Same Model & Color Badges -->
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Row 0: Check Same Model -->
+                    <CheckBox Grid.Row="0" Name="chkIncludeHost" Content="Check Same Model (Host vs Host)"
+                              IsChecked="True" VerticalAlignment="Center" Margin="0,5,0,13"
+                              ToolTip="When enabled, detects clashes between elements within the current host model as well as linked models."/>
+
+                    <!-- Row 1: Color Legend Badges -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Name="badgeHost1" Background="#20EF4444" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
                             <TextBlock Name="txtBadgeHost1" Text="🔴 Host 1 (Red)" FontSize="11" Foreground="#EF4444"/>
                         </Border>
