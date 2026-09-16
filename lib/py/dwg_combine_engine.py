@@ -182,10 +182,12 @@ def generate_combine_lisp_script(dwg_files, sheet_names=None, output_dwg_path=No
         # A: Snapshot existing layouts BEFORE template import
         lines.append('(setq mep_before (mep-get-layouts))')
 
-        # B: Insert DWG as block at offset, then explode to bring model geometry in-place
+        # B: Ensure we are strictly in MODEL SPACE, insert DWG as block at offset, then explode into Model Space
+        lines.append('(setvar "CTAB" "Model")')
+        lines.append('(setq curr_last (entlast))')
         lines.append('(setq ins_pt (list curr_offset 0.0 0.0))')
         lines.append('(command "._-insert" "{}" ins_pt "1" "1" "0")'.format(dwg_path))
-        lines.append('(if (entlast) (command "._explode" (entlast)))')
+        lines.append('(if (and (entlast) (not (equal (entlast) curr_last))) (command "._explode" (entlast)))')
 
         # C: Import Layout1 from source DWG as a new layout tab in current drawing
         lines.append('(command "._layout" "_template" "{}" "Layout1")'.format(dwg_path))
