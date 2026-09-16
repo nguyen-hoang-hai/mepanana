@@ -395,7 +395,7 @@ def export_sheets_to_pdf(doc, sheet_items, output_folder, naming_template,
             elif item.PaperFormatEnum:
                 opts.PaperFormat = item.PaperFormatEnum
             else:
-                opts.PaperFormat = getattr(ExportPaperFormat, "ISO_A1", ExportPaperFormat.Default)
+                opts.PaperFormat = getattr(ExportPaperFormat, "ISO_A1", None)
 
             if item.OrientationEnum:
                 opts.PaperOrientation = item.OrientationEnum

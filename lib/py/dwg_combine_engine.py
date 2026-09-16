@@ -111,9 +111,22 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
     lines.append('  result')
     lines.append(')')
 
+    # Helper: get the first non-Model layout
+    lines.append('(defun mep-get-first-layout (/ d item lay)')
+    lines.append('  (setq lay nil)')
+    lines.append('  (setq d (dictsearch (namedobjdict) "ACAD_LAYOUT"))')
+    lines.append('  (foreach item d')
+    lines.append('    (if (and (= (car item) 3) (/= (cdr item) "Model") (null lay))')
+    lines.append('      (setq lay (cdr item))')
+    lines.append('    )')
+    lines.append('  )')
+    lines.append('  lay')
+    lines.append(')')
+
     # Step 1: Rename base layout (Sheet 0)
     base_name = _clean_layout_name(sheet_names[0]) if len(sheet_names) > 0 else "Sheet_1"
-    lines.append('(command "._layout" "_rename" "Layout1" "{}")'.format(base_name))
+    lines.append('(setq mep_base_lay (mep-get-first-layout))')
+    lines.append('(if mep_base_lay (command "._layout" "_rename" mep_base_lay "{}"))'.format(base_name))
 
     # Step 2: For each additional sheet — INSERT + EXPLODE + layout template
     for i in range(1, len(dwg_files)):
