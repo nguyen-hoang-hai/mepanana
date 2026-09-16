@@ -451,6 +451,9 @@ def export_sheets_to_dwg(doc, sheet_items, output_folder, naming_template,
         try:
             opts = DWGExportOptions()
             opts.MergedViews = True
+            opts.HideUnreferenceViewTags = True
+            opts.HideScopeBox = True
+            opts.HideReferencePlane = True
             if hasattr(ACADVersion, "R2018"):
                 opts.FileVersion = ACADVersion.R2018
             elif hasattr(ACADVersion, "Default"):

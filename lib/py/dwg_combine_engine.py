@@ -87,11 +87,17 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
     out_dwg_norm = output_dwg_path.replace("\\", "/")
     lines = []
 
-    # Suppress ALL interactive prompts — critical for accoreconsole to run non-interactively
+    # Suppress ALL interactive prompts & optimize AutoCAD performance
     lines.append('(setvar "FILEDIA" 0)')
     lines.append('(setvar "CMDDIA" 0)')
     lines.append('(setvar "CMDECHO" 0)')
     lines.append('(setvar "EXPERT" 5)')
+    lines.append('(setvar "REGENMODE" 0)')
+    lines.append('(setvar "DRAWORDERCTL" 0)')
+    lines.append('(setvar "INDEXCTL" 0)')
+    lines.append('(setvar "HPQUICKPREV" 0)')
+    lines.append('(setvar "XREFAUTODOWNLOAD" 0)')
+    lines.append('(setvar "PROXYNOTICE" 0)')
     lines.append('(setvar "ATTDIA" 0)')
     lines.append('(setvar "ATTREQ" 0)')
     lines.append('(setvar "INSUNITS" 0)')
@@ -182,7 +188,10 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
     # Step 3: Delete the default "Layout2" placeholder if it was not used
     lines.append('(command "._layout" "_delete" "Layout2")')
 
-    # Step 4: Save as AutoCAD 2018 DWG
+    # Step 4: Purge intermediate unreferenced block definitions
+    lines.append('(command "._-purge" "_blocks" "*" "_n")')
+
+    # Step 5: Save as AutoCAD 2018 DWG
     lines.append('(command "._saveas" "2018" "{}")'.format(out_dwg_norm))
     lines.append('(princ "\\n=== MEPANANA DWG MERGE COMPLETE ===")')
     lines.append('QUIT')
