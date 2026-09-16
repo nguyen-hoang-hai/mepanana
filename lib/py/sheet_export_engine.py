@@ -174,9 +174,10 @@ def detect_sheet_paper_format(doc, sheet):
     return (detected_size, orientation_name, paper_format_enum, orientation_enum)
 
 
-def get_all_sheets(doc, include_placeholders=False):
+def get_all_sheets(doc, include_placeholders=False, progress_callback=None):
     """
     Returns a sorted list of SheetExportItem view-models for all sheets in the project.
+    Supports progress_callback(cur, total, sheet) for responsive UI feedback.
     """
     col = FilteredElementCollector(doc).OfClass(ViewSheet).WhereElementIsNotElementType()
     sheets = []
@@ -194,8 +195,14 @@ def get_all_sheets(doc, include_placeholders=False):
 
     sheets.sort(key=natural_sort_key)
 
+    total_sheets = len(sheets)
     items = []
-    for s in sheets:
+    for idx, s in enumerate(sheets):
+        if progress_callback:
+            try:
+                progress_callback(idx + 1, total_sheets, s)
+            except Exception:
+                pass
         size_name, ori_name, fmt_enum, ori_enum = detect_sheet_paper_format(doc, s)
         item = SheetExportItem(
             s, paper_size_name=size_name, orientation_name=ori_name,

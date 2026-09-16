@@ -11,6 +11,7 @@ Author: Hai Nguyen
 """
 import os
 import sys
+import time
 import tempfile
 import shutil
 import subprocess
@@ -34,7 +35,10 @@ if not is_authenticated():
         sys.exit()
 
 from py.core import get_doc, get_uidoc, safe_unicode
-from py.ui import setup_window, do_events, show_error, show_warning, _show_custom_dialog
+from py.ui import (
+    setup_window, do_events, show_error, show_warning, _show_custom_dialog,
+    MepananaProgressBar
+)
 from py.sheet_export_engine import (
     get_all_sheets, build_sheet_filename, export_sheets_to_pdf, export_sheets_to_dwg,
     NATIVE_PDF_SUPPORTED, DWG_SUPPORTED
@@ -49,10 +53,67 @@ except Exception:
     pass
 
 
+class AutoDismissExportDialogs(object):
+    """Context manager to auto-dismiss 'Update Resources' and modal prompt dialogs during export."""
+    def __init__(self, uiapp):
+        self.uiapp = uiapp
+        self._handler = None
+
+    def __enter__(self):
+        try:
+            def _on_dialog(sender, args):
+                try:
+                    dialog_id = getattr(args, "DialogId", "") or ""
+                    msg = getattr(args, "Message", "") or ""
+                    # Automatically dismiss 'Update Resources' (Keynotes / Uniformat) TaskDialog
+                    if ("Update_Resources" in dialog_id or "Update Resources" in msg
+                            or "resources are not up to date" in msg.lower()
+                            or "Keynote" in msg or "Uniformat" in msg):
+                        args.OverrideResult(1001)  # 1001 = CommandLink1 (Continue)
+                except Exception:
+                    pass
+
+            self._handler = _on_dialog
+            if self.uiapp:
+                self.uiapp.DialogBoxShowing += self._handler
+        except Exception:
+            pass
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self._handler and self.uiapp:
+                self.uiapp.DialogBoxShowing -= self._handler
+        except Exception:
+            pass
+
+
+def scan_sheets_with_progress(doc):
+    """Scans all sheets in the project with a visual MepananaProgressBar before opening the window."""
+    try:
+        from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
+        col = FilteredElementCollector(doc).OfClass(ViewSheet).WhereElementIsNotElementType()
+        total_estimate = sum(1 for s in col if not s.IsTemplate and not s.IsPlaceholder)
+    except Exception:
+        total_estimate = 0
+
+    if total_estimate == 0:
+        return []
+
+    with MepananaProgressBar(title="Loading Project Sheets...", total=total_estimate, cancellable=False, icon="📑") as pb:
+        def _on_scan_progress(cur, tot, s):
+            num = getattr(s, "SheetNumber", "") or ""
+            name = getattr(s, "Name", "") or ""
+            pb.update(cur, status=u"Scanning sheet {} of {}...".format(cur, tot), detail=u"{} - {}".format(num, name))
+
+        items = get_all_sheets(doc, include_placeholders=False, progress_callback=_on_scan_progress)
+        return items
+
+
 class BatchExportWindow(forms.WPFWindow):
     """Main UI Controller for MEPANANA Batch Sheet Exporter."""
 
-    def __init__(self, doc, uidoc):
+    def __init__(self, doc, uidoc, preloaded_sheets=None):
         xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
         setup_window(self)
@@ -65,11 +126,15 @@ class BatchExportWindow(forms.WPFWindow):
         self.txtOutputPath.Text = default_dir
 
         # Load All Sheets from Document
-        self._all_sheet_vms = []
+        self._all_sheet_vms = list(preloaded_sheets) if preloaded_sheets is not None else []
         self._displayed_vms = ObservableCollection[object]()
         self.dgSheets.ItemsSource = self._displayed_vms
 
-        self._load_sheets()
+        if preloaded_sheets is not None:
+            self._apply_filter()
+            self.txtSheetCountBadge.Text = "{} Sheets in Project".format(len(self._all_sheet_vms))
+        else:
+            self._load_sheets()
 
         # Wire UI Events
         self.txtSearch.TextChanged += lambda s, e: self._apply_filter()
@@ -318,6 +383,17 @@ class BatchExportWindow(forms.WPFWindow):
                          title="Invalid Path", owner=self, topmost=True)
             return
 
+        combine_dwg = bool(self.rbDwgCombine.IsChecked)
+
+        if export_dwg and combine_dwg and not is_accoreconsole_available():
+            show_warning(
+                "AutoCAD Core Console (accoreconsole.exe) was not found on this computer.\n\n"
+                "AutoCAD 2018-2027 is required to combine multiple sheets into layout tabs of a single DWG.\n"
+                "Please select 'Separate Files' for DWG export.",
+                title="AutoCAD Not Found", owner=self, topmost=True
+            )
+            return
+
         # Prepare UI for background batch processing
         self.btnExport.IsEnabled = False
         self.btnClose.IsEnabled = False
@@ -329,7 +405,7 @@ class BatchExportWindow(forms.WPFWindow):
 
         sample_sheet = self._all_sheet_vms[0].Sheet if self._all_sheet_vms else None
         combined_filename = build_sheet_filename(self.doc, sample_sheet, naming_template) or "Combined_Drawing_Set"
-        combined_filename = combined_filename.replace(".pdf", "")
+        combined_filename = combined_filename.replace(".pdf", "").replace(".dwg", "")
 
         # Color Mode
         color_mode = "Color"
@@ -357,136 +433,116 @@ class BatchExportWindow(forms.WPFWindow):
         all_errors = []
 
         try:
-            # 1. Export PDF
-            if export_pdf:
-                self.txtStatus.Text = "Initiating Native PDF Export..."
-                do_events()
-
-                count, errs = export_sheets_to_pdf(
-                    self.doc, selected_items, output_dir,
-                    naming_template=naming_template,
-                    combine=combine_pdf,
-                    combined_filename=combined_filename,
-                    color_mode=color_mode,
-                    force_paper_format=force_format,
-                    progress_callback=progress_cb
-                )
-                total_exported += count
-                all_errors.extend(errs)
-
-            # 2. Export DWG
-            if export_dwg:
-                combine_dwg = bool(self.rbDwgCombine.IsChecked)
-                if combine_dwg and not find_accoreconsole():
-                    show_warning(
-                        "AutoCAD Core Console (accoreconsole.exe) was not found on this computer.\n"
-                        "DWG export will proceed as Separate Files.",
-                        title="AutoCAD Not Found", owner=self, topmost=True
-                    )
-                    combine_dwg = False
-
-                if combine_dwg:
-                    self.txtStatus.Text = "Initiating Multi-Layout DWG Combine..."
-                    do_events()
-
-                    # Use output_dir as base for temp folder — more reliable than tempfile.gettempdir()
-                    # which returns unpredictable paths in IronPython / Revit process context.
-                    temp_dwg_dir = os.path.join(output_dir, "._mep_tmp_{}".format(os.getpid()))
-
-                    # Pre-clean to avoid "file already in use" from a previous crashed session
-                    if os.path.exists(temp_dwg_dir):
-                        shutil.rmtree(temp_dwg_dir, ignore_errors=True)
-                    try:
-                        os.makedirs(temp_dwg_dir)
-                    except Exception as ex:
-                        all_errors.append(u"Cannot create temp directory: {}".format(safe_unicode(ex)))
-                        temp_dwg_dir = None
-
-                    if temp_dwg_dir:
-                      try:
-                        # Export individual sheets to temp directory
-                        dwg_temp_template = "mep_[Sheet Number]"
-                        t_count, t_errs = export_sheets_to_dwg(
-                            self.doc, selected_items, temp_dwg_dir,
-                            naming_template=dwg_temp_template,
-                            progress_callback=lambda cur, tot, msg: progress_cb(
-                                cur, tot * 2, u"Revit DWG: {}".format(msg)
-                            )
+            with AutoDismissExportDialogs(self.uidoc.Application):
+                # 1. Export PDF
+                if export_pdf:
+                    if combine_pdf:
+                        self.txtStatus.Text = u"Exporting Combined PDF..."
+                        do_events()
+                        count, errs = export_sheets_to_pdf(
+                            self.doc, selected_items, output_dir,
+                            naming_template=naming_template,
+                            combine=True, combined_filename=combined_filename,
+                            color_mode=color_mode, force_paper_format=force_format,
+                            progress_callback=progress_cb
                         )
-                        all_errors.extend(t_errs)
+                        total_exported += count
+                        all_errors.extend(errs)
+                    else:
+                        count, errs = export_sheets_to_pdf(
+                            self.doc, selected_items, output_dir,
+                            naming_template=naming_template,
+                            combine=False,
+                            color_mode=color_mode, force_paper_format=force_format,
+                            progress_callback=progress_cb
+                        )
+                        total_exported += count
+                        all_errors.extend(errs)
 
-                        # Match exported files with sheets in order.
-                        # Revit with MergedViews=True sometimes writes "_<name>.dwg" (underscore prefix)
-                        # instead of "<name>.dwg" — check both variants, then fallback to dir scan.
-                        dwg_files = []
-                        sheet_labels = []
-                        for item in selected_items:
-                            expected_name = build_sheet_filename(self.doc, item.Sheet, dwg_temp_template)
-                            candidate     = os.path.join(temp_dwg_dir, expected_name + ".dwg")
-                            candidate_alt = os.path.join(temp_dwg_dir, "_" + expected_name + ".dwg")
+                # 2. Export DWG
+                if export_dwg:
+                    if combine_dwg:
+                        # Isolated system temp directory - NEVER inside user's output directory!
+                        temp_dwg_dir = os.path.join(
+                            tempfile.gettempdir(),
+                            "mep_dwg_tmp_{}_{}".format(os.getpid(), int(time.time()))
+                        )
+                        try:
+                            if not os.path.exists(temp_dwg_dir):
+                                os.makedirs(temp_dwg_dir)
 
-                            found = None
-                            if os.path.isfile(candidate):
-                                found = candidate
-                            elif os.path.isfile(candidate_alt):
-                                found = candidate_alt
-                            else:
-                                # Last resort: scan temp dir for any .dwg file matching sheet number
-                                sheet_num = (item.SheetNumber or "").replace("/", "_").replace("\\", "_")
-                                try:
-                                    for f in os.listdir(temp_dwg_dir):
-                                        if f.lower().endswith(".dwg") and sheet_num.lower() in f.lower():
-                                            found = os.path.join(temp_dwg_dir, f)
-                                            break
-                                except Exception:
-                                    pass
-
-                            if found:
-                                dwg_files.append(found)
-                                sheet_lbl = item.SheetNumber or item.SheetName or "Sheet"
-                                sheet_labels.append(sheet_lbl)
-
-                        if dwg_files:
-                            out_dwg_path = os.path.join(output_dir, combined_filename + ".dwg")
-                            self.txtStatus.Text = "Merging layouts into master DWG..."
+                            self.txtStatus.Text = u"Exporting individual sheets to temporary DWGs..."
                             do_events()
 
-                            def merge_cb(pct, m_msg):
-                                progress_cb(len(selected_items) + int(len(selected_items) * (pct / 100.0)),
-                                            len(selected_items) * 2, m_msg)
-
-                            ok, m_res = combine_dwgs_to_multilayout(
-                                dwg_files, sheet_labels, out_dwg_path,
-                                progress_callback=merge_cb
+                            temp_template = "[Sheet Number] - [Sheet Name]"
+                            count, errs = export_sheets_to_dwg(
+                                self.doc, selected_items, temp_dwg_dir,
+                                naming_template=temp_template,
+                                progress_callback=progress_cb
                             )
-                            if ok:
-                                total_exported += 1
-                            else:
-                                all_errors.append(u"DWG Combine Failed: {}".format(safe_unicode(m_res)))
-                        else:
-                            all_errors.append(
-                                u"No intermediate DWG files found in temp dir: {}. "
-                                u"Revit may have written files to a different path.".format(temp_dwg_dir)
-                            )
-                      finally:
-                        shutil.rmtree(temp_dwg_dir, ignore_errors=True)
+                            all_errors.extend(errs)
 
-                else:
-                    # Separate Files Mode
-                    self.txtStatus.Text = "Initiating Separate DWG Export..."
-                    do_events()
+                            if count > 0:
+                                # Collect exported temp DWGs preserving sheet order
+                                temp_dwgs = []
+                                for item in selected_items:
+                                    exp_name = build_sheet_filename(self.doc, item.Sheet, temp_template)
+                                    exp_path = os.path.join(temp_dwg_dir, exp_name + ".dwg")
+                                    if os.path.exists(exp_path):
+                                        temp_dwgs.append(exp_path)
+                                    else:
+                                        # Match by prefix
+                                        num_str = item.Sheet.SheetNumber or ""
+                                        for fname in os.listdir(temp_dwg_dir):
+                                            if fname.lower().endswith(".dwg") and fname.startswith(num_str):
+                                                full_p = os.path.join(temp_dwg_dir, fname)
+                                                if full_p not in temp_dwgs:
+                                                    temp_dwgs.append(full_p)
+                                                    break
 
-                    dwg_template = self._saved_indiv_template if (combine_pdf or getattr(self, '_in_combine_mode', False)) else naming_template
-                    if "[Sheet Number]" not in dwg_template and "[Number]" not in dwg_template:
-                        dwg_template = "[Sheet Number] - " + dwg_template
+                                if not temp_dwgs:
+                                    temp_dwgs = [
+                                        os.path.join(temp_dwg_dir, f)
+                                        for f in os.listdir(temp_dwg_dir)
+                                        if f.lower().endswith(".dwg")
+                                    ]
 
-                    count, errs = export_sheets_to_dwg(
-                        self.doc, selected_items, output_dir,
-                        naming_template=dwg_template,
-                        progress_callback=progress_cb
-                    )
-                    total_exported += count
-                    all_errors.extend(errs)
+                                if temp_dwgs:
+                                    final_dwg = os.path.join(output_dir, combined_filename + ".dwg")
+
+                                    def dwg_cb(pct, msg):
+                                        self.progressBar.Value = pct
+                                        self.txtStatus.Text = u"[AutoCAD Engine] {}".format(msg)
+                                        do_events()
+
+                                    self.txtStatus.Text = u"Combining {} DWG layouts into single DWG...".format(len(temp_dwgs))
+                                    do_events()
+
+                                    c_ok, c_msg = combine_dwgs_to_multilayout(
+                                        temp_dwgs, final_dwg,
+                                        progress_callback=dwg_cb
+                                    )
+                                    if c_ok:
+                                        total_exported += 1
+                                    else:
+                                        all_errors.append(u"DWG Combine Error: {}".format(c_msg))
+                                else:
+                                    all_errors.append(u"No temporary DWG files found to combine.")
+                        finally:
+                            if os.path.exists(temp_dwg_dir):
+                                try:
+                                    shutil.rmtree(temp_dwg_dir, ignore_errors=True)
+                                except Exception:
+                                    pass
+                    else:
+                        # Separate DWG files directly into output_dir
+                        count, errs = export_sheets_to_dwg(
+                            self.doc, selected_items, output_dir,
+                            naming_template=naming_template,
+                            progress_callback=progress_cb
+                        )
+                        total_exported += count
+                        all_errors.extend(errs)
 
             self.progressBar.Value = 100
             if all_errors:
@@ -531,5 +587,6 @@ if __name__ == "__main__":
     if not doc:
         show_error("Please open a Revit project first.", title="No Document", exitscript=True)
 
-    win = BatchExportWindow(doc, uidoc)
+    preloaded = scan_sheets_with_progress(doc)
+    win = BatchExportWindow(doc, uidoc, preloaded_sheets=preloaded)
     win.ShowDialog()

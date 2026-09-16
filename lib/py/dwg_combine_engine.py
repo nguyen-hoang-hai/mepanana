@@ -74,14 +74,13 @@ def _clean_layout_name(name):
 
 
 def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
-                                 offset_mm=2000.0):
+                                 offset_mm=300000.0):
     """
     Generates an AutoLISP script to merge dwg_files into a single DWG with multiple layouts.
     - dwg_files[0] serves as the base drawing.
-    - dwg_files[1:] are inserted into Model Space at (i * 2000mm, 0) and exploded,
-      then their Layout1 is imported via ._layout _template and viewports shifted.
-    - offset_mm=2000: compact spacing (A0 max 1189mm wide), keeps extents manageable.
-    - All interactive dialogs suppressed (EXPERT 5, ATTDIA 0, ATTREQ 0, CMDECHO 0, FILEDIA 0).
+    - dwg_files[1:] are inserted into Model Space at safe non-overlapping intervals (min 300m or 1.5x span),
+      then their Layout1 is imported via ._layout _template and viewports shifted accordingly.
+    - Suppresses interactive dialogs and optimizes AutoCAD system variables.
     - Layout detection uses snapshot-diff for correct parenthesis balance on any number of sheets.
     """
     out_dwg_norm = output_dwg_path.replace("\\", "/")
@@ -134,19 +133,25 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
     lines.append('(setq mep_base_lay (mep-get-first-layout))')
     lines.append('(if mep_base_lay (command "._layout" "_rename" mep_base_lay "{}"))'.format(base_name))
 
+    # Calculate model space footprint to prevent drawing collisions
+    lines.append('(setq mep_ext_min (getvar "EXTMIN"))')
+    lines.append('(setq mep_ext_max (getvar "EXTMAX"))')
+    lines.append('(setq mep_span (if (and mep_ext_min mep_ext_max) (abs (- (car mep_ext_max) (car mep_ext_min))) 0.0))')
+    lines.append('(if (or (null mep_span) (< mep_span 1000.0)) (setq mep_step {0}) (setq mep_step (max {0} (* mep_span 1.5))))'.format(float(offset_mm)))
+
     # Step 2: For each additional sheet — INSERT + EXPLODE + layout template
     for i in range(1, len(dwg_files)):
         dwg_path = dwg_files[i].replace("\\", "/")
         sheet_nm = _clean_layout_name(sheet_names[i]) if i < len(sheet_names) else "Sheet_{}".format(i + 1)
-        curr_offset = float(i) * float(offset_mm)
 
         lines.append('(princ "\\n--- Sheet: {} ---")'.format(sheet_nm))
+        lines.append('(setq curr_offset (* {} mep_step))'.format(i))
 
         # A: Snapshot existing layouts BEFORE template import
         lines.append('(setq mep_before (mep-get-layouts))')
 
         # B: Insert DWG as block at offset, then explode to bring model geometry in-place
-        lines.append('(setq ins_pt (list {} 0.0 0.0))'.format(curr_offset))
+        lines.append('(setq ins_pt (list curr_offset 0.0 0.0))')
         lines.append('(command "._-insert" "{}" ins_pt "1" "1" "0")'.format(dwg_path))
         lines.append('(if (entlast) (command "._explode" (entlast)))')
 
@@ -175,7 +180,7 @@ def generate_combine_lisp_script(dwg_files, sheet_names, output_dwg_path,
         lines.append('        (if old_c')
         lines.append('          (progn')
         lines.append('            (setq old_pt (cdr old_c))')
-        lines.append('            (setq new_pt (list (+ (car old_pt) {}) (cadr old_pt)))'.format(curr_offset))
+        lines.append('            (setq new_pt (list (+ (car old_pt) curr_offset) (cadr old_pt)))')
         lines.append('            (setq vp_data (subst (cons 12 new_pt) old_c vp_data))')
         lines.append('            (entmod vp_data)')
         lines.append('          )')
