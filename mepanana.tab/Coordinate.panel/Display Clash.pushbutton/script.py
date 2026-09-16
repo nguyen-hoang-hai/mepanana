@@ -54,6 +54,7 @@ try:
 
     import System
     from System.Windows import Visibility
+    from System.Windows.Data import CollectionViewSource
     from System.Windows.Interop import WindowInteropHelper
     from System.Windows.Threading import Dispatcher, DispatcherFrame, DispatcherPriority
     from System.Collections.ObjectModel import ObservableCollection
@@ -346,8 +347,22 @@ try:
                 item = CategoryItem(name, cid, is_checked=is_def, is_default=is_def)
                 self.categories.Add(item)
 
-            self.lstCategories.ItemsSource = self.categories
+            self.categories_view = CollectionViewSource.GetDefaultView(self.categories)
+            self.lstCategories.ItemsSource = self.categories_view
             self._update_category_count()
+
+            # Wire Category Search & Events
+            self.txtSearchCategory.TextChanged += self.on_category_search_changed
+            self.btnClearCategorySearch.Click += self.on_clear_category_search
+
+            self.lstCategories.AddHandler(
+                System.Windows.Controls.Primitives.ToggleButton.CheckedEvent,
+                System.Windows.RoutedEventHandler(self.on_category_item_checked)
+            )
+            self.lstCategories.AddHandler(
+                System.Windows.Controls.Primitives.ToggleButton.UncheckedEvent,
+                System.Windows.RoutedEventHandler(self.on_category_item_checked)
+            )
 
             # Wire Events
             self.radDefault.Checked += self.on_mode_default
@@ -415,6 +430,33 @@ try:
             cnt = sum(1 for c in self.categories if c.IsChecked)
             self.txtCategoryCount.Text = "{} Selected".format(cnt)
 
+        def on_category_item_checked(self, sender, e):
+            if not self.radCustom.IsChecked:
+                self.radCustom.IsChecked = True
+                self._apply_mode_state()
+            self._update_category_count()
+
+        def on_category_search_changed(self, sender, e):
+            query = (self.txtSearchCategory.Text or "").strip().lower()
+            self.btnClearCategorySearch.Visibility = Visibility.Visible if query else Visibility.Collapsed
+            if not query:
+                self.categories_view.Filter = None
+            else:
+                def _filter_pred(item):
+                    if item is None:
+                        return False
+                    return query in item.Name.lower()
+                try:
+                    self.categories_view.Filter = System.Predicate[object](_filter_pred)
+                except Exception:
+                    try:
+                        self.categories_view.Filter = _filter_pred
+                    except Exception:
+                        pass
+
+        def on_clear_category_search(self, sender, e):
+            self.txtSearchCategory.Text = ""
+
         def on_mode_default(self, sender, e):
             for c in self.categories:
                 c.IsChecked = c.IsDefault
@@ -428,14 +470,18 @@ try:
 
         def on_select_all(self, sender, e):
             self.radCustom.IsChecked = True
-            for c in self.categories:
+            self._apply_mode_state()
+            target_list = [item for item in self.categories_view] if self.categories_view.Filter else self.categories
+            for c in target_list:
                 c.IsChecked = True
             self.lstCategories.Items.Refresh()
             self._update_category_count()
 
         def on_select_none(self, sender, e):
             self.radCustom.IsChecked = True
-            for c in self.categories:
+            self._apply_mode_state()
+            target_list = [item for item in self.categories_view] if self.categories_view.Filter else self.categories
+            for c in target_list:
                 c.IsChecked = False
             self.lstCategories.Items.Refresh()
             self._update_category_count()
