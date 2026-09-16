@@ -49,7 +49,7 @@
                     <Border Grid.Column="1" Background="{DynamicResource SecondaryButtonBrush}"
                             CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
                         <TextBlock Name="txtTotalToolsCount" Text="0 Tools"
-                                   FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+                                   FontSize="12" Foreground="#0F172A"/>
                     </Border>
                 </Grid>
 
@@ -65,13 +65,13 @@
                             <ColumnDefinition Width="*"/>   <!-- Status -->
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="TOOL NAME" FontWeight="SemiBold"
+                        <TextBlock Grid.Column="0" Text="TOOL NAME"
                                    FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
-                        <TextBlock Grid.Column="1" Text="CURRENT" FontWeight="SemiBold"
+                        <TextBlock Grid.Column="1" Text="CURRENT"
                                    FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
-                        <TextBlock Grid.Column="2" Text="NEW SHORTCUT" FontWeight="SemiBold"
+                        <TextBlock Grid.Column="2" Text="NEW SHORTCUT"
                                    FontSize="11" Foreground="{DynamicResource MutedTextBrush}"/>
-                        <TextBlock Grid.Column="3" Text="STATUS" FontWeight="SemiBold"
+                        <TextBlock Grid.Column="3" Text="STATUS"
                                    FontSize="11" Foreground="{DynamicResource MutedTextBrush}"
                                    HorizontalAlignment="Right" Margin="0,0,6,0"/>
                     </Grid>
@@ -95,10 +95,10 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0" Text="⚠" FontSize="16" Foreground="#B45309"
-                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Name="txtConflictMessage" Text="Conflict detected with existing Revit shortcut."
-                               FontWeight="SemiBold" FontSize="12.5" Foreground="#92400E" TextWrapping="Wrap"/>
+                               FontSize="12.5" Foreground="#92400E" TextWrapping="Wrap"/>
                     <TextBlock Text="Please press a different key combination or clear the shortcut."
                                FontSize="11" Foreground="#B45309" Margin="0,2,0,0"/>
                 </StackPanel>
@@ -121,9 +121,10 @@
                            Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
                            VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8,0"/>
 
-                <Button Grid.Column="2" Name="btnApply" Content="✓ Apply Shortcuts"
-                        Style="{DynamicResource PrimaryButton}" Height="34" Padding="20,0"
-                        FontWeight="SemiBold" FontSize="13" IsDefault="True"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="34" Padding="14,0" Margin="0,0,8,0" IsCancel="True"/>
+                    <Button Name="btnApply" Content="✓ Apply Shortcuts" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" FontSize="13" IsDefault="True"/>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

@@ -231,11 +231,11 @@ finally:
 >    - 🔴 **Màu Đỏ (`#EF4444` / `Color(239, 68, 68)`):** Cấu kiện Host 1 trong mô hình nội bộ.
 >    - 🟠 **Màu Cam (`#F59E0B` / `Color(245, 158, 11)`):** Cấu kiện Host 2 khi va chạm giữa 2 cấu kiện **CÙNG TRONG MỘT MODEL** (giúp phân biệt ngay 2 ống/ống gió cắt nhau).
 >    - 🟢 **Màu Xanh Lục (`#22C55E` / `Color(34, 197, 94)`):** Cấu kiện thuộc **FILE LINK**.
-> 3. **Hình Học Trực Quan Toàn Cấu Kiện (Full Element Footprint):**
->    - Không chỉ vẽ dải ngắn tại điểm cắt. Bắt buộc vẽ polygon trải dài toàn bộ chiều dài cấu kiện từ đầu $P_0$ đến cuối $P_1$ theo đúng bề rộng thực tế của ống/ống gió/máng cáp/tường.
->    - Thứ tự 4 đỉnh polygon phải tuân thủ nghiêm ngặt chiều **Ngược Chiều Kim Đồng Hồ (Counter-Clockwise - CCW)** để lệnh `CreateExtrusionGeometry` của Revit tạo khối hợp lệ.
-> 4. **Khử Trùng Lặp & Xóa Sạch Tức Thì:**
->    - Mỗi cấu kiện chỉ tạo 1 polygon AVF duy nhất (Deduplication theo ElementId).
+> 3. **Hình Học Trực Quan Giới Hạn Cục Bộ Va Chạm (Localized Clash Footprint):**
+>    - Không tô màu toàn bộ chiều dài ống/máng cáp dài hàng chục mét gây rối bản vẽ mặt bằng. Giới hạn vùng hiển thị AVF quanh tâm va chạm với khoảng cách quy định (mặc định $\pm 600\text{ mm}$, tổng đoạn hiển thị $\approx 1.2\text{ m}$, người dùng có thể tùy chỉnh trên UI), kẹp trong giới hạn 2 đầu $[P_0, P_1]$ của cấu kiện.
+>    - Thứ tự 4 đỉnh polygon phải tuân thủ nghiêm ngặt chiều **Ngược Chiều Kim Đồng Hồ (Counter-Clockwise - CCW)** theo phương tiếp tuyến và bề rộng thực tế của cấu kiện để lệnh `CreateExtrusionGeometry` tạo khối hợp lệ.
+> 4. **Khử Trùng Lặp Vị Trí & Xóa Sạch Tức Thì:**
+>    - Khử trùng lặp theo tọa độ va chạm `(ElementId, X_approx, Y_approx)` để tránh vẽ chồng chéo polygon tại cùng 1 điểm, đồng thời bảo đảm nếu cấu kiện va chạm ở nhiều vị trí khác nhau thì mỗi điểm đều có vùng highlight cục bộ tương ứng.
 >    - Hàm `clear_clash_analysis(doc, view)` gọi `sfm.Clear()` xóa sạch ngay lập tức trong 0.01 giây.
 
 ---
@@ -405,6 +405,14 @@ if __name__ == "__main__":
 │ 🔴 LỖI 10: DÙNG OverrideGraphicSettings ĐỂ HIỂN THỊ VA CHẠM THAY VÌ AVF                                  │
 │ ➔ NGUYÊN NHÂN: Ghi đè màu đối tượng làm bẩn file, mất View Template của người dùng và khó hoàn tác.     │
 │ ➔ GIẢI PHÁP: Luôn dùng SpatialFieldManager (AVF) cho hiển thị trực quan tạm thời (Transient Layer).      │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 11: KHAI BÁO THUỘC TÍNH SỰ KIỆN (CLICK="...") TRONG FILE XAML ĐỘNG GÂY XamlParseException          │
+│ ➔ NGUYÊN NHÂN: pyRevit nạp XAML động qua XamlReader.Load() (không có x:Class compiled code-behind).     │
+│    Việc khai báo Click="OnActionClick" trong XAML làm XamlReader văng lỗi và chặn mở giao diện.          │
+│ ➔ GIẢI PHÁP: TUYỆT ĐỐI KHÔNG viết Click="..." trong .xaml!                                               │
+│    - Với control độc lập: Gán trong Python __init__ (self.btnAction.Click += self.OnActionClick).        │
+│    - Với DataTemplate/ItemsControl: Gán bộ lắng nghe nổi bọt trên container cha trong __init__:           │
+│      self.itemsList.AddHandler(System.Windows.Controls.Button.ClickEvent, RoutedEventHandler(...))       │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -416,7 +424,16 @@ if __name__ == "__main__":
 graph TD
     Step1["1. Thiết kế UI Bố cục Card 3 tầng & Tiếng Anh 100%"] --> Step2["2. Tạo Icon 256x256 chuẩn SL bằng py lib/py/make_icon.py"]
     Step2 --> Step3["3. Tách Core Engine vào lib/py/, bọc SafeTransaction"]
-    Step3 --> Step4["4. Đối soát 10 Lỗi thường gặp tại Mục 4"]
-    Step4 --> Step5["5. Chạy py_compile kiểm tra 100% file không lỗi"]
-    Step5 --> Step6["✅ Nghiệm thu & Bàn giao sản phẩm"]
+    Step3 --> Step4["4. Đối soát 11 Lỗi thường gặp tại Mục 4"]
+    Step4 --> Step5["5. Chạy py_compile & XamlReader kiểm tra 100% file không lỗi"]
+    Step5 --> Step6["6. Commit & Push toàn bộ thay đổi lên GitHub"]
+    Step6 --> Step7["✅ Nghiệm thu & Bàn giao sản phẩm"]
 ```
+
+### 5.1. Quy Định Bắt Buộc Đồng Bộ GitHub (Mandatory Continuous GitHub Sync):
+> [!IMPORTANT]
+> **LUÔN LUÔN ĐẨY CODE LÊN GITHUB (ALWAYS PUSH TO GITHUB):**
+> Sau khi hoàn thành bất kỳ tính năng, sửa lỗi, chuẩn hóa giao diện hay refactor code:
+> 1. **Kiểm tra an toàn bảo mật:** Bảo đảm tuyệt đối các file bảo mật (`auth.py`, `MepananaAuth.dll`, `startup.py`, `hooks/`) **KHÔNG** bị thay đổi hoặc đưa vào commit ngoài ý muốn.
+> 2. **Kiểm tra cú pháp:** Chạy `py -m compileall -q lib mepanana.tab` bảo đảm 100% file không lỗi.
+> 3. **Thực thi đồng bộ ngay:** Thực hiện lệnh `git add`, `git commit -m "..."`, và `git push origin main`. Tuyệt đối không bao giờ để code hoàn thành ở local mà quên đẩy lên remote GitHub!

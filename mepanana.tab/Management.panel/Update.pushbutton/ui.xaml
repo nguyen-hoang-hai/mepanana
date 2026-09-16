@@ -43,7 +43,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Extension Version Information" Style="{DynamicResource SectionTitle}" Margin="0" />
                     <Border Grid.Column="1" Background="{DynamicResource SecondaryButtonBrush}" CornerRadius="6" Padding="8,3" VerticalAlignment="Center">
-                        <TextBlock Text="GitHub Sync" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="GitHub Sync" FontSize="11" Foreground="#0F172A" />
                     </Border>
                 </Grid>
 
@@ -58,12 +58,12 @@
                     <!-- Left Column: Installed Version -->
                     <StackPanel Grid.Column="0" Margin="0,0,14,0">
                         <Grid Margin="0,0,0,6">
-                            <TextBlock Text="INSTALLED VERSION" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="INSTALLED VERSION" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
                             <Border Background="#F1F5F9" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="LOCAL" FontSize="10" FontWeight="Bold" Foreground="#475569" />
+                                <TextBlock Text="LOCAL" FontSize="10" Foreground="#475569" />
                             </Border>
                         </Grid>
-                        <TextBlock Name="txtLocalCommit" Text="Commit: 000c469" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,2" />
+                        <TextBlock Name="txtLocalCommit" Text="Commit: 000c469" FontSize="14" Foreground="#0F172A" Margin="0,0,0,2" />
                         <TextBlock Name="txtLocalDate" Text="Installed: Fetching..." FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     </StackPanel>
 
@@ -73,12 +73,12 @@
                     <!-- Right Column: Cloud Release -->
                     <StackPanel Grid.Column="2" Margin="14,0,0,0">
                         <Grid Margin="0,0,0,6">
-                            <TextBlock Text="LATEST GITHUB RELEASE" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="LATEST GITHUB RELEASE" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
                             <Border Name="badgeCloud" Background="#EFF6FF" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Name="txtCloudBadge" Text="CHECKING..." FontSize="10" FontWeight="Bold" Foreground="#2563EB" />
+                                <TextBlock Name="txtCloudBadge" Text="CHECKING..." FontSize="10" Foreground="#2563EB" />
                             </Border>
                         </Grid>
-                        <TextBlock Name="txtCloudCommit" Text="Commit: Fetching..." FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,2" />
+                        <TextBlock Name="txtCloudCommit" Text="Commit: Fetching..." FontSize="14" Foreground="#0F172A" Margin="0,0,0,2" />
                         <TextBlock Name="txtCloudDate" Text="Checking latest commit..." FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                     </StackPanel>
                 </Grid>
@@ -109,7 +109,7 @@
             </Grid.RowDefinitions>
 
             <!-- Progress Bar -->
-            <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,10"
+            <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8"
                          Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100" />
 
             <!-- Status & Buttons -->
@@ -128,15 +128,15 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Check Updates Button -->
                     <Button Name="btnCheck" Style="{DynamicResource GhostButton}" Height="32" Padding="14,0" Margin="0,0,8,0"
-                            Content="Check Updates" Cursor="Hand" Click="OnCheckUpdatesClick" />
+                            Content="Check Updates" Cursor="Hand" />
 
                     <!-- Update Now Button (Solid Accent Blue) -->
                     <Button Name="btnUpdate" Style="{DynamicResource PrimaryButton}" Height="32" Padding="16,0" Margin="0,0,8,0"
-                            Content="🚀 Update Now" Cursor="Hand" IsEnabled="False" Click="OnUpdateClick" IsDefault="True" />
+                            Content="🚀 Update Now" Cursor="Hand" IsEnabled="False" IsDefault="True" />
 
                     <!-- Close Button -->
                     <Button Name="btnClose" Style="{DynamicResource GhostButton}" Height="32" Padding="14,0"
-                            Content="Close" Cursor="Hand" Click="OnCloseClick" IsCancel="True" />
+                            Content="Close" Cursor="Hand" IsCancel="True" />
                 </StackPanel>
             </Grid>
         </Grid>

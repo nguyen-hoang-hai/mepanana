@@ -58,7 +58,7 @@ try:
     from System.Windows.Threading import Dispatcher, DispatcherFrame, DispatcherPriority
     from System.Collections.ObjectModel import ObservableCollection
     from System.Collections.Generic import List as CSharpList
-    from Autodesk.Revit.DB import BuiltInCategory, ElementId, CategoryType
+    from Autodesk.Revit.DB import BuiltInCategory, ElementId, CategoryType, XYZ
     from Autodesk.Revit.DB.Analysis import SpatialFieldManager
     from pyrevit import forms, revit
     from py.core import get_doc, get_uidoc, SafeTransaction, get_id_value, safe_unicode
@@ -264,7 +264,10 @@ try:
                     "overlap_mm": c.OverlapMm,
                     "elev_diff_mm": c.ElevDiffMm,
                     "display_name": c.DisplayName,
-                    "detail_info": c.DetailInfo
+                    "detail_info": c.DetailInfo,
+                    "clash_x": c.ClashPoint.X if c.ClashPoint else None,
+                    "clash_y": c.ClashPoint.Y if c.ClashPoint else None,
+                    "clash_z": c.ClashPoint.Z if c.ClashPoint else None,
                 })
             data[key] = serialized
             with open(CACHE_FILE, 'w') as f:
@@ -289,9 +292,15 @@ try:
                 el2 = doc_obj.GetElement(ElementId(item["id2"]))
                 if not el1:
                     continue
+                clash_pt = None
+                if item.get("clash_x") is not None and item.get("clash_y") is not None and item.get("clash_z") is not None:
+                    try:
+                        clash_pt = XYZ(float(item["clash_x"]), float(item["clash_y"]), float(item["clash_z"]))
+                    except Exception:
+                        clash_pt = None
                 c_item = ClashItem(
                     el1, el2 if el2 else el1,
-                    None,
+                    clash_pt,
                     overlap_mm=item["overlap_mm"],
                     elev_diff_mm=item["elev_diff_mm"],
                     is_link1=False, is_link2=item["is_link"],
@@ -431,6 +440,15 @@ try:
             self.lstCategories.Items.Refresh()
             self._update_category_count()
 
+        def _get_extent_mm(self):
+            try:
+                val = float(str(self.txtExtent.Text).strip())
+                if val > 0:
+                    return val
+            except Exception:
+                pass
+            return 600.0
+
         def _get_selected_categories(self):
             return [get_id_value(c.CatId) for c in self.categories if c.IsChecked]
 
@@ -448,6 +466,9 @@ try:
                     show_warning("No elements selected. Please select elements in Revit or switch to 'Active View'.", "Empty Selection")
                     return
                 selected_ids = list(sel)
+
+            extent_val = self._get_extent_mm()
+            check_same = bool(self.chkIncludeHost.IsChecked) if hasattr(self, 'chkIncludeHost') else True
 
             self.btnAnalyze.IsEnabled = False
             self.btnClear.IsEnabled = False
@@ -470,13 +491,15 @@ try:
                     self.doc, self.active_view,
                     categories=cats,
                     selected_ids=selected_ids,
+                    extent_mm=extent_val,
+                    check_same_model=check_same,
                     progress_callback=update_prog
                 )
 
                 # 2. Render native Revit Analysis Results (1) on view (AVF)
                 update_prog(95, "Rendering visual clash markers on active view...")
                 with SafeTransaction(self.doc, "MEPANANA Visual Clash Analysis"):
-                    primitives_count = render_clashes_avf(self.doc, self.active_view, clashes)
+                    primitives_count = render_clashes_avf(self.doc, self.active_view, clashes, extent_mm=extent_val)
 
                 # 3. Save Persistent Cache
                 _save_cache(self.doc, self.active_view, clashes)
@@ -486,26 +509,44 @@ try:
                 link_count = sum(1 for c in clashes if c.IsLink)
                 host_count = len(clashes) - link_count
                 
-                self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
-                    len(clashes), host_count, link_count
+                if check_same:
+                    self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
+                        len(clashes), host_count, link_count
+                    )
+                else:
+                    self.txtClashCount.Text = "{} Total (🟢 {} Link | Host vs Link only)".format(
+                        len(clashes), link_count
+                    )
+
+                self.txtStatus.Text = "Analysis complete: {} clash elements highlighted in view{}.".format(
+                    len(clashes), "" if check_same else " (Host vs Link only)"
                 )
-                self.txtStatus.Text = "Analysis complete: {} clash elements highlighted in view.".format(len(clashes))
                 self.progressBar.Value = 100
                 do_events()
 
                 if len(clashes) > 0:
+                    if check_same:
+                        bullet_str = (
+                            "• 🔴 Primary Host Elements (Red)\n"
+                            "• 🟠 Secondary Host Elements in same model (Orange)\n"
+                            "• 🟢 Linked Model Elements (Green)\n\n"
+                        )
+                    else:
+                        bullet_str = (
+                            "• 🟢 Linked Model Elements (Green - Host vs Link only)\n\n"
+                        )
                     show_success(
-                        "Detected {} hard clashes:\n"
-                        "• 🔴 Primary Host Elements (Red)\n"
-                        "• 🟠 Secondary Host Elements in same model (Orange)\n"
-                        "• 🟢 Linked Model Elements (Green)\n\n"
+                        "Detected {} hard clashes:\n{}"
                         "Transient visual AVF markers have been rendered directly in Active View '{}'.".format(
-                            len(clashes), self.active_view.Name
+                            len(clashes), bullet_str, self.active_view.Name
                         ),
                         "Clash Analysis Complete"
                     )
                 else:
-                    show_info("Zero hard clashes detected in active view! Everything is clear.", "No Clashes")
+                    if not check_same:
+                        show_info("Zero hard clashes detected between Host and Linked models in active view!", "No Clashes")
+                    else:
+                        show_info("Zero hard clashes detected in active view! Everything is clear.", "No Clashes")
 
             except Exception as ex:
                 show_error(u"Clash Analysis Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()), "Analysis Error")

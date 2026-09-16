@@ -58,7 +58,7 @@
                     <!-- Wiring Style: Auto-detect -->
                     <TextBlock Text="Wiring Style:" Style="{DynamicResource FieldLabel}"/>
                     <Border Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
-                        <TextBlock Text="✨ Auto-Detect (Arc / Chamfer by CAD line)" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+                        <TextBlock Text="✨ Auto-Detect (Arc / Chamfer by CAD line)" FontSize="11.5" Foreground="#0F172A"/>
                     </Border>
 
                     <!-- Snap Radius -->
@@ -88,7 +88,7 @@
                     <!-- Auto-Detected Categories & Elements Box -->
                     <TextBlock Text="Active View Elements:" Style="{DynamicResource FieldLabel}"/>
                     <Border Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" MinHeight="68">
-                        <TextBlock Name="txtDeviceStatus" Text="Scanning active view categories..." FontSize="11.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" LineHeight="17"/>
+                        <TextBlock Name="txtDeviceStatus" Text="Scanning active view categories..." FontSize="11.5" Foreground="#0F172A" TextWrapping="Wrap" LineHeight="17"/>
                     </Border>
                 </StackPanel>
             </Border>
@@ -102,7 +102,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <ProgressBar Name="progressBar" Grid.Row="0" Height="6" Margin="0,2,0,10" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+                <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>

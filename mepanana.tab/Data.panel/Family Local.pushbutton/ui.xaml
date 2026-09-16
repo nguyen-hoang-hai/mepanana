@@ -39,7 +39,7 @@
                     <ColumnDefinition Width="Auto" /> <!-- Stats Badge -->
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="📁 Library Folder:" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,10,0" Foreground="{DynamicResource TextBrush}" />
+                <TextBlock Grid.Column="0" Text="📁 Library Folder:" VerticalAlignment="Center" Margin="4,0,10,0" Foreground="#0F172A" />
 
                 <TextBox Grid.Column="1" Name="txtFolderPath" Height="32" Padding="8,4" VerticalContentAlignment="Center" FontSize="12" Margin="0,0,8,0"
                          ToolTip="Path to your local or network Revit family library directory" />
@@ -52,7 +52,7 @@
                 <Border Grid.Column="5" Name="borderLibraryStats" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Height="32" Padding="12,0" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Width="7" Height="7" Fill="#16A34A" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Name="txtLibraryStats" Text="0 Families" FontSize="12" Foreground="#15803D" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Name="txtLibraryStats" Text="0 Families" FontSize="12" Foreground="#15803D" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -92,10 +92,10 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="1" Background="{DynamicResource SecondaryButtonBrush}" CornerRadius="10" Padding="5,1" Margin="4,0,0,0">
-                                        <TextBlock Text="{Binding Count}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" FontWeight="Bold" />
-                                    </Border>
+                                         <TextBlock Text="{Binding Count}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                                     </Border>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -139,7 +139,7 @@
                                 <Border Name="borderPill" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Height="34" Padding="10,0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Name="txtIcon" Text="🛡️" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                        <TextBlock Name="txtLabel" Text="Compatible Only" FontSize="11.5" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" />
+                                        <TextBlock Name="txtLabel" Text="Compatible Only" FontSize="11.5" Foreground="#475569" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -155,7 +155,7 @@
 
                     <!-- Found Counter Badge -->
                     <Border Grid.Column="2" Background="{DynamicResource SecondaryButtonBrush}" CornerRadius="6" Padding="10,0" Height="34" VerticalAlignment="Center">
-                        <TextBlock Name="txtFoundCount" Text="0 families found" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
+                        <TextBlock Name="txtFoundCount" Text="0 families found" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
                     </Border>
                 </Grid>
 
@@ -170,7 +170,7 @@
                                     <Border Name="borderPill" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Height="32" Padding="10,0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Name="txtIcon" Text="☑️" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                            <TextBlock Name="txtLabel" Text="Select All" FontSize="11.5" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" />
+                                            <TextBlock Name="txtLabel" Text="Select All" FontSize="11.5" Foreground="#475569" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -218,7 +218,7 @@
                             </Button.Style>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="📥" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                <TextBlock Name="txtBatchLoadTopCount" Text="Load Selected (0)" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Name="txtBatchLoadTopCount" Text="Load Selected (0)" FontSize="11.5" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -261,7 +261,7 @@
                                                         <CheckBox.Template>
                                                             <ControlTemplate TargetType="CheckBox">
                                                                 <Border Name="chkBorder" Width="20" Height="20" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1.5" CornerRadius="5">
-                                                                    <TextBlock Name="chkCheck" Text="✓" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
+                                                                    <TextBlock Name="chkCheck" Text="✓" FontSize="12" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
                                                                 </Border>
                                                                 <ControlTemplate.Triggers>
                                                                     <Trigger Property="IsChecked" Value="True">
@@ -280,9 +280,9 @@
                                             </Border>
 
                                             <!-- Family Title -->
-                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12.5"
+                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="12.5"
                                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding TooltipText}" Margin="0,0,0,5"
-                                                       Foreground="{DynamicResource TextBrush}" />
+                                                       Foreground="#0F172A" />
 
                                             <!-- Badges: Category on Left, Version & Size on Right -->
                                             <Grid Grid.Row="2" Margin="0,0,0,6">
@@ -293,23 +293,23 @@
 
                                                 <!-- Category Tag -->
                                                 <Border Grid.Column="0" Background="#EEF2FF" CornerRadius="4" Padding="5,1.5" HorizontalAlignment="Left" Margin="0,0,4,0">
-                                                    <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
+                                                    <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
                                                 </Border>
 
                                                 <!-- Version & Size Badges -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                                                     <Border Background="{Binding VersionBadgeBg}" CornerRadius="4" Padding="5,1.5" Margin="0,0,4,0">
-                                                        <TextBlock Text="{Binding VersionLabel}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" FontWeight="Bold" />
+                                                        <TextBlock Text="{Binding VersionLabel}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" />
                                                     </Border>
                                                     <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1.5">
-                                                        <TextBlock Text="{Binding FileSizeStr}" FontSize="9.5" Foreground="#64748B" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding FileSizeStr}" FontSize="9.5" Foreground="#64748B" />
                                                     </Border>
                                                 </StackPanel>
                                             </Grid>
 
                                             <!-- 1-Click Load CTA Button -->
                                             <Button Grid.Row="4" Tag="{Binding RfaPath}" Name="btnCardLoad"
-                                                    Content="📥 Load" Height="28" FontSize="11" FontWeight="SemiBold"
+                                                    Content="📥 Load" Height="28" FontSize="11"
                                                     Background="#EFF6FF" BorderBrush="#BFDBFE" Foreground="#1D4ED8" Cursor="Hand">
                                                 <Button.Resources>
                                                     <Style TargetType="Border">
@@ -349,7 +349,7 @@
                     <TextBlock Grid.Column="0" Name="txtStatus" Text="Ready." VerticalAlignment="Center"
                                FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" />
 
-                    <Button Grid.Column="1" Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="32" Padding="20,0" Margin="0" Cursor="Hand" />
+                    <Button Grid.Column="1" Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="32" Padding="20,0" Margin="0" Cursor="Hand" IsCancel="True" />
                 </Grid>
             </Grid>
         </Border>

@@ -1,4 +1,4 @@
-﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Placement Complete" Width="360" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
@@ -18,13 +18,13 @@
     </Window.Triggers>
 
     <StackPanel Margin="28">
-        <TextBlock Text="✓" FontSize="36" FontWeight="Bold"
+        <TextBlock Text="✓" FontSize="36"
                    Foreground="{DynamicResource SuccessBrush}"
                    HorizontalAlignment="Center" Margin="0,0,0,12"/>
 
         <TextBlock Text="Placement Complete"
-                   FontWeight="SemiBold" FontSize="15"
-                   Foreground="{DynamicResource TextBrush}"
+                   FontSize="15"
+                   Foreground="#0F172A"
                    HorizontalAlignment="Center" Margin="0,0,0,16"/>
 
         <!-- Stats row -->
@@ -39,7 +39,7 @@
 
                 <!-- Placed -->
                 <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                    <TextBlock Name="txtPlaced" Text="0" FontSize="28" FontWeight="Bold"
+                    <TextBlock Name="txtPlaced" Text="0" FontSize="28"
                                Foreground="{DynamicResource AccentBrush}"
                                HorizontalAlignment="Center"/>
                     <TextBlock Text="Placed" Foreground="{DynamicResource MutedTextBrush}"
@@ -51,7 +51,7 @@
 
                 <!-- Failed -->
                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                    <TextBlock Name="txtFailed" Text="0" FontSize="28" FontWeight="Bold"
+                    <TextBlock Name="txtFailed" Text="0" FontSize="28"
                                Foreground="{DynamicResource MutedTextBrush}"
                                HorizontalAlignment="Center"/>
                     <TextBlock Text="Failed" Foreground="{DynamicResource MutedTextBrush}"

@@ -94,7 +94,7 @@
                                     Style="{DynamicResource GhostButton}" Height="32"
                                     ToolTip="Add a new mapping rule">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="+" FontWeight="Bold" Margin="0,0,5,0"/>
+                                    <TextBlock Text="+" Margin="0,0,5,0"/>
                                     <TextBlock Text="Add"/>
                                 </StackPanel>
                             </Button>
@@ -102,7 +102,7 @@
                                     Style="{DynamicResource GhostButton}" Height="32"
                                     ToolTip="Remove selected rule">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="−" FontWeight="Bold" Margin="0,0,5,0"/>
+                                    <TextBlock Text="−" Margin="0,0,5,0"/>
                                     <TextBlock Text="Remove"/>
                                 </StackPanel>
                             </Button>
@@ -230,7 +230,7 @@
                 </Grid.RowDefinitions>
                 
                 <!-- Live Animated Progress Bar -->
-                <ProgressBar Name="progressBar" Grid.Row="0" Height="6" Margin="0,2,0,10"
+                <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8"
                              Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
                              
                 <!-- Status Text (Left) + Buttons (Right) -->

@@ -42,10 +42,10 @@
                 <StackPanel Orientation="Horizontal">
                     <RadioButton Name="rbTabBrowse" Content="🛒  Online Library"
                                  IsChecked="True" Style="{DynamicResource SegmentedRadioButton}"
-                                 Padding="18,6" FontWeight="SemiBold" FontSize="12.5" />
+                                 Padding="18,6" FontSize="12.5" />
                     <RadioButton Name="rbTabUpload" Content="☁️  Upload Family"
                                  IsChecked="False" Style="{DynamicResource SegmentedRadioButton}"
-                                 Padding="18,6" FontWeight="SemiBold" FontSize="12.5" Margin="4,0,0,0" />
+                                 Padding="18,6" FontSize="12.5" Margin="4,0,0,0" />
                 </StackPanel>
             </Border>
 
@@ -56,7 +56,7 @@
                         ToolTip="Mepanana Family Cloud connection status">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Name="dotCloudStatus" Width="7" Height="7" Fill="#16A34A" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Name="txtCloudStatus" Text="Cloud Online" FontSize="12" Foreground="#15803D" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Name="txtCloudStatus" Text="Cloud Online" FontSize="12" Foreground="#15803D" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
                 <Button Name="btnRefresh" Content="🔄 Refresh" Style="{DynamicResource GhostButton}" Height="32" Padding="14,0" VerticalAlignment="Center" />
@@ -97,9 +97,9 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     <Border Grid.Column="1" Background="{DynamicResource SecondaryButtonBrush}" CornerRadius="10" Padding="5,1" Margin="4,0,0,0">
-                                        <TextBlock Text="{Binding Count}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" FontWeight="Bold" />
+                                        <TextBlock Text="{Binding Count}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                                     </Border>
                                 </Grid>
                             </DataTemplate>
@@ -144,7 +144,7 @@
                                 <Border Name="borderPill" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Height="34" Padding="10,0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Name="txtIcon" Text="🛡️" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                        <TextBlock Name="txtLabel" Text="Compatible Only" FontSize="11.5" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" />
+                                        <TextBlock Name="txtLabel" Text="Compatible Only" FontSize="11.5" Foreground="#475569" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -163,7 +163,7 @@
 
                     <!-- Counter Status -->
                     <Border Grid.Column="2" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Height="34" Padding="10,0" VerticalAlignment="Center">
-                        <TextBlock Name="txtLibraryStatus" Text="0 Families Found" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}" FontWeight="SemiBold" FontSize="11.5" />
+                        <TextBlock Name="txtLibraryStatus" Text="0 Families Found" VerticalAlignment="Center" Foreground="{DynamicResource MutedTextBrush}" FontSize="11.5" />
                     </Border>
                 </Grid>
 
@@ -171,14 +171,14 @@
                 <Grid Grid.Row="1" Margin="0,0,0,10">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- Select All Pill Button -->
-                        <CheckBox Name="chkSelectAll" Click="OnSelectAllClick" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand"
+                        <CheckBox Name="chkSelectAll" VerticalAlignment="Center" Margin="0,0,8,0" Cursor="Hand"
                                   ToolTip="Select or Deselect all currently filtered families for batch operations">
                             <CheckBox.Template>
                                 <ControlTemplate TargetType="CheckBox">
                                     <Border Name="borderPill" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Height="32" Padding="10,0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Name="txtIcon" Text="☑️" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                            <TextBlock Name="txtLabel" Text="Select All" FontSize="11.5" FontWeight="SemiBold" Foreground="#475569" VerticalAlignment="Center" />
+                                            <TextBlock Name="txtLabel" Text="Select All" FontSize="11.5" Foreground="#475569" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -198,7 +198,6 @@
 
                         <!-- Batch Load Button (Sleek Pill Button) -->
                         <Button Name="btnBatchLoad"
-                                Click="OnBatchLoadClick"
                                 Height="32" Padding="12,0" Margin="0,0,8,0"
                                 IsEnabled="False" Cursor="Hand"
                                 ToolTip="Load all selected families into the active Revit project">
@@ -209,7 +208,6 @@
                                     <Setter Property="BorderThickness" Value="1" />
                                     <Setter Property="Foreground" Value="#1D4ED8" />
                                     <Setter Property="FontSize" Value="11.5" />
-                                    <Setter Property="FontWeight" Value="SemiBold" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
@@ -232,13 +230,12 @@
                             </Button.Style>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="📥" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                <TextBlock Name="txtBatchLoadCount" Text="Load (0)" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Name="txtBatchLoadCount" Text="Load (0)" FontSize="11.5" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
 
                         <!-- Batch Delete Button (Sleek Danger Pill Button) -->
                         <Button Name="btnBatchDelete"
-                                Click="OnBatchDeleteClick"
                                 Height="32" Padding="12,0"
                                 IsEnabled="False" Cursor="Hand"
                                 ToolTip="Delete all selected families from Cloud Library">
@@ -249,7 +246,6 @@
                                     <Setter Property="BorderThickness" Value="1" />
                                     <Setter Property="Foreground" Value="#DC2626" />
                                     <Setter Property="FontSize" Value="11.5" />
-                                    <Setter Property="FontWeight" Value="SemiBold" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
@@ -272,7 +268,7 @@
                             </Button.Style>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="🗑️" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                                <TextBlock Name="txtBatchDeleteCount" Text="Delete" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Name="txtBatchDeleteCount" Text="Delete" FontSize="11.5" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
@@ -309,14 +305,13 @@
                                                         <Image Source="{Binding ThumbnailImage}" Stretch="Uniform" Margin="4" />
                                                         <!-- Selection Checkbox Overlay -->
                                                         <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                  Click="OnCardCheckboxClick"
                                                                   HorizontalAlignment="Left" VerticalAlignment="Top"
                                                                   Margin="7" Cursor="Hand"
                                                                   ToolTip="Select family for batch loading / deletion">
                                                             <CheckBox.Template>
                                                                 <ControlTemplate TargetType="CheckBox">
                                                                     <Border Name="chkBorder" Width="20" Height="20" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1.5" CornerRadius="5">
-                                                                        <TextBlock Name="chkCheck" Text="✓" FontSize="12" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
+                                                                        <TextBlock Name="chkCheck" Text="✓" FontSize="12" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0,-1,0,0"/>
                                                                     </Border>
                                                                     <ControlTemplate.Triggers>
                                                                         <Trigger Property="IsChecked" Value="True">
@@ -335,7 +330,7 @@
                                                 </Border>
 
                                                 <!-- Family Title -->
-                                                <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="Bold" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,5" />
+                                                <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,0,5" />
 
                                                 <!-- Badges: Category on Left, Version & Size on Right -->
                                                 <Grid Grid.Row="2" Margin="0,0,0,6">
@@ -346,16 +341,16 @@
 
                                                     <!-- Category Tag -->
                                                     <Border Grid.Column="0" Background="#EEF2FF" CornerRadius="4" Padding="5,1.5" HorizontalAlignment="Left" Margin="0,0,4,0">
-                                                        <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
+                                                        <TextBlock Text="{Binding Category}" FontSize="9.5" Foreground="#4338CA" TextTrimming="CharacterEllipsis" ToolTip="{Binding Category}" />
                                                     </Border>
 
                                                     <!-- Version & Size Badges -->
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                                                         <Border Background="{Binding VersionBadgeBg}" CornerRadius="4" Padding="5,1.5" Margin="0,0,4,0" ToolTip="{Binding VersionToolTip}">
-                                                            <TextBlock Text="{Binding VersionBadgeText}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" FontWeight="Bold" />
+                                                            <TextBlock Text="{Binding VersionBadgeText}" FontSize="9.5" Foreground="{Binding VersionBadgeFg}" />
                                                         </Border>
                                                         <Border Background="#F1F5F9" CornerRadius="4" Padding="5,1.5">
-                                                            <TextBlock Text="{Binding FileSize}" FontSize="9.5" Foreground="#64748B" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding FileSize}" FontSize="9.5" Foreground="#64748B" />
                                                         </Border>
                                                     </StackPanel>
                                                 </Grid>
@@ -366,10 +361,9 @@
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="32" />
                                                     </Grid.ColumnDefinitions>
-                                                    <Button Grid.Column="0"
+                                                    <Button Name="btnLoadCard" Grid.Column="0"
                                                             CommandParameter="{Binding}"
-                                                            Click="OnLoadFamilyClick"
-                                                            Height="28" FontSize="11" FontWeight="SemiBold" Margin="0,0,4,0"
+                                                            Height="28" FontSize="11" Margin="0,0,4,0"
                                                             Background="{Binding ButtonBg}"
                                                             BorderBrush="{Binding ButtonBorder}"
                                                             Foreground="{Binding ButtonFg}"
@@ -380,14 +374,13 @@
                                                                 <Setter Property="CornerRadius" Value="6" />
                                                             </Style>
                                                         </Button.Resources>
-                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
                                                             <TextBlock Text="{Binding ButtonIcon}" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" />
-                                                            <TextBlock Text="{Binding ButtonText}" FontWeight="SemiBold" FontSize="11" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding ButtonText}" FontSize="11" VerticalAlignment="Center" />
                                                         </StackPanel>
                                                     </Button>
-                                                    <Button Grid.Column="1"
+                                                    <Button Name="btnDeleteCard" Grid.Column="1"
                                                             CommandParameter="{Binding}"
-                                                            Click="OnDeleteFamilyClick"
                                                             Height="28" Width="30"
                                                             Background="#FEE2E2" BorderBrush="#FCA5A5" BorderThickness="1"
                                                             Cursor="Hand" ToolTip="Delete from Cloud Library">
@@ -396,7 +389,7 @@
                                                                 <Setter Property="CornerRadius" Value="6" />
                                                             </Style>
                                                         </Button.Resources>
-                                                        <TextBlock Text="✕" FontSize="12" FontWeight="Bold" Foreground="#DC2626" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0"/>
+                                                        <TextBlock Text="✕" FontSize="12" Foreground="#DC2626" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" IsHitTestVisible="False"/>
                                                     </Button>
                                                 </Grid>
                                             </Grid>
@@ -412,9 +405,9 @@
                                 <Path Data="M 19.35,10.04 C 18.67,6.59 15.64,4 12,4 C 9.11,4 6.6,5.64 5.35,8.04 C 2.34,8.36 0,10.91 0,14 C 0,17.31 2.69,20 6,20 L 19,20 C 21.76,20 24,17.76 24,15 C 24,12.36 21.95,10.22 19.35,10.04 Z"
                                       Fill="#2563EB" Width="38" Height="26" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Name="txtEmptyTitle" Text="Cloud Library is Empty" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBlock Name="txtEmptyTitle" Text="Cloud Library is Empty" FontSize="16" Foreground="#0F172A" HorizontalAlignment="Center" Margin="0,0,0,6"/>
                             <TextBlock Name="txtEmptySubtitle" Text="No Revit families uploaded yet. Upload your first .rfa family to get started!" FontSize="12.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="400" TextWrapping="Wrap" Margin="0,0,0,16"/>
-                            <Button Name="btnEmptyUpload" Content="☁️  Upload Family Now" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" HorizontalAlignment="Center" Cursor="Hand" Click="OnEmptyUploadClick"/>
+                            <Button Name="btnEmptyUpload" Content="☁️  Upload Family Now" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" HorizontalAlignment="Center" Cursor="Hand"/>
                         </StackPanel>
 
                         <!-- Syncing / Loading Overlay -->
@@ -423,7 +416,7 @@
                                 <Path Data="M 12,4 V 1 L 8,5 L 12,9 V 6 C 15.31,6 18,8.69 18,12 C 18,13.01 17.75,13.97 17.3,14.8 L 18.76,16.26 C 19.54,15.01 20,13.56 20,12 C 20,7.58 16.42,4 12,4 Z M 12,18 C 8.69,18 6,15.31 6,12 C 6,10.99 6.25,10.03 6.7,9.2 L 5.24,7.74 C 4.46,8.99 4,10.44 4,12 C 4,16.42 7.58,20 12,20 V 23 L 16,19 L 12,15 V 18 Z"
                                       Fill="#16A34A" Width="34" Height="34" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="Syncing with Cloud..." FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBlock Text="Syncing with Cloud..." FontSize="16" Foreground="#0F172A" HorizontalAlignment="Center" Margin="0,0,0,6"/>
                             <TextBlock Text="Fetching latest Revit families and metadata from cloud storage..." FontSize="12.5" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="380" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Grid>
@@ -454,7 +447,7 @@
 
                             <!-- Live Auto-Detection Pill -->
                             <Border Name="borderDetectInfo" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,4,0,0" Visibility="Collapsed">
-                                <TextBlock Name="txtDetectInfo" Text="⚡ Auto-detected: Category: Generic Models | Revit 2022" FontSize="11.5" Foreground="#166534" FontWeight="SemiBold" />
+                                <TextBlock Name="txtDetectInfo" Text="⚡ Auto-detected: Category: Generic Models | Revit 2022" FontSize="11.5" Foreground="#166534" />
                             </Border>
                         </StackPanel>
                     </Border>
@@ -487,7 +480,7 @@
                     </Border>
 
                     <!-- Card 3: Upload Action Button -->
-                    <Button Name="btnExecuteUpload" Content="☁️ Upload Family to Cloud Library" Style="{DynamicResource PrimaryButton}" Height="42" FontSize="13.5" FontWeight="Bold" Margin="0,4,0,0" />
+                    <Button Name="btnExecuteUpload" Content="☁️ Upload Family to Cloud Library" Style="{DynamicResource PrimaryButton}" Height="42" FontSize="13.5" Margin="0,4,0,0" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>
@@ -500,9 +493,16 @@
             </Grid.RowDefinitions>
 
             <!-- GEMINI.md Unified Progress Bar Standard -->
-            <ProgressBar Name="progressBar" Grid.Row="0" Height="3" Margin="0,0,0,6" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+            <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
-            <TextBlock Name="txtStatus" Grid.Row="1" Text="Ready" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Name="txtStatus" Grid.Column="0" Text="Ready" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <Button Name="btnClose" Grid.Column="1" Content="Close" Style="{DynamicResource GhostButton}" Height="30" Padding="18,0" IsCancel="True" />
+            </Grid>
         </Grid>
 
     </Grid>

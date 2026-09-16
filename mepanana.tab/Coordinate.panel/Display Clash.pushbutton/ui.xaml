@@ -26,34 +26,61 @@
             <RowDefinition Height="Auto"/>  <!-- 2: Footer Action Bar -->
         </Grid.RowDefinitions>
 
-        <!-- ── Top Card 0: Scope & Color Legend ───────────────────────────── -->
+        <!-- ── Top Card 0: Scope, Extent, Options & Legend ────────────────── -->
         <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12" Padding="14,10">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="16"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <TextBlock Grid.Column="0" Text="Analysis Scope:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <ComboBox Grid.Column="1" Name="cmbScope" Height="32">
-                    <ComboBoxItem Content="Active View (All Elements)"/>
-                    <ComboBoxItem Content="Selected Elements Only"/>
-                </ComboBox>
+                <!-- Row 0: Analysis Scope & Highlight Extent -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- Color Legend Badges -->
-                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="#20EF4444" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
-                        <TextBlock Text="🔴 Host 1 (Red)" FontSize="11" Foreground="#EF4444"/>
-                    </Border>
-                    <Border Background="#20F59E0B" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
-                        <TextBlock Text="🟠 Host 2 (Orange)" FontSize="11" Foreground="#D97706"/>
-                    </Border>
-                    <Border Background="#2022C55E" CornerRadius="4" Padding="7,3">
-                        <TextBlock Text="🟢 Link (Green)" FontSize="11" Foreground="#16A34A"/>
-                    </Border>
-                </StackPanel>
+                    <TextBlock Grid.Column="0" Text="Analysis Scope:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox Grid.Column="1" Name="cmbScope" Height="32">
+                        <ComboBoxItem Content="Active View (All Elements)"/>
+                        <ComboBoxItem Content="Selected Elements Only"/>
+                    </ComboBox>
+
+                    <TextBlock Grid.Column="3" Text="Highlight Extent:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBox Name="txtExtent" Text="600" Width="55" Height="32" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                        <TextBlock Text="mm" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Row 2: Same Model Checkbox & Color Legend Badges -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox Grid.Column="0" Name="chkIncludeHost" Content="Check Same Model (Host vs Host)" IsChecked="True" VerticalAlignment="Center"/>
+
+                    <!-- Color Legend Badges -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="#20EF4444" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
+                            <TextBlock Text="🔴 Host 1 (Red)" FontSize="11" Foreground="#EF4444"/>
+                        </Border>
+                        <Border Background="#20F59E0B" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
+                            <TextBlock Text="🟠 Host 2 (Orange)" FontSize="11" Foreground="#D97706"/>
+                        </Border>
+                        <Border Background="#2022C55E" CornerRadius="4" Padding="7,3">
+                            <TextBlock Text="🟢 Link (Green)" FontSize="11" Foreground="#16A34A"/>
+                        </Border>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
 
@@ -164,7 +191,7 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <ProgressBar Name="progressBar" Grid.Row="0" Height="6" Margin="0,2,0,10" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+                <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>

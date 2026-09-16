@@ -34,7 +34,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Button x:Name="btnPickMain" Content="🎯 Pick Main Pipe" Style="{DynamicResource GhostButton}" Height="32" Padding="8,0" />
-                        <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No main pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="txtMainPipeStatus" Grid.Column="1" Text="No main pipe selected" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
                     </Grid>
 
                     <!-- Select Sidewall Sprinklers -->
@@ -44,7 +44,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Button x:Name="btnSelectSprinklers" Content="⛶ Select Heads" Style="{DynamicResource GhostButton}" Height="32" Padding="8,0" />
-                        <TextBlock x:Name="txtSprinklerStatus" Grid.Column="1" Text="0 sidewall heads selected" VerticalAlignment="Center" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{DynamicResource MutedTextBrush}" />
+                        <TextBlock x:Name="txtSprinklerStatus" Grid.Column="1" Text="0 sidewall heads selected" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedTextBrush}" />
                     </Grid>
                 </StackPanel>
             </Border>
@@ -58,7 +58,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="2. CONNECTION METHOD" Style="{DynamicResource SectionTitle}" Margin="0" VerticalAlignment="Center" />
-                        <Button x:Name="btnStandards" Grid.Column="1" Content="📖 NFPA 13 &amp; TCVN 7336" Style="{DynamicResource GhostButton}" Height="26" Padding="10,2" FontSize="10.5" FontWeight="Bold" Cursor="Hand" ToolTip="Click to view detailed NFPA 13 and TCVN 7336 code clauses for this mode" />
+                        <Button x:Name="btnStandards" Grid.Column="1" Content="📖 NFPA 13 &amp; TCVN 7336" Style="{DynamicResource GhostButton}" Height="26" Padding="10,2" FontSize="10.5" Cursor="Hand" ToolTip="Click to view detailed NFPA 13 and TCVN 7336 code clauses for this mode" />
                     </Grid>
 
                     <!-- Single Connection Mode Info Card -->
@@ -70,7 +70,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="📐" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Rigid Steel Wall Drop (90° Horizontal Wall Elbow)" FontWeight="Bold" Foreground="#3B82F6" FontSize="12.5" />
+                                <TextBlock Text="Rigid Steel Wall Drop (90° Horizontal Wall Elbow)" Foreground="#3B82F6" FontSize="12.5" />
                                 <TextBlock Text="Vertical rigid steel drop from ceiling turning 90° into sidewall deflector per NFPA 13 / TCVN 7336" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0" />
                             </StackPanel>
                         </Grid>
@@ -114,7 +114,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="3. LIVE SCHEMATIC PREVIEW" Style="{DynamicResource SectionTitle}" Margin="0" VerticalAlignment="Center" />
                     <Border Grid.Column="1" Background="{DynamicResource SecondaryButtonBrush}" CornerRadius="4" Padding="6,2">
-                        <TextBlock x:Name="txtPreviewTag" Text="⚡ Mode: Rigid Wall Drop" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                        <TextBlock x:Name="txtPreviewTag" Text="⚡ Mode: Rigid Wall Drop" FontSize="10.5" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
                     </Border>
                 </Grid>
 
@@ -133,16 +133,18 @@
                 </Grid.RowDefinitions>
                 
                 <!-- Live Animated Progress Bar -->
-                <ProgressBar x:Name="progressBar" Grid.Row="0" Height="6" Margin="0,2,0,10"
+                <ProgressBar x:Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8"
                              Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
                              
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Button x:Name="btnClose" Grid.Column="0" Content="Close" Style="{DynamicResource GhostButton}" Height="36" MinWidth="90" Margin="0,0,10,0" IsCancel="True" />
-                    <Button x:Name="btnGenerate" Grid.Column="1" Content="🚀 CREATE SIDEWALL SPRINKLERS" Style="{DynamicResource PrimaryButton}" Height="36" IsDefault="True" />
+                    <TextBlock x:Name="txtStatus" Grid.Column="0" Text="Ready" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    <Button x:Name="btnClose" Grid.Column="1" Content="Close" Style="{DynamicResource GhostButton}" Height="34" MinWidth="80" Margin="0,0,8,0" IsCancel="True" />
+                    <Button x:Name="btnGenerate" Grid.Column="2" Content="🚀 CREATE SIDEWALL SPRINKLERS" Style="{DynamicResource PrimaryButton}" Height="34" Padding="16,0" IsDefault="True" />
                 </Grid>
             </Grid>
         </Border>

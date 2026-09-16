@@ -26,6 +26,9 @@
                     <ColumnDefinition Width="16"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="70"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -41,7 +44,9 @@
 
                 <TextBlock Grid.Column="5" Text="mm" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource MutedTextBrush}" FontSize="11.5"/>
 
-                <Button Grid.Column="6" Name="btnScan" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" Content="🔍 Scan Clashes"/>
+                <CheckBox Grid.Column="7" Name="chkIncludeHost" Content="Check Same Model (Host vs Host)" IsChecked="True" VerticalAlignment="Center"/>
+
+                <Button Grid.Column="9" Name="btnScan" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" Content="🔍 Scan Clashes"/>
             </Grid>
         </Border>
 
@@ -158,11 +163,11 @@
                                     </Grid>
 
                                     <!-- Progress Bar -->
-                                    <ProgressBar Name="progResolution" Height="5" Margin="0,0,0,10" Minimum="0" Maximum="100" Value="0"
+                                    <ProgressBar Name="progResolution" Height="4" Margin="0,0,0,8" Minimum="0" Maximum="100" Value="0"
                                                  Foreground="#10B981" Background="#E2E8F0" BorderThickness="0">
                                         <ProgressBar.Resources>
                                             <Style TargetType="Border">
-                                                <Setter Property="CornerRadius" Value="2.5"/>
+                                                <Setter Property="CornerRadius" Value="2"/>
                                             </Style>
                                         </ProgressBar.Resources>
                                     </ProgressBar>

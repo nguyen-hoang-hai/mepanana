@@ -32,10 +32,10 @@
             <StackPanel Orientation="Horizontal">
                 <RadioButton Name="rbTabExport" Content="📤  Export to Excel"
                              IsChecked="True" Style="{DynamicResource SegmentedRadioButton}"
-                             Padding="20,8" FontWeight="SemiBold" FontSize="13"/>
+                             Padding="20,8" FontSize="13"/>
                 <RadioButton Name="rbTabImport" Content="📥  Import from Excel"
                              IsChecked="False" Style="{DynamicResource SegmentedRadioButton}"
-                             Padding="20,8" FontWeight="SemiBold" FontSize="13" Margin="4,0,0,0"/>
+                             Padding="20,8" FontSize="13" Margin="4,0,0,0"/>
             </StackPanel>
         </Border>
 
@@ -124,7 +124,7 @@
                     </Grid.RowDefinitions>
                     
                     <!-- Live Animated Progress Bar -->
-                    <ProgressBar Name="progressExport" Grid.Row="0" Height="6" Margin="0,2,0,10"
+                    <ProgressBar Name="progressExport" Grid.Row="0" Height="4" Margin="0,0,0,8"
                                  Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
                     <Grid Grid.Row="1">
@@ -132,7 +132,9 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="8"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
@@ -143,9 +145,12 @@
                         <Button Grid.Column="2" Name="btnBrowseFolder" Content="📂 Browse Folder..."
                                 Style="{DynamicResource GhostButton}" Height="34" Width="140" Margin="10,0,0,0"/>
 
-                        <Button Grid.Column="4" Name="btnExport" Content="📤 Export to Excel"
-                                Style="{DynamicResource PrimaryButton}" Height="34" Width="170"
-                                FontWeight="SemiBold" FontSize="13"/>
+                        <Button Grid.Column="4" Name="btnClose" Content="Close"
+                                Style="{DynamicResource GhostButton}" Height="34" Width="80" IsCancel="True"/>
+
+                        <Button Grid.Column="6" Name="btnExport" Content="📤 Export to Excel"
+                                Style="{DynamicResource PrimaryButton}" Height="34" Width="160"
+                                FontSize="13"/>
                     </Grid>
                 </Grid>
             </Border>
@@ -179,7 +184,7 @@
 
                     <Button Grid.Column="4" Name="btnPreviewDiff" Content="🔍 Preview Changes"
                             Style="{DynamicResource GhostButton}" Height="34" Width="160"
-                            FontWeight="SemiBold" FontSize="13"/>
+                            FontSize="13"/>
                 </Grid>
             </Border>
 
@@ -205,15 +210,15 @@
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
                             <Border Background="#FEF3C7" CornerRadius="4" Padding="10,4" Margin="0,0,8,0">
                                 <TextBlock Name="txtChangesBadge" Text="🟡 0 Changes"
-                                           Foreground="#92400E" FontSize="12" FontWeight="SemiBold"/>
+                                           Foreground="#92400E" FontSize="12"/>
                             </Border>
                             <Border Background="#F1F5F9" CornerRadius="4" Padding="10,4" Margin="0,0,8,0">
                                 <TextBlock Name="txtUnchangedBadge" Text="🟢 0 Unchanged"
-                                           Foreground="#475569" FontSize="12" FontWeight="SemiBold"/>
+                                           Foreground="#475569" FontSize="12"/>
                             </Border>
                             <Border Background="#FEE2E2" CornerRadius="4" Padding="10,4">
                                 <TextBlock Name="txtReadonlyBadge" Text="🔒 0 Read-Only"
-                                           Foreground="#991B1B" FontSize="12" FontWeight="SemiBold"/>
+                                           Foreground="#991B1B" FontSize="12"/>
                             </Border>
                         </StackPanel>
                     </Grid>
@@ -248,13 +253,15 @@
                     </Grid.RowDefinitions>
                     
                     <!-- Live Animated Progress Bar -->
-                    <ProgressBar Name="progressImport" Grid.Row="0" Height="6" Margin="0,2,0,10"
+                    <ProgressBar Name="progressImport" Grid.Row="0" Height="4" Margin="0,0,0,8"
                                  Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Name="btnCloseImport" Content="Close"
+                                Style="{DynamicResource GhostButton}" Height="34" Width="80" Margin="0,0,8,0" IsCancel="True"/>
                         <Button Name="btnApplyImport" Content="📥 Apply Import to Revit"
-                                Style="{DynamicResource PrimaryButton}" Height="34" Width="200"
-                                FontWeight="SemiBold" FontSize="13" IsEnabled="False"/>
+                                Style="{DynamicResource PrimaryButton}" Height="34" Width="180"
+                                FontSize="13" IsEnabled="False"/>
                     </StackPanel>
                 </Grid>
             </Border>

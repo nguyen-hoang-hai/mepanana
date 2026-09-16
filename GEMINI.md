@@ -83,11 +83,44 @@ All tools with background or batch operations (CAD conversion, wiring, piping, c
    - 🔴 **Red (`#EF4444` / `Color(239, 68, 68)`)**: Primary Host Model element.
    - 🟠 **Orange (`#F59E0B` / `Color(245, 158, 11)`)**: Secondary Host Model element (when 2 elements in the **SAME MODEL** clash).
    - 🟢 **Green (`#22C55E` / `Color(34, 197, 94)`)**: Linked Model element.
-3. **Full Element Geometry**:
-   - Extrude full element footprint from $P_0$ to $P_1$ with actual element width in **Counter-Clockwise (CCW)** vertex order for valid Revit extrusion solid faces.
+3. **Localized Element Footprint Geometry (Non-cluttering)**:
+   - Extrude a localized footprint around the clash intersection point $(P_{clash} \pm \text{extent})$ with actual element width in **Counter-Clockwise (CCW)** vertex order for valid Revit extrusion solid faces.
+   - Default extent is $\pm 600\text{ mm}$ ($\approx 1.2\text{ m}$ total segment length), clamped to element endpoints $[P_0, P_1]$.
+   - This prevents plan-wide visual clutter across entire runs of pipes, ducts, cable trays, and walls.
 
 ## ⚙️ MANDATORY REVIT 2022+ API COMPATIBILITY CHECKLIST
 1. **ElementId**: Always use `elem.Id.IntegerValue` (or `get_id_value()` in `core.py`). **NEVER** use `.Value` (Revit 2024+ only, crashes on Revit 2022).
 2. **DWG / PDF Export**: Use `ExportPaperFormat.UseSheetSize` (Revit 2022). **NEVER** use `ExportPaperFormat.Default` (does not exist in Revit 2022).
 3. **Collector Scoping**: Prefer view-scoped `FilteredElementCollector(doc, view.Id)` over document-scoped collectors. Always chain Quick Filters before Slow Filters.
 4. **Transaction Integrity**: Group atomic operations into a single `SafeTransaction(doc, "Action")` for clean 1-step undo (Ctrl + Z).
+
+## 🖱️ MANDATORY DYNAMIC XAML EVENT HANDLING (ZERO EVENT ATTRIBUTES IN XAML)
+1. **Never Declare Event Attributes in `.xaml`**:
+   - **STRICTLY PROHIBITED:** Declaring `Click="..."`, `Checked="..."`, `TextChanged="..."` directly inside `.xaml` files.
+   - **Root Cause:** Dynamic XAML loaded via `XamlReader.Load()` (pyRevit's `forms.WPFWindow`) has no compiled `x:Class` code-behind. Any event attribute causes an immediate `XamlParseException` (`Failed to create a 'Click' from the text '...'`), crashing window initialization.
+2. **Standard Event Wiring Pattern**:
+   - **Standalone Controls**: Wire in Python `__init__`:
+     `self.btnAction.Click += self.OnActionClick`
+   - **Dynamic Card / ItemsControl Templates**: Attach routed event handlers to the parent container in Python `__init__`:
+     ```python
+     self.itemsControl.AddHandler(
+         System.Windows.Controls.Button.ClickEvent,
+         System.Windows.RoutedEventHandler(self.OnCardButtonClick)
+     )
+     self.itemsControl.AddHandler(
+         System.Windows.Controls.CheckBox.ClickEvent,
+         System.Windows.RoutedEventHandler(self.OnCardCheckboxClick)
+     )
+     ```
+     Always set `IsHitTestVisible="False"` on inner TextBlock/StackPanel elements of template buttons so `args.Source` bubbles cleanly to the button.
+
+## 🚀 MANDATORY CONTINUOUS GITHUB SYNC (ALWAYS PUSH TO GITHUB)
+1. **Always Sync to GitHub**:
+   - Whenever any task, feature implementation, bug fix, UI enhancement, or refactoring is completed and verified:
+     **ALWAYS** stage, commit, and push changes to GitHub (`git add`, `git commit`, `git push origin <branch>`). Never leave working code uncommitted or unpushed at the end of a session or task.
+2. **Pre-Push Verification Standard**:
+   - Verify that 100% of Python files compile cleanly (`py -m compileall -q lib mepanana.tab`).
+   - Verify that 0 security files are touched (`lib/py/auth.py`, `lib/py/MepananaAuth.dll`, `startup.py`, `hooks/`).
+   - Verify that all `.xaml` files adhere strictly to the **Zero Bold Rule** and **Zero Inline Event Attributes Rule**.
+3. **Commit Convention**:
+   - Use clear, professional conventional commit messages (e.g. `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`).

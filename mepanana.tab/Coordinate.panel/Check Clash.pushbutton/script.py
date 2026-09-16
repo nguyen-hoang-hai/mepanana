@@ -570,7 +570,8 @@ try:
             """Displays branded MEPANANA alert dialog properly parented to this window."""
             try:
                 from py.ui import _show_custom_dialog
-                return _show_custom_dialog(message, title=title, dialog_type=dialog_type, owner=self, topmost=False)
+                is_topmost = bool(getattr(self, "Topmost", False))
+                return _show_custom_dialog(message, title=title, dialog_type=dialog_type, owner=self, topmost=is_topmost)
             except Exception:
                 return forms.alert(message, title=title, warn_icon=(dialog_type == "ERROR"))
 
@@ -599,6 +600,7 @@ try:
                     sel = uidoc.Selection.GetElementIds()
                     if not sel or len(sel) == 0:
                         self.txtStatus.Text = "\u26a0\ufe0f No elements selected. Please select elements in Revit first."
+                        self._show_dialog("No elements selected. Please select elements in Revit or switch to 'Active View'.", title="Empty Selection", dialog_type="WARNING")
                         return
                     selected_ids = list(sel)
 
@@ -621,10 +623,13 @@ try:
                     except Exception:
                         pass
 
+                check_same = bool(self.chkIncludeHost.IsChecked) if hasattr(self, 'chkIncludeHost') else True
+
                 clashes = scan_clashes(
                     doc, uidoc.ActiveView,
                     categories=cats,
                     selected_ids=selected_ids,
+                    check_same_model=check_same,
                     progress_callback=update_prog,
                 )
 
@@ -646,9 +651,15 @@ try:
 
                 if clashes:
                     self.dgClashes.SelectedIndex = 0
-                    self.txtStatus.Text = "Found {} hard clashes. Double-click row to inspect in 3D.".format(len(clashes))
+                    mode_str = "" if check_same else " (Host vs Link only)"
+                    self.txtStatus.Text = "Found {} hard clashes{}. Double-click row to inspect in 3D.".format(len(clashes), mode_str)
                 else:
-                    self.txtStatus.Text = "Zero clashes detected! All inspected MEP systems are clear."
+                    if not check_same:
+                        msg = "Zero hard clashes detected between Host and Linked models in active view!"
+                    else:
+                        msg = "Zero hard clashes detected in active view! Everything is clear."
+                    self.txtStatus.Text = msg
+                    self._show_dialog(msg, title="No Clashes", dialog_type="INFO")
 
             except Exception as ex:
                 err_msg = safe_unicode(ex)

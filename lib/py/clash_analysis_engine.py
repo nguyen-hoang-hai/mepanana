@@ -508,16 +508,21 @@ def get_point_device_corners(bb_world, padding_ft=0.08):
     return (pA, pB, pC, pD)
 
 
-def get_full_element_corners(data, min_half_w_ft=0.25):
+def get_clash_element_corners(data, clash_center=None, extent_mm=600, min_half_w_ft=0.25):
     """
-    Computes a counter-clockwise 4-corner polygon representing the ENTIRE element
-    footprint on the floor plan (XY plane) for AVF rendering:
+    Computes a counter-clockwise 4-corner polygon representing the localized element
+    footprint around the clash intersection point on the XY plane for AVF rendering:
     - Linear elements (Pipes, Ducts, Cable Trays, Conduits, Walls):
-      Extends along the full centerline from p0 to p1 with the element's actual width.
+      Extends along the centerline from (clash_center - extent) to (clash_center + extent)
+      with the element's actual width, clamped to the element's true endpoints [p0, p1].
+      This avoids plan-wide clutter while clearly displaying the element's orientation and cross-section.
     - Point/device elements (Fittings, Equipment, Fixtures, Columns):
-      Uses bounding box footprint with a slight margin.
+      Uses snug bounding box footprint with padding.
     """
     try:
+        if not data:
+            return None
+
         if data.get("has_curve") and data.get("p0") and data.get("p1"):
             p0 = data["p0"]
             p1 = data["p1"]
@@ -532,13 +537,40 @@ def get_full_element_corners(data, min_half_w_ft=0.25):
                 # Normal vector pointing 90 degrees counter-clockwise
                 nx = -uy
                 ny = ux
+
+                extent_ft = mm_to_ft(extent_mm) if (extent_mm and extent_mm > 0) else 2.0
+                # Ensure extent is at least 1.5x width so wide ducts look like clean segments
+                eff_extent = max(eff_w * 1.5, extent_ft)
+
+                if clash_center is not None:
+                    # Project clash_center onto 2D centerline p0 -> p1
+                    s_clash = (clash_center.X - p0.X) * ux + (clash_center.Y - p0.Y) * uy
+                    s_min = max(0.0, s_clash - eff_extent)
+                    s_max = min(length, s_clash + eff_extent)
+
+                    # If clamped at one end, try to maintain total length 2 * eff_extent if possible
+                    target_len = min(length, 2.0 * eff_extent)
+                    if s_max - s_min < target_len:
+                        if s_min == 0.0:
+                            s_max = min(length, target_len)
+                        elif s_max == length:
+                            s_min = max(0.0, length - target_len)
+                else:
+                    s_min = 0.0
+                    s_max = length
+
+                # Compute 2D segment start (q0) and end (q1)
+                q0_x = p0.X + ux * s_min
+                q0_y = p0.Y + uy * s_min
+                q1_x = p0.X + ux * s_max
+                q1_y = p0.Y + uy * s_max
                 
                 # 4 corners in counter-clockwise order:
                 # pA = Start-Right, pB = End-Right, pC = End-Left, pD = Start-Left
-                pA = (p0.X - nx * eff_w, p0.Y - ny * eff_w)
-                pB = (p1.X - nx * eff_w, p1.Y - ny * eff_w)
-                pC = (p1.X + nx * eff_w, p1.Y + ny * eff_w)
-                pD = (p0.X + nx * eff_w, p0.Y + ny * eff_w)
+                pA = (q0_x - nx * eff_w, q0_y - ny * eff_w)
+                pB = (q1_x - nx * eff_w, q1_y - ny * eff_w)
+                pC = (q1_x + nx * eff_w, q1_y + ny * eff_w)
+                pD = (q0_x + nx * eff_w, q0_y + ny * eff_w)
                 return (pA, pB, pC, pD)
                 
         # Point-based elements (Fittings, Equipment, Fixtures) or zero-length
@@ -550,7 +582,12 @@ def get_full_element_corners(data, min_half_w_ft=0.25):
     return None
 
 
-def check_clash_between_elements(data1, data2):
+def get_full_element_corners(data, min_half_w_ft=0.25):
+    """Legacy alias for get_clash_element_corners with full extent."""
+    return get_clash_element_corners(data, clash_center=None, extent_mm=0, min_half_w_ft=min_half_w_ft)
+
+
+def check_clash_between_elements(data1, data2, extent_mm=600):
     """
     Checks if two elements physically clash using Revit Native 3D Solid Boolean Interference Check.
     Returns ClashItem or None.
@@ -604,12 +641,12 @@ def check_clash_between_elements(data1, data2):
     is_link2 = data2.get("is_link", False)
     link_name = data1.get("link_name") or data2.get("link_name", "")
     
-    # ── Compute Full Element Footprint Polygon for Host Element 1 (RED) ───────
-    host_band = get_full_element_corners(data1)
+    # ── Compute Localized Element Footprint Polygon around Clash Point for Host Element 1 (RED) ───────
+    host_band = get_clash_element_corners(data1, clash_center=clash_center, extent_mm=extent_mm)
     host_top_z = (max(p0.Z, p1.Z) + data1["half_h"]) if data1.get("has_curve") else bb1.Max.Z
     
-    # ── Compute Full Element Footprint Polygon for Element 2 (GREEN if Link, RED if Host 2) ──
-    link_band = get_full_element_corners(data2)
+    # ── Compute Localized Element Footprint Polygon around Clash Point for Element 2 (GREEN if Link, ORANGE if Host 2) ──
+    link_band = get_clash_element_corners(data2, clash_center=clash_center, extent_mm=extent_mm)
     link_top_z = (max(q0.Z, q1.Z) + data2["half_h"]) if data2.get("has_curve") else bb2.Max.Z
     
     return ClashItem(
@@ -624,10 +661,18 @@ def check_clash_between_elements(data1, data2):
 
 # ── Broad-Phase Clash Scanner (Host vs Host, Host vs Link - NEVER Link vs Link)
 
-def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callback=None):
+def scan_clashes(doc, view, categories=None, selected_ids=None, extent_mm=600, check_same_model=True, progress_callback=None):
     """
     Scans Host elements from user-selected categories, and cross-checks against other Host elements
     and ALL categories in Linked Models within the Active View using Native 3D Solid Boolean Intersection.
+    
+    Parameters:
+    - categories: List of BuiltInCategory or CategoryId integers to inspect for Host elements.
+    - selected_ids: Optional list of ElementId to limit inspection strictly to user selection.
+    - extent_mm: Longitudinal highlight distance (default 600mm) around clash center for AVF display.
+    - check_same_model: Boolean (default True). If True, checks Host vs Host clashes within the same model.
+      If False, skips Host vs Host clashes and strictly checks Host vs Link.
+    - progress_callback: Optional callable(percent, message) for real-time UI feedback.
     
     When selected_ids is provided:
     - Tight Selection Boundary is computed (+ 1.0m buffer).
@@ -697,7 +742,7 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
 
     # If Selected Mode: Also collect other nearby Host elements in target_bounds to check against selected items!
     other_host_data_list = []
-    if selected_ids and len(selected_ids) > 0 and target_bounds:
+    if check_same_model and selected_ids and len(selected_ids) > 0 and target_bounds:
         for cat_int in cat_ints:
             try:
                 col = FilteredElementCollector(doc, view.Id).OfCategoryId(ElementId(cat_int)).WhereElementIsNotElementType()
@@ -757,42 +802,46 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
             
     clashes = []
     seen_pairs = set()
+    n_host = len(host_data_list)
     
     # Phase A: Host vs Host Clashes (Selected vs Selected + Selected vs Other Nearby Host)
-    n_host = len(host_data_list)
-    # A1: Among selected elements
-    for i in range(n_host):
-        if progress_callback and n_host > 0 and i % 5 == 0:
-            pct = 30 + int((float(i) / n_host) * 30.0)
-            progress_callback(pct, "Testing Host vs Host solid collisions ({}/{})...".format(i + 1, n_host))
+    if check_same_model:
+        # A1: Among selected elements
+        for i in range(n_host):
+            if progress_callback and n_host > 0 and i % 5 == 0:
+                pct = 30 + int((float(i) / n_host) * 30.0)
+                progress_callback(pct, "Testing Host vs Host solid collisions ({}/{})...".format(i + 1, n_host))
 
-        d1 = host_data_list[i]
-        id1 = get_id_value(d1["element"])
-        
-        for j in range(i + 1, n_host):
-            d2 = host_data_list[j]
-            id2 = get_id_value(d2["element"])
+            d1 = host_data_list[i]
+            id1 = get_id_value(d1["element"])
             
-            pair_key = (id1, id2)
-            if pair_key in seen_pairs or (id2, id1) in seen_pairs:
-                continue
+            for j in range(i + 1, n_host):
+                d2 = host_data_list[j]
+                id2 = get_id_value(d2["element"])
                 
-            clash = check_clash_between_elements(d1, d2)
-            if clash:
-                clashes.append(clash)
-                seen_pairs.add(pair_key)
+                pair_key = (id1, id2)
+                if pair_key in seen_pairs or (id2, id1) in seen_pairs:
+                    continue
+                    
+                clash = check_clash_between_elements(d1, d2, extent_mm=extent_mm)
+                if clash:
+                    clashes.append(clash)
+                    seen_pairs.add(pair_key)
 
-        # A2: Selected vs other nearby Host elements
-        for d2 in other_host_data_list:
-            id2 = get_id_value(d2["element"])
-            pair_key = (id1, id2)
-            if pair_key in seen_pairs or (id2, id1) in seen_pairs:
-                continue
-                
-            clash = check_clash_between_elements(d1, d2)
-            if clash:
-                clashes.append(clash)
-                seen_pairs.add(pair_key)
+            # A2: Selected vs other nearby Host elements
+            for d2 in other_host_data_list:
+                id2 = get_id_value(d2["element"])
+                pair_key = (id1, id2)
+                if pair_key in seen_pairs or (id2, id1) in seen_pairs:
+                    continue
+                    
+                clash = check_clash_between_elements(d1, d2, extent_mm=extent_mm)
+                if clash:
+                    clashes.append(clash)
+                    seen_pairs.add(pair_key)
+    else:
+        if progress_callback:
+            progress_callback(50, "Skipping Same Model check (Host vs Link only)...")
                 
     # Phase B: Host vs Link Clashes (Selected Elements vs Linked Elements in tight boundary)
     n_link = len(link_data_list)
@@ -812,7 +861,7 @@ def scan_clashes(doc, view, categories=None, selected_ids=None, progress_callbac
             if pair_key in seen_pairs:
                 continue
                 
-            clash = check_clash_between_elements(d1, d2)
+            clash = check_clash_between_elements(d1, d2, extent_mm=extent_mm)
             if clash:
                 clashes.append(clash)
                 seen_pairs.add(pair_key)
@@ -945,13 +994,13 @@ def _render_clashes_via_dll(doc, view, clashes):
         return 0
 
 
-def render_clashes_avf(doc, view, clashes):
+def render_clashes_avf(doc, view, clashes, extent_mm=600):
     """
     Renders pure native Revit Analysis Results (1) using AVF (SpatialFieldManager):
-    - 🟢 GREEN  (#22C55E) on the entire Linked Model element footprint.
-    - 🔴 RED    (#EF4444) on Host Model Element 1 footprint.
-    - 🟠 ORANGE (#F59E0B) on Host Model Element 2 footprint (when both elements are in the SAME model!).
-    This cleanly distinguishes all roles on the floor plan!
+    - 🟢 GREEN  (#22C55E) on Linked Model element localized clash footprint.
+    - 🔴 RED    (#EF4444) on Host Model Element 1 localized clash footprint.
+    - 🟠 ORANGE (#F59E0B) on Host Model Element 2 localized clash footprint (when both elements are in the SAME model!).
+    This cleanly distinguishes all roles on the floor plan without covering entire runs of pipes/ducts/trays.
     Transient visual layer directly on the view - zero database clutter.
     """
     try:
@@ -1010,46 +1059,88 @@ def render_clashes_avf(doc, view, clashes):
 
         count = 0
         seen_link_keys = set()
-        seen_host_ids  = set()
+        seen_host_keys = set()
 
         # Step A: Render GREEN AVF on Linked Elements (underneath)
         for clash in clashes:
-            if clash.IsLink and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
-                link_elem = clash.Element2 if clash.IsLink2 else (clash.Element1 if clash.IsLink1 else None)
-                link_id = get_id_value(link_elem) if link_elem else None
-                link_key = (getattr(clash, "LinkName", ""), link_id)
-                if link_key in seen_link_keys:
-                    continue
-                seen_link_keys.add(link_key)
+            if not clash.IsLink:
+                continue
 
-                link_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.01
+            link_elem = clash.Element2 if clash.IsLink2 else (clash.Element1 if clash.IsLink1 else None)
+            link_id = get_id_value(link_elem) if link_elem else None
+
+            # Location-aware key prevents duplicate polygons at the exact same location
+            # while allowing separate localized highlights for distinct clash points on the same element
+            pt_key = (round(clash.ClashPoint.X, 0), round(clash.ClashPoint.Y, 0)) if clash.ClashPoint else (0, 0)
+            link_key = (getattr(clash, "LinkName", ""), link_id, pt_key)
+            if link_key in seen_link_keys:
+                continue
+            seen_link_keys.add(link_key)
+
+            corners = clash.LinkPolygonCorners
+            if (not corners or len(corners) != 4) and link_elem and getattr(link_elem, "IsValidObject", False):
+                try:
+                    d_link = get_mep_curve_data(link_elem, is_link=clash.IsLink2, link_name=getattr(clash, 'LinkName', ''))
+                    corners = get_clash_element_corners(d_link, clash_center=clash.ClashPoint, extent_mm=extent_mm)
+                    clash.LinkPolygonCorners = corners
+                except Exception:
+                    pass
+
+            if corners and len(corners) == 4:
+                link_z = getattr(clash, "LinkTopZ", (clash.ClashPoint.Z if clash.ClashPoint else 0.0)) + 0.01
                 target_schema = schema_green_idx if schema_green_idx != -1 else (schema_red_idx if schema_red_idx != -1 else 0)
-                if _render_polygon_avf(sfm, clash.LinkPolygonCorners, link_z, target_schema):
+                if _render_polygon_avf(sfm, corners, link_z, target_schema):
                     count += 1
 
         # Step B: Render Host Elements (Primary -> Red, Secondary in same model -> Orange)
         for clash in clashes:
+            pt_key = (round(clash.ClashPoint.X, 0), round(clash.ClashPoint.Y, 0)) if clash.ClashPoint else (0, 0)
+
             # Primary host element -> 🔴 RED
             host_elem = clash.Element1 if not clash.IsLink1 else (clash.Element2 if not clash.IsLink2 else None)
-            if host_elem and clash.HostPolygonCorners and len(clash.HostPolygonCorners) == 4:
+            if host_elem and getattr(host_elem, "IsValidObject", False):
                 h_id = get_id_value(host_elem)
-                if h_id not in seen_host_ids:
-                    seen_host_ids.add(h_id)
-                    host_z = getattr(clash, "HostTopZ", clash.ClashPoint.Z) + 0.05
-                    target_schema = schema_red_idx if schema_red_idx != -1 else 0
-                    if _render_polygon_avf(sfm, clash.HostPolygonCorners, host_z, target_schema):
-                        count += 1
+                h_key = (h_id, pt_key)
+                if h_key not in seen_host_keys:
+                    seen_host_keys.add(h_key)
+
+                    corners = clash.HostPolygonCorners
+                    if (not corners or len(corners) != 4):
+                        try:
+                            d_host = get_mep_curve_data(host_elem, is_link=False)
+                            corners = get_clash_element_corners(d_host, clash_center=clash.ClashPoint, extent_mm=extent_mm)
+                            clash.HostPolygonCorners = corners
+                        except Exception:
+                            pass
+
+                    if corners and len(corners) == 4:
+                        host_z = getattr(clash, "HostTopZ", (clash.ClashPoint.Z if clash.ClashPoint else 0.0)) + 0.05
+                        target_schema = schema_red_idx if schema_red_idx != -1 else 0
+                        if _render_polygon_avf(sfm, corners, host_z, target_schema):
+                            count += 1
 
             # If Host vs Host clash: Element 2 is ALSO in the same model!
             # -> Render Element 2 in 🟠 ORANGE so the user can easily distinguish the 2 clashing elements!
-            if not clash.IsLink and clash.Element2 and clash.LinkPolygonCorners and len(clash.LinkPolygonCorners) == 4:
+            if not clash.IsLink and clash.Element2 and getattr(clash.Element2, "IsValidObject", False):
                 h2_id = get_id_value(clash.Element2)
-                if h2_id not in seen_host_ids:
-                    seen_host_ids.add(h2_id)
-                    host2_z = getattr(clash, "LinkTopZ", clash.ClashPoint.Z) + 0.03
-                    target_schema = schema_orange_idx if schema_orange_idx != -1 else (schema_red_idx if schema_red_idx != -1 else 0)
-                    if _render_polygon_avf(sfm, clash.LinkPolygonCorners, host2_z, target_schema):
-                        count += 1
+                h2_key = (h2_id, pt_key)
+                if h2_key not in seen_host_keys:
+                    seen_host_keys.add(h2_key)
+
+                    corners2 = clash.LinkPolygonCorners
+                    if (not corners2 or len(corners2) != 4):
+                        try:
+                            d_host2 = get_mep_curve_data(clash.Element2, is_link=False)
+                            corners2 = get_clash_element_corners(d_host2, clash_center=clash.ClashPoint, extent_mm=extent_mm)
+                            clash.LinkPolygonCorners = corners2
+                        except Exception:
+                            pass
+
+                    if corners2 and len(corners2) == 4:
+                        host2_z = getattr(clash, "LinkTopZ", (clash.ClashPoint.Z if clash.ClashPoint else 0.0)) + 0.03
+                        target_schema = schema_orange_idx if schema_orange_idx != -1 else (schema_red_idx if schema_red_idx != -1 else 0)
+                        if _render_polygon_avf(sfm, corners2, host2_z, target_schema):
+                            count += 1
 
         return count
 
@@ -1082,7 +1173,7 @@ def clear_clash_analysis(doc, view):
 
 # ── Interactive 3D Navigation & Instant Recheck Functions ────────────────────
 
-def recheck_single_clash(doc, clash_item, tolerance_mm=0.0):
+def recheck_single_clash(doc, clash_item, tolerance_mm=0.0, extent_mm=600):
     """
     Rechecks if clash_item is still physically clashing in <0.05s.
     Returns: (still_clashing: bool, overlap_mm: float, new_clash_item or None)
@@ -1112,7 +1203,7 @@ def recheck_single_clash(doc, clash_item, tolerance_mm=0.0):
         if not d2 or not d2.get("solids") or len(d2["solids"]) == 0:
             return (False, 0.0, None)
             
-        new_clash = check_clash_between_elements(d1, d2)
+        new_clash = check_clash_between_elements(d1, d2, extent_mm=extent_mm)
         if new_clash:
             if new_clash.OverlapMm > tolerance_mm:
                 return (True, new_clash.OverlapMm, new_clash)

@@ -66,7 +66,7 @@ def get_active_revit_year():
 
 HOST_REVIT_YEAR = get_active_revit_year()
 
-from py.core import safe_unicode, smart_match
+from py.core import get_doc, safe_unicode, smart_match
 from py.ui import (
     setup_window, show_info, show_success, show_warning, show_error,
     show_confirm, do_events, MepananaProgressBar
@@ -300,6 +300,22 @@ class FamilyCloudWindow(forms.WPFWindow):
             self.btnBrowseRfa.Click += self.OnBrowseRfaClick
         if hasattr(self, 'btnExecuteUpload'):
             self.btnExecuteUpload.Click += self.OnExecuteUploadClick
+        if hasattr(self, 'btnClose'):
+            self.btnClose.Click += lambda s, a: self.Close()
+
+        # Connect Dynamic Card Actions (Load / Delete / Checkbox) via ItemsControl
+        if hasattr(self, 'itemsFamilyCards'):
+            self.itemsFamilyCards.AddHandler(
+                System.Windows.Controls.Button.ClickEvent,
+                System.Windows.RoutedEventHandler(self.OnCardButtonClick)
+            )
+            self.itemsFamilyCards.AddHandler(
+                System.Windows.Controls.CheckBox.ClickEvent,
+                System.Windows.RoutedEventHandler(self.OnCardCheckboxClick)
+            )
+
+        if hasattr(self, 'btnEmptyUpload'):
+            self.btnEmptyUpload.Click += self.OnEmptyUploadClick
 
         # 3. Apply preloaded catalog or fetch fresh from webhook
         if preloaded_catalog is not None:
@@ -536,6 +552,23 @@ class FamilyCloudWindow(forms.WPFWindow):
                 self.txtStatus.Text = u"Ready"
 
         self._update_batch_buttons()
+
+    def OnCardButtonClick(self, sender, args):
+        """Dispatches button clicks on cards (Load or Delete) via routed event bubbling."""
+        src = getattr(args, 'Source', None) or getattr(args, 'OriginalSource', None)
+        while src and not isinstance(src, System.Windows.Controls.Button):
+            src = getattr(src, 'Parent', None)
+        if not src or not isinstance(src, System.Windows.Controls.Button):
+            return
+        if getattr(src, 'Name', '') == 'btnDeleteCard':
+            self.OnDeleteFamilyClick(src, args)
+        else:
+            self.OnLoadFamilyClick(src, args)
+
+    def OnEmptyUploadClick(self, sender, args):
+        """Switches to the Upload tab when empty state action button is clicked."""
+        if hasattr(self, 'rbTabUpload'):
+            self.rbTabUpload.IsChecked = True
 
     def OnCardCheckboxClick(self, sender, args):
         """Called when a checkbox on any family card is clicked."""
@@ -995,6 +1028,11 @@ class FamilyCloudWindow(forms.WPFWindow):
 # ── Launch Entry ──────────────────────────────────────────────────────────────
 
 def run():
+    doc = get_doc()
+    if not doc:
+        show_warning("Please open a Revit project before launching Family Cloud.", "No Active Project")
+        return
+
     # 1. Show MepananaProgressBar dialog IMMEDIATELY upon clicking button!
     with MepananaProgressBar(title="Connecting to Family Cloud...", indeterminate=True, cancellable=False) as pb:
         pb.update(status="Connecting to cloud library...", detail="Fetching catalog data...")

@@ -49,6 +49,13 @@ class MepananaUpdateWindow(forms.WPFWindow):
         self.cloud_info = None
         self._is_updating = False
 
+        if hasattr(self, 'btnCheck'):
+            self.btnCheck.Click += self.OnCheckUpdatesClick
+        if hasattr(self, 'btnUpdate'):
+            self.btnUpdate.Click += self.OnUpdateClick
+        if hasattr(self, 'btnClose'):
+            self.btnClose.Click += self.OnCloseClick
+
         self.InitDisplay()
         self.CheckUpdatesAsync()
 
