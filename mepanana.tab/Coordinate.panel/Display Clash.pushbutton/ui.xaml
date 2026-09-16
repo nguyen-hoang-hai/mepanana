@@ -1,7 +1,7 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Display Clash"
-        Width="880" Height="640" MinWidth="800" MinHeight="560"
+        Width="900" Height="640" MinWidth="840" MinHeight="560"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource WindowBgBrush}"
         FontFamily="Segoe UI" FontSize="12.5"
@@ -29,58 +29,49 @@
         <!-- ── Top Card 0: Scope, Extent, Options & Legend ────────────────── -->
         <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12" Padding="14,10">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/> <!-- Analysis Scope -->
+                    <ColumnDefinition Width="Auto"/> <!-- Check Same Model -->
+                    <ColumnDefinition Width="*"/>    <!-- Elastic Spacer -->
+                    <ColumnDefinition Width="Auto"/> <!-- Highlight Extent -->
+                    <ColumnDefinition Width="14"/>   <!-- Gap -->
+                    <ColumnDefinition Width="Auto"/> <!-- Color Legend Badges -->
+                </Grid.ColumnDefinitions>
 
-                <!-- Row 0: Analysis Scope & Highlight Extent -->
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="20"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Text="Analysis Scope:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <ComboBox Grid.Column="1" Name="cmbScope" Height="32">
+                <!-- Analysis Scope -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Analysis Scope:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Name="cmbScope" Width="185" Height="30" VerticalContentAlignment="Center">
                         <ComboBoxItem Content="Active View (All Elements)"/>
                         <ComboBoxItem Content="Selected Elements Only"/>
                     </ComboBox>
+                </StackPanel>
 
-                    <TextBlock Grid.Column="3" Text="Highlight Extent:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBox Name="txtExtent" Text="600" Width="55" Height="32" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
-                        <TextBlock Text="mm" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                    </StackPanel>
-                </Grid>
+                <!-- Check Same Model -->
+                <CheckBox Grid.Column="1" Name="chkIncludeHost" Content="Check Same Model (Host vs Host)"
+                          IsChecked="True" VerticalAlignment="Center" Margin="14,0,0,0"
+                          ToolTip="When enabled, detects clashes between elements within the current host model as well as linked models."/>
 
-                <!-- Row 2: Same Model Checkbox & Color Legend Badges -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                <!-- Highlight Extent -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Extent:" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox Name="txtExtent" Text="600" Width="48" Height="28"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                    <TextBlock Text="mm" Style="{DynamicResource FieldLabel}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
 
-                    <CheckBox Grid.Column="0" Name="chkIncludeHost" Content="Check Same Model (Host vs Host)" IsChecked="True" VerticalAlignment="Center"/>
-
-                    <!-- Color Legend Badges -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Background="#20EF4444" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
-                            <TextBlock Text="🔴 Host 1 (Red)" FontSize="11" Foreground="#EF4444"/>
-                        </Border>
-                        <Border Background="#20F59E0B" CornerRadius="4" Padding="7,3" Margin="0,0,6,0">
-                            <TextBlock Text="🟠 Host 2 (Orange)" FontSize="11" Foreground="#D97706"/>
-                        </Border>
-                        <Border Background="#2022C55E" CornerRadius="4" Padding="7,3">
-                            <TextBlock Text="🟢 Link (Green)" FontSize="11" Foreground="#16A34A"/>
-                        </Border>
-                    </StackPanel>
-                </Grid>
+                <!-- Color Legend Badges -->
+                <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Name="badgeHost1" Background="#20EF4444" CornerRadius="4" Padding="6,2.5" Margin="0,0,5,0">
+                        <TextBlock Name="txtBadgeHost1" Text="🔴 Host 1 (Red)" FontSize="11" Foreground="#EF4444"/>
+                    </Border>
+                    <Border Name="badgeHost2" Background="#20F59E0B" CornerRadius="4" Padding="6,2.5" Margin="0,0,5,0">
+                        <TextBlock Text="🟠 Host 2 (Orange)" FontSize="11" Foreground="#D97706"/>
+                    </Border>
+                    <Border Name="badgeLink" Background="#2022C55E" CornerRadius="4" Padding="6,2.5">
+                        <TextBlock Text="🟢 Link (Green)" FontSize="11" Foreground="#16A34A"/>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -97,9 +88,7 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>  <!-- 0: Section Title & Mode Radios -->
-                        <RowDefinition Height="Auto"/>  <!-- 1: Category Search Bar -->
-                        <RowDefinition Height="Auto"/>  <!-- 2: Action Bar: Count Badge, All/None -->
-                        <RowDefinition Height="*"/>     <!-- 3: Scrollable Categories ListBox -->
+                        <RowDefinition Height="*"/>     <!-- 1: Custom Settings Panel (Search, Toolbar, ListBox) -->
                     </Grid.RowDefinitions>
 
                     <!-- Mode Radios -->
@@ -109,59 +98,68 @@
                         <RadioButton Name="radCustom" Content="Customize Settings" Margin="0,0,0,4"/>
                     </StackPanel>
 
-                    <!-- Category Search Bar -->
-                    <Grid Grid.Row="1" Margin="0,0,0,8">
-                        <TextBox Name="txtSearchCategory" Height="30" Padding="28,0,24,0"
-                                 VerticalContentAlignment="Center" FontSize="12"
-                                 ToolTip="Type to filter categories..."/>
-                        <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"
-                                   VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False"/>
-                        <TextBlock Text="Search categories..." Foreground="{DynamicResource MutedTextBrush}"
-                                   IsHitTestVisible="False" VerticalAlignment="Center" Margin="28,0,0,0" FontSize="12">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Text, ElementName=txtSearchCategory}" Value="">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        <Button Name="btnClearCategorySearch" Content="✕" Width="20" Height="20"
-                                HorizontalAlignment="Right" Margin="0,0,5,0"
-                                Style="{DynamicResource GhostButton}" Visibility="Collapsed"
-                                Padding="0" FontSize="10" ToolTip="Clear filter"/>
-                    </Grid>
+                    <!-- Custom Settings Container (Locked when Default is active) -->
+                    <Grid Grid.Row="1" Name="pnlCustomSettings">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>  <!-- 0: Category Search Bar -->
+                            <RowDefinition Height="Auto"/>  <!-- 1: Action Bar: Count Badge, All/None -->
+                            <RowDefinition Height="*"/>     <!-- 2: Scrollable Categories ListBox -->
+                        </Grid.RowDefinitions>
 
-                    <!-- Subheader Toolbar: Category Count + All/None Buttons -->
-                    <Grid Grid.Row="2" Margin="0,0,0,6">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Name="txtCategoryCount" Text="8 Selected" FontSize="11.5" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                        <Button Name="btnSelectAll" Grid.Column="1" Content="All" Style="{DynamicResource GhostButton}" Height="24" MinWidth="44" Padding="8,0" FontSize="11" Margin="0,0,4,0"/>
-                        <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="24" MinWidth="44" Padding="8,0" FontSize="11"/>
-                    </Grid>
+                        <!-- Category Search Bar -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <TextBox Name="txtSearchCategory" Height="30" Padding="28,0,24,0"
+                                     VerticalContentAlignment="Center" FontSize="12"
+                                     ToolTip="Type to filter categories..."/>
+                            <TextBlock Text="🔍" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"
+                                       VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False"/>
+                            <TextBlock Text="Search categories..." Foreground="{DynamicResource MutedTextBrush}"
+                                       IsHitTestVisible="False" VerticalAlignment="Center" Margin="28,0,0,0" FontSize="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=txtSearchCategory}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Button Name="btnClearCategorySearch" Content="✕" Width="20" Height="20"
+                                    HorizontalAlignment="Right" Margin="0,0,5,0"
+                                    Style="{DynamicResource GhostButton}" Visibility="Collapsed"
+                                    Padding="0" FontSize="10" ToolTip="Clear filter"/>
+                        </Grid>
 
-                    <!-- Scrollable Category ListBox with Virtualization -->
-                    <Border Grid.Row="3" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4">
-                        <ListBox Name="lstCategories" BorderThickness="0" Background="Transparent"
-                                 VirtualizingPanel.IsVirtualizing="True"
-                                 VirtualizingPanel.VirtualizationMode="Recycling"
-                                 ScrollViewer.IsDeferredScrollingEnabled="False"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="4,3.5" VerticalContentAlignment="Center"/>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Border>
+                        <!-- Subheader Toolbar: Category Count + All/None Buttons -->
+                        <Grid Grid.Row="1" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Name="txtCategoryCount" Text="26 Selected" FontSize="11.5" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Button Name="btnSelectAll" Grid.Column="1" Content="All" Style="{DynamicResource GhostButton}" Height="24" MinWidth="44" Padding="8,0" FontSize="11" Margin="0,0,4,0"/>
+                            <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="24" MinWidth="44" Padding="8,0" FontSize="11"/>
+                        </Grid>
+
+                        <!-- Scrollable Category ListBox with Virtualization -->
+                        <Border Grid.Row="2" Background="{DynamicResource WindowBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="4">
+                            <ListBox Name="lstCategories" BorderThickness="0" Background="Transparent"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     ScrollViewer.IsDeferredScrollingEnabled="False"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked, Mode=TwoWay}" Margin="4,3.5" VerticalContentAlignment="Center"/>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Border>
 

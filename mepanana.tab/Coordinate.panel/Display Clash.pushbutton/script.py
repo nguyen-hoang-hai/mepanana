@@ -341,6 +341,7 @@ try:
             self.active_view = doc.ActiveView
 
             # Build Categories Collection dynamically from all 3D Model Categories in Revit
+            self._updating_categories = True
             all_cats = get_all_model_categories(self.doc)
             self.categories = ObservableCollection[CategoryItem]()
             for name, cid, is_def in all_cats:
@@ -364,6 +365,12 @@ try:
                 System.Windows.RoutedEventHandler(self.on_category_item_checked)
             )
 
+            # Wire Check Same Model Toggle & Color Badges
+            if hasattr(self, 'chkIncludeHost'):
+                self.chkIncludeHost.Checked += self.on_same_model_toggled
+                self.chkIncludeHost.Unchecked += self.on_same_model_toggled
+                self._update_color_badges()
+
             # Wire Events
             self.radDefault.Checked += self.on_mode_default
             self.radCustom.Checked  += self.on_mode_custom
@@ -384,9 +391,20 @@ try:
 
             # Initial lock state
             self._apply_mode_state()
+            self._updating_categories = False
 
             # Restore Persistent Clash Results if Active View still has active AVF
             self._restore_active_results()
+
+        def on_same_model_toggled(self, sender, e):
+            self._update_color_badges()
+
+        def _update_color_badges(self):
+            is_same = bool(self.chkIncludeHost.IsChecked) if hasattr(self, 'chkIncludeHost') else True
+            if hasattr(self, 'badgeHost2'):
+                self.badgeHost2.Visibility = Visibility.Visible if is_same else Visibility.Collapsed
+            if hasattr(self, 'txtBadgeHost1'):
+                self.txtBadgeHost1.Text = "🔴 Host 1 (Red)" if is_same else "🔴 Host (Red)"
 
         def _restore_active_results(self):
             try:
@@ -422,18 +440,21 @@ try:
 
         def _apply_mode_state(self):
             is_custom = bool(self.radCustom.IsChecked)
-            self.lstCategories.IsEnabled = is_custom
+            if hasattr(self, 'pnlCustomSettings'):
+                self.pnlCustomSettings.IsEnabled = is_custom
+            self.txtSearchCategory.IsEnabled = is_custom
+            self.btnClearCategorySearch.IsEnabled = is_custom
             self.btnSelectAll.IsEnabled = is_custom
             self.btnSelectNone.IsEnabled = is_custom
+            self.lstCategories.IsEnabled = is_custom
 
         def _update_category_count(self):
             cnt = sum(1 for c in self.categories if c.IsChecked)
             self.txtCategoryCount.Text = "{} Selected".format(cnt)
 
         def on_category_item_checked(self, sender, e):
-            if not self.radCustom.IsChecked:
-                self.radCustom.IsChecked = True
-                self._apply_mode_state()
+            if getattr(self, '_updating_categories', False):
+                return
             self._update_category_count()
 
         def on_category_search_changed(self, sender, e):
@@ -458,9 +479,14 @@ try:
             self.txtSearchCategory.Text = ""
 
         def on_mode_default(self, sender, e):
-            for c in self.categories:
-                c.IsChecked = c.IsDefault
-            self.lstCategories.Items.Refresh()
+            self._updating_categories = True
+            try:
+                self.txtSearchCategory.Text = ""
+                for c in self.categories:
+                    c.IsChecked = c.IsDefault
+                self.lstCategories.Items.Refresh()
+            finally:
+                self._updating_categories = False
             self._apply_mode_state()
             self._update_category_count()
 
