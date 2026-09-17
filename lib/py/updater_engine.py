@@ -355,9 +355,94 @@ def safe_makedirs(path):
             pass
 
 
+def _clear_pyrevit_mepanana_cache():
+    """Removes cached mepanana.cs manifests across pyRevit version folders."""
+    try:
+        roaming = os.environ.get("APPDATA", "")
+        pyrevit_dir = os.path.join(roaming, "pyRevit")
+        if os.path.isdir(pyrevit_dir):
+            for item in os.listdir(pyrevit_dir):
+                year_dir = os.path.join(pyrevit_dir, item)
+                if os.path.isdir(year_dir) and (item.isdigit() or item.startswith("20")):
+                    cs_file = os.path.join(year_dir, "mepanana.cs")
+                    if os.path.exists(cs_file):
+                        try:
+                            os.remove(cs_file)
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+
+
+def _clean_obsolete_items(target_dir, source_dir):
+    """
+    Two-way mirror cleanup: removes files and directories in target_dir that no longer exist
+    in source_dir (GitHub release package). Prevents deleted tools/engines from lingering.
+    """
+    tracked_dirs = ["mepanana.tab", "lib", "hooks", "docs", "tools"]
+
+    for t_dir in tracked_dirs:
+        target_sub = os.path.join(target_dir, t_dir)
+        source_sub = os.path.join(source_dir, t_dir)
+
+        if not os.path.exists(target_sub):
+            continue
+
+        # If the entire directory was removed from the repo, remove it locally
+        if not os.path.exists(source_sub):
+            try:
+                shutil.rmtree(target_sub, ignore_errors=True)
+            except Exception:
+                pass
+            continue
+
+        # Walk bottom-up so empty child directories are removed before parent directories
+        for root, dirs, files in os.walk(target_sub, topdown=False):
+            rel_path = os.path.relpath(root, target_sub)
+            source_root = os.path.join(source_sub, rel_path) if rel_path != "." else source_sub
+
+            # Clean obsolete files
+            for f in files:
+                # Always remove stale bytecode & backups
+                if f.endswith(".pyc") or f.endswith(".old"):
+                    try:
+                        os.remove(os.path.join(root, f))
+                    except Exception:
+                        pass
+                    continue
+
+                # Never delete critical security files if missing from zip
+                if f in ("auth.py", "MepananaAuth.dll", "startup.py"):
+                    continue
+
+                source_file = os.path.join(source_root, f)
+                if not os.path.exists(source_file):
+                    try:
+                        os.remove(os.path.join(root, f))
+                    except Exception:
+                        pass
+
+            # Clean obsolete directories (e.g. deleted .pushbutton or .panel folders)
+            for d in list(dirs):
+                if d == "__pycache__":
+                    try:
+                        shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+                    except Exception:
+                        pass
+                    continue
+
+                source_d = os.path.join(source_root, d)
+                if not os.path.exists(source_d):
+                    try:
+                        shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+                    except Exception:
+                        pass
+
+
 def download_and_install_update(progress_callback=None):
     """
     Downloads latest repository zip from GitHub, extracts, and updates extension files.
+    Performs full two-way mirror prune to ensure deleted tools/files are removed locally.
     progress_callback(percent: int, status_msg: str)
     """
     temp_zip = os.path.join(os.environ.get("TEMP", ""), "mepanana_cloud_update.zip")
@@ -409,7 +494,12 @@ def download_and_install_update(progress_callback=None):
             except Exception:
                 pass
 
-        if progress_callback: progress_callback(80, u"Updating extension files and components...")
+        if progress_callback: progress_callback(75, u"Pruning obsolete tools, panels, and components...")
+        for target_dir in targets:
+            # First: Clean and prune any deleted panels, pushbuttons, or libraries
+            _clean_obsolete_items(target_dir, inner_dir)
+
+        if progress_callback: progress_callback(85, u"Synchronizing updated files and components...")
         for target_dir in targets:
             safe_makedirs(target_dir)
             for item in os.listdir(inner_dir):
@@ -440,6 +530,9 @@ def download_and_install_update(progress_callback=None):
                     json.dump(new_v_data, vf, indent=2)
             except Exception:
                 pass
+
+        # Invalidate pyRevit compiled ribbon manifest cache
+        _clear_pyrevit_mepanana_cache()
 
         # Reset ribbon badge since update is complete
         try:
