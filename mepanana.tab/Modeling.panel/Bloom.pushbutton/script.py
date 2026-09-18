@@ -82,11 +82,6 @@ try:
 
             # Initialize UI controls with stored config
             self.txtStubLength.Text = str(int(self.config.stub_length_mm))
-            self.chkPipes.IsChecked = bool(self.config.include_pipes)
-            self.chkDucts.IsChecked = bool(self.config.include_ducts)
-            self.chkCableTrays.IsChecked = bool(self.config.include_cable_trays)
-            self.chkConduits.IsChecked = bool(self.config.include_conduits)
-            self.chkAutoConnect.IsChecked = bool(self.config.auto_connect)
 
             # Wire Routed Event Handlers in Python (Zero inline XAML events rule)
             self.btnSave.Click += self.OnSave
@@ -109,25 +104,15 @@ try:
             except Exception:
                 self.config.stub_length_mm = 300.0
 
-            self.config.include_pipes = bool(self.chkPipes.IsChecked)
-            self.config.include_ducts = bool(self.chkDucts.IsChecked)
-            self.config.include_cable_trays = bool(self.chkCableTrays.IsChecked)
-            self.config.include_conduits = bool(self.chkConduits.IsChecked)
-            self.config.auto_connect = bool(self.chkAutoConnect.IsChecked)
+            # Always maintain all disciplines enabled and auto-connect active
+            self.config.include_pipes = True
+            self.config.include_ducts = True
+            self.config.include_cable_trays = True
+            self.config.include_conduits = True
+            self.config.auto_connect = True
 
             self.config.save()
             self.Close()
-            show_success(
-                u"Bloom settings updated:\n• Stub Length: {} mm\n• Pipes: {}\n• Ducts: {}\n• Cable Trays: {}\n• Conduits: {}\n• Auto-Connect: {}".format(
-                    int(self.config.stub_length_mm),
-                    u"Enabled" if self.config.include_pipes else u"Disabled",
-                    u"Enabled" if self.config.include_ducts else u"Disabled",
-                    u"Enabled" if self.config.include_cable_trays else u"Disabled",
-                    u"Enabled" if self.config.include_conduits else u"Disabled",
-                    u"Enabled" if self.config.auto_connect else u"Disabled"
-                ),
-                "Bloom Settings"
-            )
 
         def OnCancel(self, sender, args):
             self.Close()
