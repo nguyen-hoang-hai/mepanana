@@ -161,40 +161,40 @@ try:
         except Exception:
             pass
 
-        # Step 2: If nothing selected, prompt interactive picking
+        # Step 2: If nothing selected, prompt interactive single picking
         if not elements_to_bloom:
             try:
                 from Autodesk.Revit.UI.Selection import ObjectType
                 from Autodesk.Revit.Exceptions import OperationCanceledException
 
                 flt = MEPBloomSelectionFilter()
-                picked_refs = uidoc.Selection.PickObjects(
+                picked_ref = uidoc.Selection.PickObject(
                     ObjectType.Element,
                     flt,
-                    "Pick MEP fittings, valves, or equipment to bloom (ESC to finish)"
+                    "Pick an MEP fitting, valve, cable tray, or equipment to bloom"
                 )
-                if not picked_refs:
+                if not picked_ref:
                     return
 
-                for r in picked_refs:
-                    try:
-                        el = doc.GetElement(r.ElementId)
-                        if el and get_open_connectors(el):
-                            elements_to_bloom.append(el)
-                    except Exception:
-                        pass
+                el = doc.GetElement(picked_ref.ElementId)
+                if el:
+                    open_conns = get_open_connectors(el)
+                    if open_conns:
+                        elements_to_bloom.append(el)
+                    else:
+                        show_warning(
+                            u"Selected element has no open connectors.\nPlease pick a fitting, valve, or equipment with unconnected ports.",
+                            "Auto Bloom"
+                        )
+                        return
 
             except OperationCanceledException:
                 return
             except Exception as ex_pick:
-                show_error(u"Selection canceled or error: {}".format(safe_unicode(ex_pick)), "Auto Bloom")
+                show_error(u"Selection error: {}".format(safe_unicode(ex_pick)), "Auto Bloom")
                 return
 
         if not elements_to_bloom:
-            show_warning(
-                u"No elements with open connectors were selected.\nPick fittings, accessories, or equipment with unconnected ports.",
-                "Auto Bloom"
-            )
             return
 
         # Step 3: Execute Bloom
