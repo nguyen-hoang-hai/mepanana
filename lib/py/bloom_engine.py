@@ -70,6 +70,12 @@ try:
 except Exception:
     HAS_CONDUIT = False
 
+try:
+    from Autodesk.Revit.DB.Electrical import CableTray, CableTrayType
+    HAS_CABLE_TRAY = True
+except Exception:
+    HAS_CABLE_TRAY = False
+
 from Autodesk.Revit.UI.Selection import ISelectionFilter
 
 from py.core import SafeTransaction, safe_unicode, mm_to_ft, ft_to_mm, get_id_value
@@ -83,6 +89,7 @@ class BloomConfig(object):
         self.stub_length_mm = 300.0
         self.include_pipes = True
         self.include_ducts = True
+        self.include_cable_trays = True
         self.include_conduits = True
         self.auto_connect = True
         self.load()
@@ -95,6 +102,7 @@ class BloomConfig(object):
                     self.stub_length_mm = float(data.get("stub_length_mm", 300.0))
                     self.include_pipes = bool(data.get("include_pipes", True))
                     self.include_ducts = bool(data.get("include_ducts", True))
+                    self.include_cable_trays = bool(data.get("include_cable_trays", True))
                     self.include_conduits = bool(data.get("include_conduits", True))
                     self.auto_connect = bool(data.get("auto_connect", True))
         except Exception:
@@ -109,6 +117,7 @@ class BloomConfig(object):
                 "stub_length_mm": self.stub_length_mm,
                 "include_pipes": self.include_pipes,
                 "include_ducts": self.include_ducts,
+                "include_cable_trays": self.include_cable_trays,
                 "include_conduits": self.include_conduits,
                 "auto_connect": self.auto_connect,
             }
@@ -270,11 +279,35 @@ def _find_adjacent_mep_info(elem, domain):
                             pass
                         return info
 
-                    # 3. Electrical Conduit
+                    # 3. Cable Tray
+                    elif HAS_CABLE_TRAY and domain == Domain.DomainCableTrayConduit and isinstance(owner, CableTray):
+                        info["type_id"] = owner.GetTypeId()
+                        if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
+                            info["level_id"] = owner.ReferenceLevel.Id
+                        elif hasattr(owner, "LevelId") and owner.LevelId != ElementId.InvalidElementId:
+                            info["level_id"] = owner.LevelId
+                        try:
+                            p_w = owner.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)
+                            if not p_w or not p_w.HasValue:
+                                p_w = owner.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)
+                            p_h = owner.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)
+                            if not p_h or not p_h.HasValue:
+                                p_h = owner.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)
+                            if p_w and p_w.HasValue:
+                                info["width"] = p_w.AsDouble()
+                            if p_h and p_h.HasValue:
+                                info["height"] = p_h.AsDouble()
+                        except Exception:
+                            pass
+                        return info
+
+                    # 4. Electrical Conduit
                     elif HAS_CONDUIT and domain == Domain.DomainCableTrayConduit and isinstance(owner, Conduit):
                         info["type_id"] = owner.GetTypeId()
                         if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
                             info["level_id"] = owner.ReferenceLevel.Id
+                        elif hasattr(owner, "LevelId") and owner.LevelId != ElementId.InvalidElementId:
+                            info["level_id"] = owner.LevelId
                         try:
                             p_d = owner.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)
                             if p_d and p_d.HasValue:
@@ -522,6 +555,50 @@ def _get_default_conduit_type_id(doc):
     return None
 
 
+def _get_default_cable_tray_type_id(doc):
+    """Finds default CableTrayType in document."""
+    if not HAS_CABLE_TRAY:
+        return None
+    try:
+        ct = FilteredElementCollector(doc).OfClass(CableTrayType).FirstElement()
+        if ct:
+            return ct.Id
+    except Exception:
+        pass
+    return None
+
+
+def _is_cable_tray_target(elem, connector):
+    """Distinguishes whether an element/connector belongs to Cable Tray vs Conduit."""
+    try:
+        cat = getattr(elem, "Category", None)
+        if cat:
+            cat_id = cat.Id.IntegerValue
+            if cat_id in (int(BuiltInCategory.OST_CableTray), int(BuiltInCategory.OST_CableTrayFitting)):
+                return True
+            if cat_id in (int(BuiltInCategory.OST_Conduit), int(BuiltInCategory.OST_ConduitFitting)):
+                return False
+    except Exception:
+        pass
+
+    try:
+        shape = getattr(connector, "Shape", None)
+        if shape in (ConnectorProfileType.Rectangular, ConnectorProfileType.Oval):
+            return True
+        if shape == ConnectorProfileType.Round:
+            return False
+    except Exception:
+        pass
+
+    try:
+        if hasattr(connector, "Width") and connector.Width > 0:
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
 def _bloom_pipe_connector(doc, elem, connector, stub_len_ft, auto_connect):
     """Creates a pipe stub from an open piping connector."""
     if not HAS_PIPE:
@@ -756,10 +833,94 @@ def _bloom_conduit_connector(doc, elem, connector, stub_len_ft, auto_connect):
         return None
 
 
+def _bloom_cable_tray_connector(doc, elem, connector, stub_len_ft, auto_connect):
+    """Creates a cable tray stub from an open cable tray connector."""
+    if not HAS_CABLE_TRAY:
+        return None
+
+    p0 = connector.Origin
+    try:
+        dir_vec = connector.CoordinateSystem.BasisZ.Normalize()
+    except Exception:
+        return None
+    p1 = p0 + dir_vec * stub_len_ft
+
+    adj_info = _find_adjacent_mep_info(elem, Domain.DomainCableTrayConduit)
+    cable_tray_type_id = adj_info.get("type_id") or _get_default_cable_tray_type_id(doc)
+    level_id = adj_info.get("level_id") or _get_element_level_id(doc, elem, p0.Z)
+    if not cable_tray_type_id or level_id == ElementId.InvalidElementId:
+        return None
+
+    try:
+        cable_tray = CableTray.Create(doc, cable_tray_type_id, p0, p1, level_id)
+        if not cable_tray:
+            return None
+
+        # Set Width and Height matching connector
+        w = None
+        h = None
+        try:
+            w = connector.Width
+            h = connector.Height
+        except Exception:
+            pass
+
+        if not w and adj_info.get("width"):
+            w = adj_info["width"]
+        if not h and adj_info.get("height"):
+            h = adj_info["height"]
+
+        if w and h:
+            try:
+                cs = connector.CoordinateSystem
+                if abs(cs.BasisX.Z) > 0.7 and abs(dir_vec.Z) < 0.7:
+                    ct_w = h
+                    ct_h = w
+                else:
+                    ct_w = w
+                    ct_h = h
+            except Exception:
+                ct_w = w
+                ct_h = h
+
+            p_w = cable_tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM)
+            if not p_w or p_w.IsReadOnly:
+                p_w = cable_tray.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)
+            if p_w and not p_w.IsReadOnly:
+                try:
+                    p_w.Set(ct_w)
+                except Exception:
+                    pass
+
+            p_h = cable_tray.get_Parameter(BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM)
+            if not p_h or p_h.IsReadOnly:
+                p_h = cable_tray.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)
+            if p_h and not p_h.IsReadOnly:
+                try:
+                    p_h.Set(ct_h)
+                except Exception:
+                    pass
+
+        doc.Regenerate()
+
+        if auto_connect and cable_tray.ConnectorManager:
+            for ct_conn in cable_tray.ConnectorManager.Connectors:
+                if ct_conn.Origin.DistanceTo(p0) < 0.05:
+                    try:
+                        connector.ConnectTo(ct_conn)
+                    except Exception:
+                        pass
+                    break
+
+        return cable_tray
+    except Exception:
+        return None
+
+
 def bloom_elements(doc, elements, config=None):
     """
     Executes Auto Bloom on the provided elements.
-    Draws pipe/duct/conduit stubs from all open connectors.
+    Draws pipe/duct/cable tray/conduit stubs from all open connectors.
 
     Args:
         doc: Document instance
@@ -770,6 +931,7 @@ def bloom_elements(doc, elements, config=None):
         dict: Summary metrics {
             'pipes': int,
             'ducts': int,
+            'cable_trays': int,
             'conduits': int,
             'total': int,
             'elements_processed': int
@@ -785,6 +947,7 @@ def bloom_elements(doc, elements, config=None):
     stats = {
         "pipes": 0,
         "ducts": 0,
+        "cable_trays": 0,
         "conduits": 0,
         "total": 0,
         "elements_processed": 0
@@ -818,11 +981,19 @@ def bloom_elements(doc, elements, config=None):
                             stats["ducts"] += 1
                             elem_had_stubs = True
 
-                    elif c.Domain == Domain.DomainCableTrayConduit and config.include_conduits:
-                        created = _bloom_conduit_connector(doc, elem, c, stub_len_ft, config.auto_connect)
-                        if created:
-                            stats["conduits"] += 1
-                            elem_had_stubs = True
+                    elif c.Domain == Domain.DomainCableTrayConduit:
+                        if _is_cable_tray_target(elem, c):
+                            if config.include_cable_trays:
+                                created = _bloom_cable_tray_connector(doc, elem, c, stub_len_ft, config.auto_connect)
+                                if created:
+                                    stats["cable_trays"] += 1
+                                    elem_had_stubs = True
+                        else:
+                            if config.include_conduits:
+                                created = _bloom_conduit_connector(doc, elem, c, stub_len_ft, config.auto_connect)
+                                if created:
+                                    stats["conduits"] += 1
+                                    elem_had_stubs = True
 
                 except Exception as ex_stub:
                     pass
@@ -830,5 +1001,5 @@ def bloom_elements(doc, elements, config=None):
             if elem_had_stubs:
                 stats["elements_processed"] += 1
 
-    stats["total"] = stats["pipes"] + stats["ducts"] + stats["conduits"]
+    stats["total"] = stats["pipes"] + stats["ducts"] + stats["cable_trays"] + stats["conduits"]
     return stats

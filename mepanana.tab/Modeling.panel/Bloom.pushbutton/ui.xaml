@@ -89,6 +89,10 @@
                           Content="HVAC Ducts (Supply, Return, Exhaust)"
                           IsChecked="True"
                           Margin="0,0,0,8"/>
+                <CheckBox Name="chkCableTrays"
+                          Content="Cable Trays (Thang Máng Cáp)"
+                          IsChecked="True"
+                          Margin="0,0,0,8"/>
                 <CheckBox Name="chkConduits"
                           Content="Electrical Conduits"
                           IsChecked="True"

@@ -84,6 +84,7 @@ try:
             self.txtStubLength.Text = str(int(self.config.stub_length_mm))
             self.chkPipes.IsChecked = bool(self.config.include_pipes)
             self.chkDucts.IsChecked = bool(self.config.include_ducts)
+            self.chkCableTrays.IsChecked = bool(self.config.include_cable_trays)
             self.chkConduits.IsChecked = bool(self.config.include_conduits)
             self.chkAutoConnect.IsChecked = bool(self.config.auto_connect)
 
@@ -110,16 +111,18 @@ try:
 
             self.config.include_pipes = bool(self.chkPipes.IsChecked)
             self.config.include_ducts = bool(self.chkDucts.IsChecked)
+            self.config.include_cable_trays = bool(self.chkCableTrays.IsChecked)
             self.config.include_conduits = bool(self.chkConduits.IsChecked)
             self.config.auto_connect = bool(self.chkAutoConnect.IsChecked)
 
             self.config.save()
             self.Close()
             show_success(
-                u"Bloom settings updated:\n• Stub Length: {} mm\n• Pipes: {}\n• Ducts: {}\n• Conduits: {}\n• Auto-Connect: {}".format(
+                u"Bloom settings updated:\n• Stub Length: {} mm\n• Pipes: {}\n• Ducts: {}\n• Cable Trays: {}\n• Conduits: {}\n• Auto-Connect: {}".format(
                     int(self.config.stub_length_mm),
                     u"Enabled" if self.config.include_pipes else u"Disabled",
                     u"Enabled" if self.config.include_ducts else u"Disabled",
+                    u"Enabled" if self.config.include_cable_trays else u"Disabled",
                     u"Enabled" if self.config.include_conduits else u"Disabled",
                     u"Enabled" if self.config.auto_connect else u"Disabled"
                 ),
@@ -204,6 +207,8 @@ try:
                     summary_lines.append(u"• {} pipe stubs".format(results["pipes"]))
                 if results["ducts"] > 0:
                     summary_lines.append(u"• {} duct stubs".format(results["ducts"]))
+                if results.get("cable_trays", 0) > 0:
+                    summary_lines.append(u"• {} cable tray stubs".format(results["cable_trays"]))
                 if results["conduits"] > 0:
                     summary_lines.append(u"• {} conduit stubs".format(results["conduits"]))
 
@@ -214,7 +219,7 @@ try:
                 show_success(msg, "Auto Bloom Success")
             else:
                 show_warning(
-                    u"Could not generate stubs for the selected open connectors.\nPlease ensure matching Pipe/Duct types exist in project.",
+                    u"Could not generate stubs for the selected open connectors.\nPlease ensure matching Pipe, Duct, Cable Tray, or Conduit types exist in project.",
                     "Auto Bloom Notice"
                 )
         except Exception as ex_bloom:
