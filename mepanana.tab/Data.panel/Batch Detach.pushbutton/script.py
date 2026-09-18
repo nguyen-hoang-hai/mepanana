@@ -26,16 +26,41 @@ from Microsoft.Win32 import OpenFileDialog
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 
 from pyrevit import script, forms
-from py.core import get_doc, get_uidoc, safe_unicode
+from py.core import get_doc, get_uidoc, get_app, safe_unicode
 from py.ui import setup_window, show_warning, show_error, show_info, show_success, do_events
 from py.batch_detach_engine import (
     get_file_size_display,
-    detach_and_clean_model
+    detach_and_clean_model,
+    log_batch_detach
 )
+
+from Autodesk.Revit.DB import FailureSeverity, FailureProcessingResult
 
 doc = get_doc()
 uidoc = get_uidoc()
-app = doc.Application if doc else __revit__.Application
+app = get_app()
+if not app and doc:
+    app = doc.Application
+if not app:
+    try:
+        app = __revit__.Application
+    except Exception:
+        pass
+
+
+def _on_failures_processing(sender, e):
+    """Auto-dismisses warnings and non-blocking failures during batch processing."""
+    try:
+        fa = e.GetFailuresAccessor()
+        fail_list = fa.GetFailureMessages()
+        for f in fail_list:
+            if f.GetSeverity() == FailureSeverity.Warning:
+                fa.DeleteWarning(f)
+            elif fa.CanCommit():
+                fa.ResolveFailure(f)
+        e.SetProcessingResult(FailureProcessingResult.Continue)
+    except Exception:
+        pass
 
 
 class FileItem(object):
@@ -81,39 +106,45 @@ class BatchDetachWindow(forms.WPFWindow):
 
     def OnAddFiles(self, sender, args):
         """Opens file dialog allowing multi-selection of .rvt files."""
-        dlg = OpenFileDialog()
-        dlg.Filter = "Revit Project (*.rvt)|*.rvt"
-        dlg.Multiselect = True
-        dlg.Title = "Select Revit Project Files to Detach"
+        try:
+            dlg = OpenFileDialog()
+            dlg.Filter = "Revit Project (*.rvt)|*.rvt"
+            dlg.Multiselect = True
+            dlg.Title = "Select Revit Project Files to Detach"
 
-        if dlg.ShowDialog():
-            existing_paths = set(item.Path.lower() for item in self.file_items)
-            for f_path in dlg.FileNames:
-                if f_path.lower() not in existing_paths:
-                    self.file_items.append(FileItem(f_path))
-                    existing_paths.add(f_path.lower())
+            if dlg.ShowDialog():
+                existing_paths = set(item.Path.lower() for item in self.file_items)
+                for f_path in dlg.FileNames:
+                    if f_path.lower() not in existing_paths:
+                        self.file_items.append(FileItem(f_path))
+                        existing_paths.add(f_path.lower())
 
-            self.RefreshFileList()
+                self.RefreshFileList()
+        except Exception as ex:
+            show_error(u"Error selecting files:\n{}".format(safe_unicode(ex)))
 
     def OnAddFolder(self, sender, args):
         """Scans a selected directory for all .rvt files."""
-        dlg = FolderBrowserDialog()
-        dlg.Description = "Select Folder Containing Revit Models"
-        dlg.ShowNewFolderButton = False
+        try:
+            dlg = FolderBrowserDialog()
+            dlg.Description = "Select Folder Containing Revit Models"
+            dlg.ShowNewFolderButton = False
 
-        if dlg.ShowDialog() == DialogResult.OK:
-            folder_path = dlg.SelectedPath
-            existing_paths = set(item.Path.lower() for item in self.file_items)
+            if dlg.ShowDialog() == DialogResult.OK:
+                folder_path = dlg.SelectedPath
+                existing_paths = set(item.Path.lower() for item in self.file_items)
 
-            for root, dirs, files in os.walk(folder_path):
-                for f in files:
-                    if f.lower().endswith(".rvt") and not f.startswith("~"):
-                        full_path = os.path.join(root, f)
-                        if full_path.lower() not in existing_paths:
-                            self.file_items.append(FileItem(full_path))
-                            existing_paths.add(full_path.lower())
+                for root, dirs, files in os.walk(folder_path):
+                    for f in files:
+                        if f.lower().endswith(".rvt") and not f.startswith("~"):
+                            full_path = os.path.join(root, f)
+                            if full_path.lower() not in existing_paths:
+                                self.file_items.append(FileItem(full_path))
+                                existing_paths.add(full_path.lower())
 
-            self.RefreshFileList()
+                self.RefreshFileList()
+        except Exception as ex:
+            show_error(u"Error scanning folder:\n{}".format(safe_unicode(ex)))
 
     def OnClear(self, sender, args):
         """Clears all files from the list."""
@@ -136,19 +167,35 @@ class BatchDetachWindow(forms.WPFWindow):
 
     def OnBrowseFolder(self, sender, args):
         """Browses for a destination output directory."""
-        dlg = FolderBrowserDialog()
-        dlg.Description = "Select Destination Folder for Detached Models"
-        dlg.ShowNewFolderButton = True
+        try:
+            dlg = FolderBrowserDialog()
+            dlg.Description = "Select Destination Folder for Detached Models"
+            dlg.ShowNewFolderButton = True
 
-        if dlg.ShowDialog() == DialogResult.OK:
-            self.txtFolder.Text = dlg.SelectedPath
+            if dlg.ShowDialog() == DialogResult.OK:
+                self.txtFolder.Text = dlg.SelectedPath
+        except Exception as ex:
+            show_error(u"Error browsing folder:\n{}".format(safe_unicode(ex)))
 
     def OnCancel(self, sender, args):
         """Closes the dialog."""
         self.Close()
 
     def OnRun(self, sender, args):
-        """Executes the batch detach operation."""
+        """Top-level action handler wrapped to prevent any unhandled crashes."""
+        try:
+            self._ExecuteDetachProcess()
+        except Exception as ex:
+            log_batch_detach(u"OnRun Exception: {}".format(safe_unicode(ex)))
+            show_error(u"An error occurred during batch detach execution:\n\n{}".format(safe_unicode(ex)))
+        except:
+            import sys
+            fatal_err = safe_unicode(sys.exc_info()[1])
+            log_batch_detach(u"OnRun Fatal CLR Error: {}".format(fatal_err))
+            show_error(u"A fatal system error occurred during execution.")
+
+    def _ExecuteDetachProcess(self):
+        """Internal worker executing the batch detach workflow."""
         if self._is_processing:
             return
 
@@ -156,9 +203,13 @@ class BatchDetachWindow(forms.WPFWindow):
             show_warning("Please select at least one Revit (.rvt) model to detach.")
             return
 
+        if not app:
+            show_error("Could not obtain Revit Application reference.")
+            return
+
         is_folder_mode = bool(self.rbFolder.IsChecked)
-        out_folder = self.txtFolder.Text.strip()
-        suffix = self.txtSuffix.Text.strip()
+        out_folder = safe_unicode(self.txtFolder.Text.strip())
+        suffix = safe_unicode(self.txtSuffix.Text.strip())
 
         if is_folder_mode:
             if not out_folder:
@@ -168,7 +219,7 @@ class BatchDetachWindow(forms.WPFWindow):
                 try:
                     os.makedirs(out_folder)
                 except Exception as ex:
-                    show_error("Could not create destination folder:\n{}".format(safe_unicode(ex)))
+                    show_error(u"Could not create destination folder:\n{}".format(safe_unicode(ex)))
                     return
         else:
             if not suffix:
@@ -196,10 +247,18 @@ class BatchDetachWindow(forms.WPFWindow):
         self.btnAddFolder.IsEnabled = False
         self.btnClear.IsEnabled = False
 
+        # Attach failure handler to auto-resolve warnings during batch opening
+        failures_attached = False
+        try:
+            app.FailuresProcessing += _on_failures_processing
+            failures_attached = True
+        except Exception:
+            pass
+
         try:
             for idx, item in enumerate(self.file_items):
-                src_path = item.Path
-                filename = item.Name
+                src_path = safe_unicode(item.Path)
+                filename = safe_unicode(item.Name)
 
                 # Determine destination path
                 if is_folder_mode:
@@ -226,7 +285,7 @@ class BatchDetachWindow(forms.WPFWindow):
                     success_count += 1
                 else:
                     fail_count += 1
-                    failed_files.append(u"{}: {}".format(filename, msg))
+                    failed_files.append(u"{}: {}".format(filename, safe_unicode(msg)))
 
                 self.progressBar.Value = idx + 1
                 do_events()
@@ -243,7 +302,7 @@ class BatchDetachWindow(forms.WPFWindow):
                     u"- Destination: {}".format(
                         success_count,
                         "Unloaded" if unload_links else "Preserved",
-                        out_folder if is_folder_mode else "Alongside original files with suffix '{}'".format(suffix)
+                        out_folder if is_folder_mode else u"Alongside original files with suffix '{}'".format(suffix)
                     ),
                     title="Batch Detach Complete"
                 )
@@ -261,6 +320,12 @@ class BatchDetachWindow(forms.WPFWindow):
                 )
 
         finally:
+            if failures_attached:
+                try:
+                    app.FailuresProcessing -= _on_failures_processing
+                except Exception:
+                    pass
+
             self._is_processing = False
             self.progressBar.Visibility = Visibility.Collapsed
             self.btnRun.IsEnabled = True
@@ -270,9 +335,16 @@ class BatchDetachWindow(forms.WPFWindow):
 
 
 if __name__ == "__main__":
-    xaml_path = script.get_bundle_file("ui.xaml")
-    if os.path.exists(xaml_path):
-        win = BatchDetachWindow(xaml_path)
-        win.ShowDialog()
-    else:
-        show_error("UI file 'ui.xaml' not found.")
+    try:
+        xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        if os.path.exists(xaml_path):
+            win = BatchDetachWindow(xaml_path)
+            win.ShowDialog()
+        else:
+            show_error(u"UI file 'ui.xaml' not found.")
+    except Exception as ex:
+        log_batch_detach(u"Startup Error: {}".format(safe_unicode(ex)))
+        show_error(u"Failed to open Batch Detach:\n\n{}".format(safe_unicode(ex)))
+    except:
+        import sys
+        show_error(u"Failed to open Batch Detach.")

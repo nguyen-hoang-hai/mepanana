@@ -49,7 +49,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="📄 " FontSize="12" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" Foreground="#0F172A" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="12,0,4,0" VerticalAlignment="Center"/>
                                 </Grid>
                             </DataTemplate>

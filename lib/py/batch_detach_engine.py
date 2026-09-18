@@ -42,6 +42,96 @@ def get_file_size_display(file_path):
     except Exception:
         return "Unknown"
 
+import time
+import datetime
+import tempfile
+
+
+def log_batch_detach(msg):
+    """Logs batch detach events to %TEMP%/mepanana_batch_detach.log."""
+    try:
+        log_path = os.path.join(tempfile.gettempdir(), "mepanana_batch_detach.log")
+        with open(log_path, "a") as f:
+            stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            f.write((u"[{}] {}\n".format(stamp, safe_unicode(msg))).encode("utf-8", "ignore"))
+    except Exception:
+        pass
+
+
+def _safe_atomic_file_swap(original_path, new_temp_path, max_retries=6):
+    """
+    Safely swaps new_temp_path into original_path with retry mechanism
+    to handle transient Windows file locks (antivirus, OneDrive sync, Revit background workers).
+    """
+    bak_file = original_path + u".orig_bak"
+    if os.path.exists(bak_file):
+        try:
+            os.remove(bak_file)
+        except Exception:
+            pass
+
+    # Step 1: Rename original file to backup
+    renamed_original = False
+    for attempt in range(max_retries):
+        try:
+            os.rename(original_path, bak_file)
+            renamed_original = True
+            break
+        except Exception as ex_ren:
+            log_batch_detach(u"Retry {}/{} renaming original file: {}".format(attempt + 1, max_retries, safe_unicode(ex_ren)))
+            time.sleep(0.5)
+
+    if not renamed_original:
+        # If rename failed, try direct remove if backup exists
+        try:
+            os.remove(original_path)
+            renamed_original = True
+        except Exception as ex_del:
+            return (False, u"File is locked by another process (e.g. OneDrive or Revit). Cannot overwrite: {}".format(safe_unicode(ex_del)))
+
+    # Step 2: Rename temp file to original file path
+    swapped = False
+    for attempt in range(max_retries):
+        try:
+            os.rename(new_temp_path, original_path)
+            swapped = True
+            break
+        except Exception as ex_swp:
+            log_batch_detach(u"Retry {}/{} moving temp file to destination: {}".format(attempt + 1, max_retries, safe_unicode(ex_swp)))
+            time.sleep(0.5)
+
+    if not swapped:
+        # Attempt rollback
+        if os.path.exists(bak_file) and not os.path.exists(original_path):
+            try:
+                os.rename(bak_file, original_path)
+            except Exception:
+                pass
+        return (False, u"Failed to replace original file with detached model.")
+
+    # Step 3: Swap backup directory if present
+    temp_backup_dir = os.path.splitext(new_temp_path)[0] + u"_backup"
+    src_backup_dir = os.path.splitext(original_path)[0] + u"_backup"
+    if os.path.exists(temp_backup_dir):
+        if os.path.exists(src_backup_dir):
+            try:
+                shutil.rmtree(src_backup_dir, ignore_errors=True)
+            except Exception:
+                pass
+        try:
+            os.rename(temp_backup_dir, src_backup_dir)
+        except Exception:
+            pass
+
+    # Step 4: Clean up temporary backup file
+    if os.path.exists(bak_file):
+        try:
+            os.remove(bak_file)
+        except Exception:
+            pass
+
+    return (True, u"Swap successful.")
+
 
 def detach_and_clean_model(app, source_path, dest_path,
                            relinquish_all=True,
@@ -61,16 +151,27 @@ def detach_and_clean_model(app, source_path, dest_path,
         preserve_worksets (bool): True = DetachAndPreserveWorksets, False = DetachAndDiscardWorksets.
 
     Returns:
-        tuple: (success (bool), message (str))
+        tuple: (success (bool), message (unicode))
     """
+    log_batch_detach(u"Starting detach for: {} -> {}".format(safe_unicode(source_path), safe_unicode(dest_path)))
+
     if not os.path.exists(source_path):
-        return (False, "Source file does not exist: {}".format(source_path))
+        msg = u"Source file does not exist: {}".format(safe_unicode(source_path))
+        log_batch_detach(msg)
+        return (False, msg)
 
     # Check if the document is currently open in Revit UI
     try:
-        for open_doc in app.Documents:
-            if open_doc.PathName and os.path.abspath(open_doc.PathName).lower() == os.path.abspath(source_path).lower():
-                return (False, "File is currently open in Revit. Please close it before detaching.")
+        if app and hasattr(app, "Documents"):
+            for open_doc in app.Documents:
+                try:
+                    if open_doc and open_doc.PathName:
+                        if os.path.abspath(open_doc.PathName).lower() == os.path.abspath(source_path).lower():
+                            msg = u"File is currently open in Revit. Please close it before detaching."
+                            log_batch_detach(msg)
+                            return (False, msg)
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -80,7 +181,9 @@ def detach_and_clean_model(app, source_path, dest_path,
         try:
             os.makedirs(dest_dir)
         except Exception as ex_dir:
-            return (False, "Cannot create destination directory: {}".format(safe_unicode(ex_dir)))
+            msg = u"Cannot create destination directory: {}".format(safe_unicode(ex_dir))
+            log_batch_detach(msg)
+            return (False, msg)
 
     # Handle in-place overwrite safely (when source and dest are the same file)
     is_same_file = (os.path.abspath(source_path).lower() == os.path.abspath(dest_path).lower())
@@ -89,7 +192,7 @@ def detach_and_clean_model(app, source_path, dest_path,
 
     if is_same_file:
         dest_base, dest_ext = os.path.splitext(dest_path)
-        temp_save_path = dest_base + "_mep_tmp_detach" + dest_ext
+        temp_save_path = dest_base + u"_mep_tmp_detach" + dest_ext
         actual_save_path = temp_save_path
 
     model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(source_path)
@@ -108,9 +211,14 @@ def detach_and_clean_model(app, source_path, dest_path,
 
     doc = None
     try:
+        log_batch_detach(u"Calling app.OpenDocumentFile for: {}".format(safe_unicode(source_path)))
         doc = app.OpenDocumentFile(model_path, open_opts)
         if not doc:
-            return (False, "Revit failed to open document.")
+            msg = u"Revit failed to open document."
+            log_batch_detach(msg)
+            return (False, msg)
+
+        log_batch_detach(u"Document opened successfully: IsWorkshared={}".format(doc.IsWorkshared))
 
         # 1. Unload Revit Links if requested
         if unload_links:
@@ -122,8 +230,9 @@ def detach_and_clean_model(app, source_path, dest_path,
                             lt.Unload(None)
                     except Exception:
                         pass
-            except Exception:
-                pass
+                log_batch_detach(u"Unloaded Revit links.")
+            except Exception as ex_links:
+                log_batch_detach(u"Warning unloading links: {}".format(safe_unicode(ex_links)))
 
         # 2. Save As new Central model
         save_opts = SaveAsOptions()
@@ -135,7 +244,9 @@ def detach_and_clean_model(app, source_path, dest_path,
             save_opts.SetWorksharingSaveAsOptions(ws_save_opts)
 
         dest_model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(actual_save_path)
+        log_batch_detach(u"Saving document to: {}".format(safe_unicode(actual_save_path)))
         doc.SaveAs(dest_model_path, save_opts)
+        log_batch_detach(u"Document saved successfully.")
 
         # 3. Relinquish all worksets (Make Non-Editable)
         if doc.IsWorkshared and relinquish_all:
@@ -148,61 +259,57 @@ def detach_and_clean_model(app, source_path, dest_path,
                 r_opts.StandardWorksets = True
                 r_opts.CheckedOutElements = True
                 WorksharingUtils.RelinquishOwnership(doc, r_opts, None)
-            except Exception:
-                pass
+                log_batch_detach(u"Relinquished all workset ownership.")
+            except Exception as ex_relinq:
+                log_batch_detach(u"Relinquish notice (normal for new central): {}".format(safe_unicode(ex_relinq)))
 
-        # Close document to release all file locks before potential in-place swap
-        doc.Close(False)
+        # Close document and release all Win32/CLR file locks before swap
+        try:
+            doc.Close(False)
+        except Exception:
+            pass
         doc = None
+
+        # Force CLR Garbage Collection to release unmanaged file handles immediately
+        try:
+            import System
+            System.GC.Collect()
+            System.GC.WaitForPendingFinalizers()
+        except Exception:
+            pass
 
         # 4. If in-place overwrite, perform atomic file swap
         if is_same_file and temp_save_path and os.path.exists(temp_save_path):
-            bak_file = source_path + ".orig_bak"
-            if os.path.exists(bak_file):
-                try:
-                    os.remove(bak_file)
-                except Exception:
-                    pass
-            try:
-                os.rename(source_path, bak_file)
-            except Exception:
-                try:
-                    os.remove(source_path)
-                except Exception:
-                    pass
+            log_batch_detach(u"Performing atomic file swap: {} -> {}".format(safe_unicode(temp_save_path), safe_unicode(source_path)))
+            ok_swap, swap_msg = _safe_atomic_file_swap(source_path, temp_save_path)
+            if not ok_swap:
+                log_batch_detach(u"Atomic swap failed: {}".format(safe_unicode(swap_msg)))
+                return (False, swap_msg)
+            log_batch_detach(u"Atomic swap completed successfully.")
 
-            os.rename(temp_save_path, source_path)
-
-            # Also swap backup directory if created
-            temp_backup_dir = os.path.splitext(temp_save_path)[0] + "_backup"
-            src_backup_dir = os.path.splitext(source_path)[0] + "_backup"
-            if os.path.exists(temp_backup_dir):
-                if os.path.exists(src_backup_dir):
-                    try:
-                        shutil.rmtree(src_backup_dir, ignore_errors=True)
-                    except Exception:
-                        pass
-                try:
-                    os.rename(temp_backup_dir, src_backup_dir)
-                except Exception:
-                    pass
-
-            # Clean up backup
-            if os.path.exists(bak_file):
-                try:
-                    os.remove(bak_file)
-                except Exception:
-                    pass
-
-        return (True, "Detached and saved successfully.")
+        log_batch_detach(u"Batch detach completed successfully for: {}".format(safe_unicode(source_path)))
+        return (True, u"Detached and saved successfully.")
 
     except Exception as ex:
+        err_msg = safe_unicode(ex)
+        log_batch_detach(u"Exception in detach_and_clean_model: {}".format(err_msg))
         if temp_save_path and os.path.exists(temp_save_path):
             try:
                 os.remove(temp_save_path)
             except Exception:
                 pass
-        return (False, "Error: {}".format(safe_unicode(ex)))
+        return (False, u"Error: {}".format(err_msg))
+
+    except:
+        import sys
+        fatal_msg = safe_unicode(sys.exc_info()[1])
+        log_batch_detach(u"Fatal CLR error in detach_and_clean_model: {}".format(fatal_msg))
+        if temp_save_path and os.path.exists(temp_save_path):
+            try:
+                os.remove(temp_save_path)
+            except Exception:
+                pass
+        return (False, u"Fatal error: {}".format(fatal_msg))
 
     finally:
         if doc:
