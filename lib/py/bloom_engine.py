@@ -19,10 +19,6 @@ from Autodesk.Revit.DB import (
     BuiltInCategory,
     FilteredElementCollector,
     Level,
-    Pipe,
-    PipeType,
-    Duct,
-    DuctType,
     MEPSystemType,
     MEPSystemClassification,
     Connector,
@@ -31,6 +27,18 @@ from Autodesk.Revit.DB import (
     Domain,
     FamilyInstance
 )
+
+try:
+    from Autodesk.Revit.DB.Plumbing import Pipe, PipeType
+    HAS_PIPE = True
+except Exception:
+    HAS_PIPE = False
+
+try:
+    from Autodesk.Revit.DB.Mechanical import Duct, DuctType
+    HAS_DUCT = True
+except Exception:
+    HAS_DUCT = False
 
 try:
     from Autodesk.Revit.DB.Electrical import Conduit, ConduitType
@@ -295,6 +303,8 @@ def _get_default_conduit_type_id(doc):
 
 def _bloom_pipe_connector(doc, elem, connector, stub_len_ft, auto_connect):
     """Creates a pipe stub from an open piping connector."""
+    if not HAS_PIPE:
+        return None
     p0 = connector.Origin
     try:
         dir_vec = connector.CoordinateSystem.BasisZ.Normalize()
@@ -349,6 +359,8 @@ def _bloom_pipe_connector(doc, elem, connector, stub_len_ft, auto_connect):
 
 def _bloom_duct_connector(doc, elem, connector, stub_len_ft, auto_connect):
     """Creates a duct stub from an open HVAC duct connector."""
+    if not HAS_DUCT:
+        return None
     p0 = connector.Origin
     try:
         dir_vec = connector.CoordinateSystem.BasisZ.Normalize()
