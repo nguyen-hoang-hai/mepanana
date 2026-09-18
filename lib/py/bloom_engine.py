@@ -35,10 +35,34 @@ except Exception:
     HAS_PIPE = False
 
 try:
+    from Autodesk.Revit.DB.Plumbing import PipeSystemType
+except Exception:
+    try:
+        from Autodesk.Revit.DB import PipeSystemType
+    except Exception:
+        PipeSystemType = None
+
+try:
     from Autodesk.Revit.DB.Mechanical import Duct, DuctType
     HAS_DUCT = True
 except Exception:
     HAS_DUCT = False
+
+try:
+    from Autodesk.Revit.DB.Mechanical import DuctShape
+except Exception:
+    try:
+        from Autodesk.Revit.DB import DuctShape
+    except Exception:
+        DuctShape = None
+
+try:
+    from Autodesk.Revit.DB.Mechanical import DuctSystemType
+except Exception:
+    try:
+        from Autodesk.Revit.DB import DuctSystemType
+    except Exception:
+        DuctSystemType = None
 
 try:
     from Autodesk.Revit.DB.Electrical import Conduit, ConduitType
@@ -168,44 +192,121 @@ def _get_element_level_id(doc, elem, z_coord):
 
 def _find_adjacent_mep_info(elem, domain):
     """
-    Inspects connected connectors on the same element to inherit
-    PipeType/DuctType/ConduitType and MEPSystemType.
+    Inspects connected connectors on the same element or adjacent connected elements
+    to inherit PipeType/DuctType/ConduitType, MEPSystemType, level, and dimensions.
     """
-    info = {"type_id": None, "system_type_id": None, "level_id": None}
+    info = {
+        "type_id": None,
+        "system_type_id": None,
+        "level_id": None,
+        "width": None,
+        "height": None,
+        "diameter": None
+    }
     conn_mgr = get_connector_manager(elem)
     if not conn_mgr:
         return info
 
-    try:
-        for c in conn_mgr.Connectors:
-            if not c.IsConnected or c.Domain != domain:
+    visited = set()
+    queue = [elem]
+
+    depth = 0
+    while queue and depth < 3:
+        next_queue = []
+        for current_elem in queue:
+            c_mgr = get_connector_manager(current_elem)
+            if not c_mgr:
                 continue
-            for ref_c in c.AllRefs:
-                owner = ref_c.Owner
-                if not owner or owner.Id == elem.Id:
+            for c in c_mgr.Connectors:
+                if not c.IsConnected or c.Domain != domain:
                     continue
-                if domain == Domain.DomainPiping and isinstance(owner, Pipe):
-                    info["type_id"] = owner.PipeType.Id
-                    if owner.MEPSystem:
-                        info["system_type_id"] = owner.MEPSystem.GetTypeId()
-                    if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
-                        info["level_id"] = owner.ReferenceLevel.Id
-                    return info
-                elif domain == Domain.DomainHvac and isinstance(owner, Duct):
-                    info["type_id"] = owner.DuctType.Id
-                    if owner.MEPSystem:
-                        info["system_type_id"] = owner.MEPSystem.GetTypeId()
-                    if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
-                        info["level_id"] = owner.ReferenceLevel.Id
-                    return info
-                elif HAS_CONDUIT and domain == Domain.DomainCableTrayConduit and isinstance(owner, Conduit):
-                    info["type_id"] = owner.GetTypeId()
-                    if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
-                        info["level_id"] = owner.ReferenceLevel.Id
-                    return info
+                for ref_c in c.AllRefs:
+                    owner = ref_c.Owner
+                    if not owner or owner.Id == elem.Id or owner.Id in visited:
+                        continue
+                    visited.add(owner.Id)
+
+                    # 1. Piping
+                    if domain == Domain.DomainPiping and HAS_PIPE and isinstance(owner, Pipe):
+                        info["type_id"] = owner.GetTypeId()
+                        if owner.MEPSystem:
+                            try:
+                                info["system_type_id"] = owner.MEPSystem.GetTypeId()
+                            except Exception:
+                                pass
+                        if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
+                            info["level_id"] = owner.ReferenceLevel.Id
+                        try:
+                            p_diam = owner.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+                            if not p_diam or not p_diam.HasValue:
+                                p_diam = owner.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)
+                            if p_diam and p_diam.HasValue:
+                                info["diameter"] = p_diam.AsDouble()
+                        except Exception:
+                            pass
+                        return info
+
+                    # 2. HVAC Duct
+                    elif domain == Domain.DomainHvac and HAS_DUCT and isinstance(owner, Duct):
+                        info["type_id"] = owner.GetTypeId()
+                        if owner.MEPSystem:
+                            try:
+                                info["system_type_id"] = owner.MEPSystem.GetTypeId()
+                            except Exception:
+                                pass
+                        if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
+                            info["level_id"] = owner.ReferenceLevel.Id
+                        try:
+                            p_w = owner.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)
+                            p_h = owner.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)
+                            p_d = owner.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)
+                            if p_w and p_w.HasValue:
+                                info["width"] = p_w.AsDouble()
+                            if p_h and p_h.HasValue:
+                                info["height"] = p_h.AsDouble()
+                            if p_d and p_d.HasValue:
+                                info["diameter"] = p_d.AsDouble()
+                        except Exception:
+                            pass
+                        return info
+
+                    # 3. Electrical Conduit
+                    elif HAS_CONDUIT and domain == Domain.DomainCableTrayConduit and isinstance(owner, Conduit):
+                        info["type_id"] = owner.GetTypeId()
+                        if hasattr(owner, "ReferenceLevel") and owner.ReferenceLevel:
+                            info["level_id"] = owner.ReferenceLevel.Id
+                        try:
+                            p_d = owner.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)
+                            if p_d and p_d.HasValue:
+                                info["diameter"] = p_d.AsDouble()
+                        except Exception:
+                            pass
+                        return info
+
+                    # If owner is another fitting / equipment, inspect its MEPModel and keep searching
+                    next_queue.append(owner)
+                    if hasattr(owner, "MEPModel") and owner.MEPModel and owner.MEPModel.MEPSystem:
+                        try:
+                            if not info["system_type_id"]:
+                                info["system_type_id"] = owner.MEPModel.MEPSystem.GetTypeId()
+                        except Exception:
+                            pass
+
+        queue = next_queue
+        depth += 1
+
+    return info
+
+
+def _get_system_type_for_classification(doc, classification):
+    """Finds MEPSystemType matching MEPSystemClassification."""
+    try:
+        for st in FilteredElementCollector(doc).OfClass(MEPSystemType):
+            if st.SystemClassification == classification:
+                return st.Id
     except Exception:
         pass
-    return info
+    return None
 
 
 def _get_default_piping_system_type_id(doc):
@@ -231,6 +332,43 @@ def _get_default_piping_system_type_id(doc):
     except Exception:
         pass
     return None
+
+
+def _get_piping_system_type_id_from_connector(doc, connector):
+    """Determines appropriate piping MEPSystemType from connector."""
+    if hasattr(connector, "MEPSystem") and connector.MEPSystem:
+        try:
+            return connector.MEPSystem.GetTypeId()
+        except Exception:
+            pass
+
+    if hasattr(connector, "PipeSystemType") and PipeSystemType:
+        try:
+            pst = connector.PipeSystemType
+            target_cls = None
+            if pst == PipeSystemType.DomesticColdWater:
+                target_cls = MEPSystemClassification.DomesticColdWater
+            elif pst == PipeSystemType.DomesticHotWater:
+                target_cls = MEPSystemClassification.DomesticHotWater
+            elif pst == PipeSystemType.Sanitary:
+                target_cls = MEPSystemClassification.Sanitary
+            elif pst == PipeSystemType.FireProtectWet:
+                target_cls = MEPSystemClassification.FireProtectWet
+            elif pst == PipeSystemType.SupplyHydronic:
+                target_cls = MEPSystemClassification.SupplyHydronic
+            elif pst == PipeSystemType.ReturnHydronic:
+                target_cls = MEPSystemClassification.ReturnHydronic
+            elif pst == PipeSystemType.OtherPiping:
+                target_cls = MEPSystemClassification.OtherPiping
+
+            if target_cls:
+                sys_id = _get_system_type_for_classification(doc, target_cls)
+                if sys_id:
+                    return sys_id
+        except Exception:
+            pass
+
+    return _get_default_piping_system_type_id(doc)
 
 
 def _get_default_pipe_type_id(doc):
@@ -266,26 +404,109 @@ def _get_default_duct_system_type_id(doc):
     return None
 
 
+def _get_duct_system_type_id_from_connector(doc, connector):
+    """Determines appropriate duct MEPSystemType from connector."""
+    if hasattr(connector, "MEPSystem") and connector.MEPSystem:
+        try:
+            return connector.MEPSystem.GetTypeId()
+        except Exception:
+            pass
+
+    if hasattr(connector, "DuctSystemType") and DuctSystemType:
+        try:
+            dst = connector.DuctSystemType
+            target_cls = None
+            if dst == DuctSystemType.SupplyAir:
+                target_cls = MEPSystemClassification.SupplyAir
+            elif dst == DuctSystemType.ReturnAir:
+                target_cls = MEPSystemClassification.ReturnAir
+            elif dst == DuctSystemType.ExhaustAir:
+                target_cls = MEPSystemClassification.ExhaustAir
+            elif dst == DuctSystemType.OtherAir:
+                target_cls = MEPSystemClassification.OtherAir
+
+            if target_cls:
+                sys_id = _get_system_type_for_classification(doc, target_cls)
+                if sys_id:
+                    return sys_id
+        except Exception:
+            pass
+
+    return _get_default_duct_system_type_id(doc)
+
+
 def _get_default_duct_type_id(doc, shape):
     """Finds appropriate DuctType in document matching shape (Round/Rectangular/Oval)."""
-    try:
-        for dt in FilteredElementCollector(doc).OfClass(DuctType):
-            dt_name = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString().lower()
+    if not HAS_DUCT:
+        return None
+
+    target_duct_shape = None
+    if DuctShape:
+        try:
+            if shape == ConnectorProfileType.Round and hasattr(DuctShape, "Round"):
+                target_duct_shape = DuctShape.Round
+            elif shape == ConnectorProfileType.Rectangular and hasattr(DuctShape, "Rectangular"):
+                target_duct_shape = DuctShape.Rectangular
+            elif shape == ConnectorProfileType.Oval and hasattr(DuctShape, "Oval"):
+                target_duct_shape = DuctShape.Oval
+        except Exception:
+            pass
+
+    all_duct_types = list(FilteredElementCollector(doc).OfClass(DuctType))
+    if not all_duct_types:
+        return None
+
+    # Pass 1: Direct Shape property match (Revit official enum)
+    if target_duct_shape is not None:
+        for dt in all_duct_types:
+            try:
+                if hasattr(dt, "Shape") and dt.Shape == target_duct_shape:
+                    return dt.Id
+            except Exception:
+                pass
+
+    # Pass 2: FamilyName match (e.g. "Rectangular Duct", "Round Duct", "Oval Duct")
+    for dt in all_duct_types:
+        try:
+            fam_name = getattr(dt, "FamilyName", "") or ""
+            fam_name_lower = fam_name.lower()
+            if shape == ConnectorProfileType.Round and "round" in fam_name_lower:
+                return dt.Id
+            elif shape == ConnectorProfileType.Rectangular and ("rect" in fam_name_lower or "square" in fam_name_lower):
+                return dt.Id
+            elif shape == ConnectorProfileType.Oval and "oval" in fam_name_lower:
+                return dt.Id
+        except Exception:
+            pass
+
+    # Pass 3: Type Name keywords
+    for dt in all_duct_types:
+        try:
+            name_p = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+            dt_name = (name_p.AsString() if name_p else "").lower()
             if shape == ConnectorProfileType.Round and ("round" in dt_name or "tròn" in dt_name):
                 return dt.Id
-            elif shape == ConnectorProfileType.Rectangular and ("rect" in dt_name or "vuông" in dt_name or "chữ nhật" in dt_name):
+            elif shape == ConnectorProfileType.Rectangular and ("rect" in dt_name or "vuông" in dt_name or "chữ nhật" in dt_name or "mitered" in dt_name or "radius" in dt_name):
                 return dt.Id
             elif shape == ConnectorProfileType.Oval and "oval" in dt_name:
                 return dt.Id
-    except Exception:
-        pass
-    try:
-        first = FilteredElementCollector(doc).OfClass(DuctType).FirstElement()
-        if first:
-            return first.Id
-    except Exception:
-        pass
-    return None
+        except Exception:
+            pass
+
+    # Pass 4: If rectangular requested, avoid picking a type with "round" in its name
+    if shape == ConnectorProfileType.Rectangular:
+        for dt in all_duct_types:
+            try:
+                fam_name = (getattr(dt, "FamilyName", "") or "").lower()
+                name_p = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+                dt_name = (name_p.AsString() if name_p else "").lower()
+                if "round" not in fam_name and "round" not in dt_name and "tròn" not in dt_name:
+                    return dt.Id
+            except Exception:
+                pass
+
+    # Fallback: first element
+    return all_duct_types[0].Id
 
 
 def _get_default_conduit_type_id(doc):
@@ -314,17 +535,12 @@ def _bloom_pipe_connector(doc, elem, connector, stub_len_ft, auto_connect):
 
     # 1. Inherit or detect system & pipe type
     adj_info = _find_adjacent_mep_info(elem, Domain.DomainPiping)
-    pipe_type_id = adj_info["type_id"] or _get_default_pipe_type_id(doc)
-    system_type_id = adj_info["system_type_id"]
-    if not system_type_id and connector.MEPSystem:
-        try:
-            system_type_id = connector.MEPSystem.GetTypeId()
-        except Exception:
-            pass
+    pipe_type_id = adj_info.get("type_id") or _get_default_pipe_type_id(doc)
+    system_type_id = adj_info.get("system_type_id")
     if not system_type_id:
-        system_type_id = _get_default_piping_system_type_id(doc)
+        system_type_id = _get_piping_system_type_id_from_connector(doc, connector)
 
-    level_id = adj_info["level_id"] or _get_element_level_id(doc, elem, p0.Z)
+    level_id = adj_info.get("level_id") or _get_element_level_id(doc, elem, p0.Z)
     if not pipe_type_id or not system_type_id or level_id == ElementId.InvalidElementId:
         return None
 
@@ -335,14 +551,26 @@ def _bloom_pipe_connector(doc, elem, connector, stub_len_ft, auto_connect):
 
     # 3. Set Diameter matching connector
     try:
-        diameter = connector.Radius * 2.0
-        p_diam = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
-        if not p_diam or p_diam.IsReadOnly:
-            p_diam = pipe.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)
-        if p_diam and not p_diam.IsReadOnly:
-            p_diam.Set(diameter)
+        diameter = None
+        if getattr(connector, "Shape", ConnectorProfileType.Round) == ConnectorProfileType.Round:
+            try:
+                diameter = connector.Radius * 2.0
+            except Exception:
+                pass
+        if not diameter and adj_info.get("diameter"):
+            diameter = adj_info["diameter"]
+
+        if diameter:
+            p_diam = pipe.get_Parameter(BuiltInParameter.RBS_PIPE_DIAMETER_PARAM)
+            if not p_diam or p_diam.IsReadOnly:
+                p_diam = pipe.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)
+            if p_diam and not p_diam.IsReadOnly:
+                p_diam.Set(diameter)
     except Exception:
         pass
+
+    # Regenerate so pipe connector diameter updates before ConnectTo
+    doc.Regenerate()
 
     # 4. Auto-connect
     if auto_connect and pipe.ConnectorManager:
@@ -370,17 +598,30 @@ def _bloom_duct_connector(doc, elem, connector, stub_len_ft, auto_connect):
 
     adj_info = _find_adjacent_mep_info(elem, Domain.DomainHvac)
     shape = getattr(connector, "Shape", ConnectorProfileType.Rectangular)
-    duct_type_id = adj_info["type_id"] or _get_default_duct_type_id(doc, shape)
-    system_type_id = adj_info["system_type_id"]
-    if not system_type_id and connector.MEPSystem:
+
+    duct_type_id = adj_info.get("type_id")
+    # Verify duct_type_id matches shape if inherited
+    if duct_type_id:
         try:
-            system_type_id = connector.MEPSystem.GetTypeId()
+            dt = doc.GetElement(duct_type_id)
+            if hasattr(dt, "Shape") and DuctShape:
+                if shape == ConnectorProfileType.Round and dt.Shape != DuctShape.Round:
+                    duct_type_id = None
+                elif shape == ConnectorProfileType.Rectangular and dt.Shape != DuctShape.Rectangular:
+                    duct_type_id = None
+                elif shape == ConnectorProfileType.Oval and dt.Shape != DuctShape.Oval:
+                    duct_type_id = None
         except Exception:
             pass
-    if not system_type_id:
-        system_type_id = _get_default_duct_system_type_id(doc)
 
-    level_id = adj_info["level_id"] or _get_element_level_id(doc, elem, p0.Z)
+    if not duct_type_id:
+        duct_type_id = _get_default_duct_type_id(doc, shape)
+
+    system_type_id = adj_info.get("system_type_id")
+    if not system_type_id:
+        system_type_id = _get_duct_system_type_id_from_connector(doc, connector)
+
+    level_id = adj_info.get("level_id") or _get_element_level_id(doc, elem, p0.Z)
     if not duct_type_id or not system_type_id or level_id == ElementId.InvalidElementId:
         return None
 
@@ -388,22 +629,64 @@ def _bloom_duct_connector(doc, elem, connector, stub_len_ft, auto_connect):
     if not duct:
         return None
 
-    # Set dimensions
+    # Set dimensions matching connector
     try:
         if shape == ConnectorProfileType.Round:
-            p_diam = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)
-            if p_diam and not p_diam.IsReadOnly:
-                p_diam.Set(connector.Radius * 2.0)
+            diameter = None
+            try:
+                diameter = connector.Radius * 2.0
+            except Exception:
+                pass
+            if not diameter and adj_info.get("diameter"):
+                diameter = adj_info["diameter"]
+
+            if diameter:
+                p_diam = duct.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM)
+                if p_diam and not p_diam.IsReadOnly:
+                    p_diam.Set(diameter)
         else:
-            p_w = duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)
-            p_h = duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)
-            if p_w and not p_w.IsReadOnly and hasattr(connector, "Width"):
-                p_w.Set(connector.Width)
-            if p_h and not p_h.IsReadOnly and hasattr(connector, "Height"):
-                p_h.Set(connector.Height)
+            # Rectangular or Oval
+            w = None
+            h = None
+            try:
+                w = connector.Width
+                h = connector.Height
+            except Exception:
+                pass
+
+            if not w and adj_info.get("width"):
+                w = adj_info["width"]
+            if not h and adj_info.get("height"):
+                h = adj_info["height"]
+
+            if w and h:
+                # Check connector orientation relative to Z axis
+                try:
+                    cs = connector.CoordinateSystem
+                    # If BasisX is nearly vertical, then connector.Width is elevation height
+                    if abs(cs.BasisX.Z) > 0.7 and abs(dir_vec.Z) < 0.7:
+                        duct_w = h
+                        duct_h = w
+                    else:
+                        duct_w = w
+                        duct_h = h
+                except Exception:
+                    duct_w = w
+                    duct_h = h
+
+                p_w = duct.get_Parameter(BuiltInParameter.RBS_CURVE_WIDTH_PARAM)
+                p_h = duct.get_Parameter(BuiltInParameter.RBS_CURVE_HEIGHT_PARAM)
+                if p_w and not p_w.IsReadOnly:
+                    p_w.Set(duct_w)
+                if p_h and not p_h.IsReadOnly:
+                    p_h.Set(duct_h)
     except Exception:
         pass
 
+    # Regenerate document to update duct connector sizes before ConnectTo
+    doc.Regenerate()
+
+    # Auto-connect
     if auto_connect and duct.ConnectorManager:
         for d_conn in duct.ConnectorManager.Connectors:
             if d_conn.Origin.DistanceTo(p0) < 0.05:
@@ -429,8 +712,8 @@ def _bloom_conduit_connector(doc, elem, connector, stub_len_ft, auto_connect):
     p1 = p0 + dir_vec * stub_len_ft
 
     adj_info = _find_adjacent_mep_info(elem, Domain.DomainCableTrayConduit)
-    conduit_type_id = adj_info["type_id"] or _get_default_conduit_type_id(doc)
-    level_id = adj_info["level_id"] or _get_element_level_id(doc, elem, p0.Z)
+    conduit_type_id = adj_info.get("type_id") or _get_default_conduit_type_id(doc)
+    level_id = adj_info.get("level_id") or _get_element_level_id(doc, elem, p0.Z)
     if not conduit_type_id or level_id == ElementId.InvalidElementId:
         return None
 
@@ -441,12 +724,23 @@ def _bloom_conduit_connector(doc, elem, connector, stub_len_ft, auto_connect):
 
         # Set Diameter
         try:
-            diameter = connector.Radius * 2.0
-            p_diam = conduit.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)
-            if p_diam and not p_diam.IsReadOnly:
-                p_diam.Set(diameter)
+            diameter = None
+            if getattr(connector, "Shape", ConnectorProfileType.Round) == ConnectorProfileType.Round:
+                try:
+                    diameter = connector.Radius * 2.0
+                except Exception:
+                    pass
+            if not diameter and adj_info.get("diameter"):
+                diameter = adj_info["diameter"]
+
+            if diameter:
+                p_diam = conduit.get_Parameter(BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM)
+                if p_diam and not p_diam.IsReadOnly:
+                    p_diam.Set(diameter)
         except Exception:
             pass
+
+        doc.Regenerate()
 
         if auto_connect and conduit.ConnectorManager:
             for c_conn in conduit.ConnectorManager.Connectors:
