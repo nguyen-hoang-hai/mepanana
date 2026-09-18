@@ -195,7 +195,7 @@ def detach_and_clean_model(app, source_path, dest_path,
         temp_save_path = dest_base + u"_mep_tmp_detach" + dest_ext
         actual_save_path = temp_save_path
 
-    model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(source_path)
+    model_path = ModelPathUtils.ConvertUserVisiblePathToModelPath(source_path)
     open_opts = OpenOptions()
     open_opts.Audit = bool(audit)
 
@@ -243,7 +243,7 @@ def detach_and_clean_model(app, source_path, dest_path,
             ws_save_opts.SaveAsCentral = True
             save_opts.SetWorksharingSaveAsOptions(ws_save_opts)
 
-        dest_model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(actual_save_path)
+        dest_model_path = ModelPathUtils.ConvertUserVisiblePathToModelPath(actual_save_path)
         log_batch_detach(u"Saving document to: {}".format(safe_unicode(actual_save_path)))
         doc.SaveAs(dest_model_path, save_opts)
         log_batch_detach(u"Document saved successfully.")
