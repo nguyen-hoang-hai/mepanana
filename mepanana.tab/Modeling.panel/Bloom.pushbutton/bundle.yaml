@@ -1,0 +1,8 @@
+title: Bloom
+tooltip: >-
+  Auto Bloom MEP Connectors:
+  Automatically draws pipe, duct, or conduit stubs from all open connectors on selected fittings, accessories, and equipment.
+  
+  [Click]: Run Bloom immediately on current selection (or pick elements).
+  [Shift-Click]: Open Bloom Settings (stub length, disciplines, auto-connect).
+author: Hai Nguyen
