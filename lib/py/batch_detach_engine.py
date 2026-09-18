@@ -66,6 +66,14 @@ def detach_and_clean_model(app, source_path, dest_path,
     if not os.path.exists(source_path):
         return (False, "Source file does not exist: {}".format(source_path))
 
+    # Check if the document is currently open in Revit UI
+    try:
+        for open_doc in app.Documents:
+            if open_doc.PathName and os.path.abspath(open_doc.PathName).lower() == os.path.abspath(source_path).lower():
+                return (False, "File is currently open in Revit. Please close it before detaching.")
+    except Exception:
+        pass
+
     # Normalize destination path
     dest_dir = os.path.dirname(dest_path)
     if not os.path.exists(dest_dir):
@@ -74,9 +82,15 @@ def detach_and_clean_model(app, source_path, dest_path,
         except Exception as ex_dir:
             return (False, "Cannot create destination directory: {}".format(safe_unicode(ex_dir)))
 
-    # Prevent saving over the exact same file without renaming
-    if os.path.abspath(source_path).lower() == os.path.abspath(dest_path).lower():
-        return (False, "Destination file path cannot be identical to source path while detaching.")
+    # Handle in-place overwrite safely (when source and dest are the same file)
+    is_same_file = (os.path.abspath(source_path).lower() == os.path.abspath(dest_path).lower())
+    actual_save_path = dest_path
+    temp_save_path = None
+
+    if is_same_file:
+        dest_base, dest_ext = os.path.splitext(dest_path)
+        temp_save_path = dest_base + "_mep_tmp_detach" + dest_ext
+        actual_save_path = temp_save_path
 
     model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(source_path)
     open_opts = OpenOptions()
@@ -120,7 +134,7 @@ def detach_and_clean_model(app, source_path, dest_path,
             ws_save_opts.SaveAsCentral = True
             save_opts.SetWorksharingSaveAsOptions(ws_save_opts)
 
-        dest_model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(dest_path)
+        dest_model_path = ModelPathUtils.ConvertUserVisibleStringToModelPath(actual_save_path)
         doc.SaveAs(dest_model_path, save_opts)
 
         # 3. Relinquish all worksets (Make Non-Editable)
@@ -137,9 +151,57 @@ def detach_and_clean_model(app, source_path, dest_path,
             except Exception:
                 pass
 
+        # Close document to release all file locks before potential in-place swap
+        doc.Close(False)
+        doc = None
+
+        # 4. If in-place overwrite, perform atomic file swap
+        if is_same_file and temp_save_path and os.path.exists(temp_save_path):
+            bak_file = source_path + ".orig_bak"
+            if os.path.exists(bak_file):
+                try:
+                    os.remove(bak_file)
+                except Exception:
+                    pass
+            try:
+                os.rename(source_path, bak_file)
+            except Exception:
+                try:
+                    os.remove(source_path)
+                except Exception:
+                    pass
+
+            os.rename(temp_save_path, source_path)
+
+            # Also swap backup directory if created
+            temp_backup_dir = os.path.splitext(temp_save_path)[0] + "_backup"
+            src_backup_dir = os.path.splitext(source_path)[0] + "_backup"
+            if os.path.exists(temp_backup_dir):
+                if os.path.exists(src_backup_dir):
+                    try:
+                        shutil.rmtree(src_backup_dir, ignore_errors=True)
+                    except Exception:
+                        pass
+                try:
+                    os.rename(temp_backup_dir, src_backup_dir)
+                except Exception:
+                    pass
+
+            # Clean up backup
+            if os.path.exists(bak_file):
+                try:
+                    os.remove(bak_file)
+                except Exception:
+                    pass
+
         return (True, "Detached and saved successfully.")
 
     except Exception as ex:
+        if temp_save_path and os.path.exists(temp_save_path):
+            try:
+                os.remove(temp_save_path)
+            except Exception:
+                pass
         return (False, "Error: {}".format(safe_unicode(ex)))
 
     finally:
