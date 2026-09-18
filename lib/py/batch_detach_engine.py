@@ -19,6 +19,7 @@ from Autodesk.Revit.DB import (
     WorksharingSaveAsOptions,
     WorksharingUtils,
     RelinquishOptions,
+    TransactWithCentralOptions,
     FilteredElementCollector,
     RevitLinkType,
     WorksetConfiguration,
@@ -239,9 +240,12 @@ def detach_and_clean_model(app, source_path, dest_path,
         save_opts.OverwriteExistingFile = True
 
         if doc.IsWorkshared:
-            ws_save_opts = WorksharingSaveAsOptions()
-            ws_save_opts.SaveAsCentral = True
-            save_opts.SetWorksharingSaveAsOptions(ws_save_opts)
+            try:
+                ws_save_opts = WorksharingSaveAsOptions()
+                ws_save_opts.SaveAsCentral = True
+                save_opts.SetWorksharingOptions(ws_save_opts)
+            except Exception as ex_ws:
+                log_batch_detach(u"Warning setting worksharing options: {}".format(safe_unicode(ex_ws)))
 
         dest_model_path = ModelPathUtils.ConvertUserVisiblePathToModelPath(actual_save_path)
         log_batch_detach(u"Saving document to: {}".format(safe_unicode(actual_save_path)))
@@ -258,7 +262,11 @@ def detach_and_clean_model(app, source_path, dest_path,
                 r_opts.ProjectStandardsWorksets = True
                 r_opts.StandardWorksets = True
                 r_opts.CheckedOutElements = True
-                WorksharingUtils.RelinquishOwnership(doc, r_opts, None)
+                try:
+                    twc_opts = TransactWithCentralOptions()
+                except Exception:
+                    twc_opts = None
+                WorksharingUtils.RelinquishOwnership(doc, r_opts, twc_opts)
                 log_batch_detach(u"Relinquished all workset ownership.")
             except Exception as ex_relinq:
                 log_batch_detach(u"Relinquish notice (normal for new central): {}".format(safe_unicode(ex_relinq)))
