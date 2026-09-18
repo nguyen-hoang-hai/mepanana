@@ -1,0 +1,135 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Batch Detach Revit Models" Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{DynamicResource WindowBgBrush}"
+        FontFamily="Segoe UI" FontSize="12.5"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.2"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- 0: Select Files Card -->
+            <RowDefinition Height="Auto"/>  <!-- 1: Settings Card -->
+            <RowDefinition Height="Auto"/>  <!-- 2: Footer Action Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Card 1: File Selection ─────────────────────────────────────── -->
+        <Border Grid.Row="0" Style="{DynamicResource CardStyle}" Margin="0,0,0,12" Padding="16">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="1. SELECT REVIT MODELS (.RVT)" Style="{DynamicResource SectionTitle}" Margin="0"/>
+                    <TextBlock Grid.Column="1" Name="txtFileCount" Text="0 models selected" FontSize="11.5" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- File ListBox -->
+                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Background="White" Margin="0,0,0,10">
+                    <ListBox Name="lstFiles" Height="120" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="📄 " FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding SizeDisplay}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}" Margin="12,0,4,0" VerticalAlignment="Center"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <!-- Action buttons for files -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Name="btnAddFiles" Grid.Column="0" Content="+ Add Files..." Style="{DynamicResource GhostButton}" Height="30" MinWidth="100" Margin="0,0,8,0"/>
+                    <Button Name="btnAddFolder" Grid.Column="1" Content="+ Add Folder..." Style="{DynamicResource GhostButton}" Height="30" MinWidth="105" Margin="0,0,8,0"/>
+                    <Button Name="btnClear" Grid.Column="3" Content="Clear All" Style="{DynamicResource GhostButton}" Height="30" MinWidth="80"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Card 2: Detach & Workset Settings ─────────────────────────── -->
+        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,12" Padding="16">
+            <StackPanel>
+                <TextBlock Text="2. DETACH &amp; TRANSMISSION SETTINGS" Style="{DynamicResource SectionTitle}" Margin="0,0,0,12"/>
+
+                <!-- Options CheckBoxes -->
+                <CheckBox Name="chkRelinquish" Content="Make Worksets Non-Editable (Relinquish All Ownership)" IsChecked="True" Margin="0,0,0,8" ToolTip="Releases all User, Family, View worksets and elements so they are not locked by any user."/>
+                <CheckBox Name="chkUnloadLinks" Content="Unload all Revit Links (Recommended for external transmission)" IsChecked="True" Margin="0,0,0,8" ToolTip="Unloads RVT links to make files lightweight and avoid missing link errors when sent to third parties."/>
+                <CheckBox Name="chkAudit" Content="Audit models during open (Detect &amp; fix corrupt elements)" IsChecked="False" Margin="0,0,0,14" ToolTip="Audits models while opening. Increases opening time but repairs potential schema or element errors."/>
+
+                <!-- Destination Section -->
+                <TextBlock Text="Destination Output:" Style="{DynamicResource FieldLabel}" Margin="0,0,0,6"/>
+
+                <RadioButton Name="rbFolder" Content="Save to destination folder:" IsChecked="True" GroupName="DestGroup" Margin="0,0,0,6"/>
+                <Grid Margin="20,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Name="txtFolder" Grid.Column="0" Height="32" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+                    <Button Name="btnBrowse" Grid.Column="1" Content="Browse..." Style="{DynamicResource GhostButton}" Height="32" MinWidth="80"/>
+                </Grid>
+
+                <RadioButton Name="rbSuffix" Content="Save alongside original files with suffix:" GroupName="DestGroup" Margin="0,0,0,6"/>
+                <Grid Margin="20,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Name="txtSuffix" Grid.Column="0" Text="_detached" Height="32" VerticalContentAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="(e.g. Model_detached.rvt)" Style="{DynamicResource FieldLabel}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Card 3: Footer Action Bar ─────────────────────────────────── -->
+        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0" Padding="14,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Name="txtStatus" Grid.Column="0" Text="Ready" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                    <Button Name="btnCancel" Grid.Column="1" Content="Close" Style="{DynamicResource GhostButton}" Height="32" MinWidth="80" Margin="0,0,8,0" IsCancel="True"/>
+                    <Button Name="btnRun" Grid.Column="2" Content="Start Detach" Style="{DynamicResource PrimaryButton}" Height="32" MinWidth="130" IsDefault="True"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

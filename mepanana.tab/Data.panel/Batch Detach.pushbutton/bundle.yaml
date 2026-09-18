@@ -1,0 +1,4 @@
+title: Batch Detach
+
+author: Hai Nguyen
+tooltip: "🇺🇸 EN: Batch detach Revit models from central, make all worksets non-editable (relinquish all ownership), unload links, and save clean transmission/archive files.\n\n🇻🇳 VN: Tự động tách file Revit hàng loạt, chuyển toàn bộ workset sang non-editable (nhả toàn bộ quyền sở hữu), unload link và lưu file truyền giao sạch sẽ."
