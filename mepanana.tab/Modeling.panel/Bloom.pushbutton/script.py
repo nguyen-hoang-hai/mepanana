@@ -201,23 +201,7 @@ try:
         try:
             results = bloom_elements(doc, elements_to_bloom, config)
 
-            if results["total"] > 0:
-                summary_lines = []
-                if results["pipes"] > 0:
-                    summary_lines.append(u"• {} pipe stubs".format(results["pipes"]))
-                if results["ducts"] > 0:
-                    summary_lines.append(u"• {} duct stubs".format(results["ducts"]))
-                if results.get("cable_trays", 0) > 0:
-                    summary_lines.append(u"• {} cable tray stubs".format(results["cable_trays"]))
-                if results["conduits"] > 0:
-                    summary_lines.append(u"• {} conduit stubs".format(results["conduits"]))
-
-                msg = u"Auto Bloom completed successfully!\n" + u"\n".join(summary_lines) + \
-                      u"\n\nFrom {} elements (Stub Length: {} mm).".format(
-                          results["elements_processed"], int(config.stub_length_mm)
-                      )
-                show_success(msg, "Auto Bloom Success")
-            else:
+            if results["total"] == 0:
                 show_warning(
                     u"Could not generate stubs for the selected open connectors.\nPlease ensure matching Pipe, Duct, Cable Tray, or Conduit types exist in project.",
                     "Auto Bloom Notice"
