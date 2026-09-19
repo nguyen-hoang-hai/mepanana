@@ -4,8 +4,21 @@ __doc__   = "Place Revit families at CAD block positions based on layer mapping 
 # ==============================================================================
 import math
 import os
+import sys
 import json
 import time
+
+# ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        sys.exit()
+# ─────────────────────────────────────────────────────────────────────────────
 
 from pyrevit import revit, forms, script
 from Autodesk.Revit.DB import (
@@ -15,15 +28,8 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.DB.Structure import StructuralType
 from py.core import get_doc, get_uidoc, SafeTransaction, get_element_name, mm_to_ft, get_id_value, safe_unicode
-from py.ui   import show_error, show_info, show_warning, setup_window, do_events, yield_dispatcher_every
+from py.ui   import show_error, show_warning, setup_window, do_events, yield_dispatcher_every
 from py.cad  import extract_cad_blocks
-from py.auth import require_auth, update_ribbon_state, is_authenticated
-
-if not is_authenticated():
-    update_ribbon_state(False)
-    if not require_auth():
-        import sys
-        sys.exit()
 
 
 import clr

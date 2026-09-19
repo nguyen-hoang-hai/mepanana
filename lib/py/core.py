@@ -141,15 +141,23 @@ class SafeTransaction(object):
             logger.error("Transaction '{}' failed:\n{}".format(self.name, error_msg))
             if self.t.HasStarted() and not self.t.HasEnded():
                 self.t.RollBack()
+            # Only show error popup for genuine system failures, not user cancellations
+            _is_cancel = False
             try:
-                from py.ui import show_error
-                show_error(
-                    u"System error in '{}'.\nDetails saved to log:\n{}".format(safe_unicode(self.name), safe_unicode(get_log_path())),
-                    "System Error"
-                )
+                from Autodesk.Revit.Exceptions import OperationCanceledException
+                _is_cancel = issubclass(exc_type, OperationCanceledException)
             except Exception:
                 pass
-            return True
+            if not _is_cancel:
+                try:
+                    from py.ui import show_error
+                    show_error(
+                        u"System error in '{}'.\nDetails saved to log:\n{}".format(safe_unicode(self.name), safe_unicode(get_log_path())),
+                        "System Error"
+                    )
+                except Exception:
+                    pass
+            return False  # Always re-raise the exception so callers can handle it
         else:
             if self.t.HasStarted() and not self.t.HasEnded():
                 self.t.Commit()

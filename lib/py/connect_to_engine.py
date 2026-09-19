@@ -392,10 +392,29 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
     c2 = get_best_connector(el2, pt2)
 
     # Special check: Branch into Main pipe/duct (Tier 5)
-    # If one has an open connector and the other is a linear curve with no open connector at the hit point
-    if c1 and not c2 and is_linear_curve(el2):
+    # Triggered when the pick point is on the BODY (interior) of a linear element,
+    # NOT at one of its endpoints. This works regardless of whether open connectors exist.
+    def _pick_hits_body(elem, pick_pt, end_tol=0.08):
+        """Returns True if pick_pt is on the interior body of a linear curve element, not at an endpoint."""
+        if not is_linear_curve(elem):
+            return False
+        line = elem.Location.Curve
+        ep0 = line.GetEndPoint(0)
+        ep1 = line.GetEndPoint(1)
+        # If click is very close to either endpoint, it's an endpoint pick (not a body pick)
+        if pick_pt.DistanceTo(ep0) < end_tol or pick_pt.DistanceTo(ep1) < end_tol:
+            return False
+        # Project pick_pt onto the infinite line; if projection falls within segment bounds, it's a body hit
+        dir_line = (ep1 - ep0).Normalize()
+        length = ep0.DistanceTo(ep1)
+        t = (pick_pt - ep0).DotProduct(dir_line)
+        if 0.0 < t < length:
+            return True
+        return False
+
+    if c1 and _pick_hits_body(el2, pt2) and is_linear_curve(el2):
         return _try_branch_to_main(doc, el1, c1, el2)
-    elif c2 and not c1 and is_linear_curve(el1):
+    elif c2 and _pick_hits_body(el1, pt1) and is_linear_curve(el1):
         return _try_branch_to_main(doc, el2, c2, el1)
 
     if not c1 or not c2:

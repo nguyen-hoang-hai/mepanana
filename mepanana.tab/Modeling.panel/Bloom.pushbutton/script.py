@@ -38,6 +38,18 @@ def _fatal_alert(err_str):
     except Exception:
         pass
 
+# ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        sys.exit()
+# ─────────────────────────────────────────────────────────────────────────────
+
 try:
     import clr
     clr.AddReference("System")
@@ -48,7 +60,6 @@ try:
     clr.AddReference("RevitAPIUI")
 
     from pyrevit import forms, revit, script, EXEC_PARAMS
-    from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, get_uidoc, safe_unicode
     from py.ui   import setup_window, show_success, show_warning, show_error
     from py.bloom_engine import (
@@ -58,10 +69,7 @@ try:
         bloom_elements
     )
 
-    if not is_authenticated():
-        update_ribbon_state(False)
-        if not require_auth():
-            sys.exit()
+
 
     doc = get_doc()
     if not doc:

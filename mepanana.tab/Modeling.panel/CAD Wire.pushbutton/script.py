@@ -40,6 +40,18 @@ def _fatal_alert(err_str):
     except Exception:
         pass
 
+# ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
+from py.auth import require_auth, update_ribbon_state, is_authenticated
+if not is_authenticated():
+    update_ribbon_state(False)
+    if not require_auth():
+        sys.exit()
+# ─────────────────────────────────────────────────────────────────────────────
+
 try:
     import clr
     clr.AddReference("System")
@@ -54,9 +66,8 @@ try:
 
     from pyrevit import forms, revit, script
 
-    from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, get_uidoc, SafeTransaction, SafeTransactionGroup, mm_to_ft, safe_unicode
-    from py.ui   import setup_window, show_info, show_warning, show_error, yield_dispatcher_every
+    from py.ui   import setup_window, show_warning, show_error, yield_dispatcher_every
     from py.cad_wire_engine import (
         get_cad_links_in_view, get_wire_types, get_electrical_panels,
         extract_curves_from_cad, stitch_curves_to_paths,
@@ -64,10 +75,7 @@ try:
         create_revit_wires
     )
 
-    if not is_authenticated():
-        update_ribbon_state(False)
-        if not require_auth():
-            sys.exit()
+
 
 
     doc = get_doc()
@@ -249,19 +257,12 @@ try:
                         result["wires_created"], result["circuits_created"]
                     )
                     panel_label = panel_name if selected_panel else "None"
-                    summary_msg = (
-                        u"CAD Wire & Circuit conversion completed successfully!\n\n"
-                        u"• Wires Created: {}\n"
-                        u"• Devices Connected: {}\n"
-                        u"• Circuits Created: {}\n"
-                        u"• Panelboard Assigned: {}"
-                    ).format(
+                    self.txtStatus.Text = u"Complete — {} wires, {} devices, {} circuits. Panel: {}.".format(
                         result["wires_created"],
                         result["devices_connected"],
                         result["circuits_created"],
                         panel_label
                     )
-                    show_info(summary_msg, "Conversion Summary")
                     self.action = "SUCCESS"
                     self.Close()
                 else:

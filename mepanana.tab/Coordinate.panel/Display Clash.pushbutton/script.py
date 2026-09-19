@@ -16,15 +16,20 @@ __title__ = "Display Clash"
 __doc__   = "Transient visual clash analysis for MEP and BIM elements using Revit Analysis Visualization Framework (AVF)."
 
 # ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+import os
+import sys
+
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
 from py.auth import require_auth, update_ribbon_state, is_authenticated
 if not is_authenticated():
     update_ribbon_state(False)
     if not require_auth():
-        import sys
         sys.exit()
+# ─────────────────────────────────────────────────────────────────────────────
 
-import os
-import sys
 import json
 import tempfile
 import traceback
@@ -36,10 +41,8 @@ def _fatal_alert(err_str):
     except Exception:
         pass
 
-# ── Dynamic Lib Resolution ───────────────────────────────────────────────────
-lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
-if lib_path not in sys.path:
-    sys.path.insert(0, lib_path)
+# ── Dynamic Lib Resolution (already done above) ──────────────────────────────
+lib_path = _lib_path
 
 
 # ── Imports ──────────────────────────────────────────────────────────────────
@@ -598,27 +601,11 @@ try:
 
                 if len(clashes) > 0:
                     if check_same:
-                        bullet_str = (
-                            "• 🔴 Primary Host Elements (Red)\n"
-                            "• 🟠 Secondary Host Elements in same model (Orange)\n"
-                            "• 🟢 Linked Model Elements (Green)\n\n"
-                        )
+                        self.txtStatus.Text = u"Analysis complete: {} clashes — 🔴 Red=Host1, 🟠 Orange=Host2, 🟢 Green=Link — rendered in active view.".format(len(clashes))
                     else:
-                        bullet_str = (
-                            "• 🟢 Linked Model Elements (Green - Host vs Link only)\n\n"
-                        )
-                    show_success(
-                        "Detected {} hard clashes:\n{}"
-                        "Transient visual AVF markers have been rendered directly in Active View '{}'.".format(
-                            len(clashes), bullet_str, self.active_view.Name
-                        ),
-                        "Clash Analysis Complete"
-                    )
+                        self.txtStatus.Text = u"Analysis complete: {} clashes — 🟢 Green=Link (Host vs Link only) — rendered in active view.".format(len(clashes))
                 else:
-                    if not check_same:
-                        show_info("Zero hard clashes detected between Host and Linked models in active view!", "No Clashes")
-                    else:
-                        show_info("Zero hard clashes detected in active view! Everything is clear.", "No Clashes")
+                    self.txtStatus.Text = u"Analysis complete: Zero hard clashes detected in active view. Everything is clear."
 
             except Exception as ex:
                 show_error(u"Clash Analysis Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()), "Analysis Error")
@@ -635,8 +622,7 @@ try:
                 _clear_cache(self.doc, self.active_view)
                 self.lstClashes.ItemsSource = []
                 self.txtClashCount.Text = "0 clashes detected"
-                self.txtStatus.Text = "Visual analysis display cleared from view."
-                show_info("Clash analysis visual layer and results have been cleared.", "Analysis Cleared")
+                self.txtStatus.Text = u"Visual analysis display cleared from view."
             except Exception as ex:
                 show_error(u"Failed to clear analysis: {}".format(safe_unicode(ex)), "Error")
 

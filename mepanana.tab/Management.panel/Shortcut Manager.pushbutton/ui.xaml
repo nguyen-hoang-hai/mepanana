@@ -106,25 +106,34 @@
         </Border>
 
         <!-- ── Bottom Action Card ─────────────────────────────────────────── -->
-        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Height="56" Padding="14,8" Margin="0">
+        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Padding="14,8" Margin="0">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <Button Grid.Column="0" Name="btnResetAll" Content="↺ Reset All"
-                        Style="{DynamicResource GhostButton}" Height="34" Padding="16,0"/>
+                <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
-                <TextBlock Grid.Column="1" Text="Tip: Click input box and press keys. Press Backspace to clear."
-                           Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
-                           VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8,0"/>
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="34" Padding="14,0" Margin="0,0,8,0" IsCancel="True"/>
-                    <Button Name="btnApply" Content="✓ Apply Shortcuts" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" FontSize="13" IsDefault="True"/>
-                </StackPanel>
+                    <Button Grid.Column="0" Name="btnResetAll" Content="↺ Reset All"
+                            Style="{DynamicResource GhostButton}" Height="34" Padding="16,0"/>
+
+                    <TextBlock Grid.Column="1" Text="Tip: Click input box and press keys. Press Backspace to clear."
+                               Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
+                               VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8,0"/>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Name="btnClose" Content="Close" Style="{DynamicResource GhostButton}" Height="34" Padding="14,0" Margin="0,0,8,0" IsCancel="True"/>
+                        <Button Name="btnApply" Content="✓ Apply Shortcuts" Style="{DynamicResource PrimaryButton}" Height="34" Padding="18,0" FontSize="13" IsDefault="True"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
     </Grid>

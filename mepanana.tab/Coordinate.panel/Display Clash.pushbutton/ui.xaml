@@ -136,7 +136,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <Button Name="btnClearCategorySearch" Content="✕" Width="18" Height="18"
+                            <Button Name="btnClearCategorySearch" Content="✕" Width="22" Height="22"
                                     HorizontalAlignment="Right" Margin="0,0,4,0"
                                     Style="{DynamicResource GhostButton}" Visibility="Collapsed"
                                     Padding="0" FontSize="9.5" ToolTip="Clear filter"/>
@@ -150,8 +150,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Name="txtCategoryCount" Text="26 Selected" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            <Button Name="btnSelectAll" Grid.Column="1" Content="All" Style="{DynamicResource GhostButton}" Height="26" MinWidth="42" Padding="8,0" FontSize="11" Margin="0,0,4,0"/>
-                            <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="26" MinWidth="42" Padding="8,0" FontSize="11"/>
+                            <Button Name="btnSelectAll" Grid.Column="1" Content="All" Style="{DynamicResource GhostButton}" Height="30" MinWidth="0" Padding="8,0" FontSize="11" Margin="0,0,4,0"/>
+                            <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="30" MinWidth="0" Padding="8,0" FontSize="11"/>
                         </Grid>
 
                         <!-- Scrollable Category ListBox with Virtualization -->

@@ -65,11 +65,11 @@
 
             <Button Grid.Column="0" Name="btnLock"
                     Content="🔒 Lock Tools" Style="{DynamicResource GhostButton}"
-                    Height="36" FontWeight="SemiBold" FontSize="12.5"/>
+                    Height="36" FontSize="12.5" IsCancel="True"/>
 
             <Button Grid.Column="2" Name="btnKeep"
                     Content="✓ Keep Active" Style="{DynamicResource PrimaryButton}"
-                    Height="36" FontWeight="SemiBold" FontSize="12.5" IsDefault="True"/>
+                    Height="36" FontSize="12.5" IsDefault="True"/>
         </Grid>
     </Grid>
 </Window>

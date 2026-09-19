@@ -950,8 +950,8 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
             temp_rfa_path = rfa_full_path_or_url
 
     # 2. Perform Load in Revit Transaction safely
+    t = DB.Transaction(doc, "Load Family from Cloud")
     try:
-        t = DB.Transaction(doc, "Load Family from Cloud")
         t.Start()
 
         class FamilyLoadOptions(DB.IFamilyLoadOptions):
@@ -968,6 +968,8 @@ def load_family_to_revit(doc, rfa_full_path_or_url, family_name=None):
         t.Commit()
         return True, u"Family '{}' successfully loaded into project!".format(fam_name)
     except Exception as ex:
+        if t.HasStarted() and not t.HasEnded():
+            t.RollBack()
         return False, u"Error loading family:\n{}".format(str(ex))
 
 
