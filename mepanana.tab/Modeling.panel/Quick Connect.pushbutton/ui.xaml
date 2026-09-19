@@ -1,0 +1,160 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Quick Connect Settings - MEPANANA"
+        Width="440"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBgBrush}"
+        FontFamily="Segoe UI"
+        FontSize="12">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Quick Connect Settings"
+                           FontSize="15"
+                           Foreground="#0F172A"/>
+                <TextBlock Text="Configure intelligent multi-tier MEP connection preferences"
+                           FontSize="11.5"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Card 1: Alignment Tolerance -->
+        <Border Grid.Row="1" Style="{DynamicResource CardStyle}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="COAXIAL ALIGNMENT TOLERANCE" Style="{DynamicResource SectionTitle}"/>
+                <TextBlock Text="Maximum lateral offset for automatic axis correction:"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           Margin="0,2,0,10"/>
+
+                <!-- Input Box with Embedded Unit -->
+                <Grid Margin="0,0,0,10">
+                    <TextBox Name="txtMaxOffset"
+                             Height="34"
+                             FontSize="13.5"
+                             VerticalContentAlignment="Center"
+                             Padding="12,0,45,0"
+                             Text="100"
+                             BorderBrush="{DynamicResource InputBorderBrush}"
+                             BorderThickness="1"/>
+                    <TextBlock Text="mm"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Margin="0,0,14,0"
+                               Foreground="{DynamicResource MutedTextBrush}"
+                               FontSize="12"/>
+                </Grid>
+
+                <!-- Quick Presets -->
+                <TextBlock Text="Quick Presets:"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           FontSize="11"
+                           Margin="0,0,0,6"/>
+
+                <UniformGrid Rows="1" Columns="4" Margin="0,0,0,10">
+                    <Button Name="btnPreset25"
+                            Content="25 mm"
+                            Height="32"
+                            MinWidth="0"
+                            Padding="0"
+                            FontSize="11.5"
+                            Margin="0,0,6,0"
+                            Style="{DynamicResource GhostButton}"/>
+                    <Button Name="btnPreset50"
+                            Content="50 mm"
+                            Height="32"
+                            MinWidth="0"
+                            Padding="0"
+                            FontSize="11.5"
+                            Margin="0,0,6,0"
+                            Style="{DynamicResource GhostButton}"/>
+                    <Button Name="btnPreset100"
+                            Content="100 mm"
+                            Height="32"
+                            MinWidth="0"
+                            Padding="0"
+                            FontSize="11.5"
+                            Margin="0,0,6,0"
+                            Style="{DynamicResource GhostButton}"/>
+                    <Button Name="btnPreset200"
+                            Content="200 mm"
+                            Height="32"
+                            MinWidth="0"
+                            Padding="0"
+                            FontSize="11.5"
+                            Margin="0,0,0,0"
+                            Style="{DynamicResource GhostButton}"/>
+                </UniformGrid>
+
+                <!-- Safe Alignment Checkbox -->
+                <CheckBox Name="chkAllowMove"
+                          Content="Allow auto-shifting standalone elements within tolerance"
+                          Foreground="#0F172A"
+                          Margin="0,2,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Card 2: Preferred Connection Mode -->
+        <Border Grid.Row="2" Style="{DynamicResource CardStyle}" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock Text="PREFERRED CONNECTION STRATEGY" Style="{DynamicResource SectionTitle}"/>
+                <TextBlock Text="Choose default handling for gap and corner scenarios:"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           Margin="0,2,0,10"/>
+
+                <RadioButton Name="rbModeAuto"
+                             Content="Smart Auto (Extend, Bridge, Elbow, or Tee as appropriate)"
+                             IsChecked="True"
+                             Foreground="#0F172A"
+                             Margin="0,0,0,8"/>
+                <RadioButton Name="rbModeExtend"
+                             Content="Extend Only (Always extend curve, never create bridge)"
+                             Foreground="#0F172A"
+                             Margin="0,0,0,8"/>
+                <RadioButton Name="rbModeBridge"
+                             Content="Bridge Only (Always insert new intermediate segment)"
+                             Foreground="#0F172A"
+                             Margin="0,0,0,8"/>
+                <RadioButton Name="rbModeElbow"
+                             Content="Elbow Only (Focus strictly on corner and angled joints)"
+                             Foreground="#0F172A"
+                             Margin="0,0,0,2"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Footer Buttons -->
+        <Grid Grid.Row="3" Margin="0,2,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Name="btnCancel"
+                    Grid.Column="1"
+                    Content="Cancel"
+                    Width="88"
+                    Height="34"
+                    Margin="0,0,8,0"
+                    Style="{DynamicResource GhostButton}"/>
+
+            <Button Name="btnSave"
+                    Grid.Column="2"
+                    Content="Save Settings"
+                    Width="110"
+                    Height="34"
+                    Style="{DynamicResource PrimaryButton}"/>
+        </Grid>
+    </Grid>
+</Window>
