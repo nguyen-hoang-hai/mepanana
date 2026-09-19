@@ -1,8 +1,3 @@
 title: Connect To
-tooltip: >-
-  Connect To MEP Elements:
-  Intelligently connects pipes, ducts, cable trays, and conduits (Direct, Extend, Bridge, Elbow, and Tee).
-
-  [Click]: Enter continuous interactive connection mode (pick pairs, Esc to exit).
-  [Shift-Click]: Open Connect To Settings (alignment tolerance).
 author: Hai Nguyen
+tooltip: "🇺🇸 EN: Intelligently connects pipes, ducts, cable trays, and conduits (Direct, Extend, Bridge, Elbow, and Tee).\n• [Click]: Enter continuous interactive connection mode (pick pairs, Esc to exit).\n• [Shift-Click]: Open Connect To Settings (alignment tolerance).\n\n🇻🇳 VN: Kết nối thông minh đường ống nước, ống gió, máng cáp và ống luồn (Thẳng, Kéo dài, Nối cầu, Co cút, và Tê).\n• [Click]: Bật chế độ chọn và kết nối liên tục (chọn từng cặp, bấm Esc để thoát).\n• [Shift-Click]: Mở Cấu hình Connect To (dung sai độ lệch tâm)."

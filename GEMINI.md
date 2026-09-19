@@ -72,8 +72,8 @@ All tools with background or batch operations (CAD conversion, wiring, piping, c
    - All XAML TextBlocks, Labels, RadioButtons, CheckBoxes, and Badges **MUST USE** default `FontWeight="Normal"`.
    - **STRICTLY PROHIBITED:** `FontWeight="Bold"` or `FontWeight="SemiBold"` anywhere in XAML files (bolding is reserved exclusively for Theme SectionTitle styles).
 2. **Theme DynamicResource Keys**:
-   - Valid keys in `theme.xaml`: `CardStyle`, `CardBgBrush`, `WindowBgBrush`, `BorderBrush`, `SectionTitle`, `FieldLabel`, `PrimaryButton`, `GhostButton`, `AccentBrush`, `MutedTextBrush`.
-   - **`TextBrush` DOES NOT EXIST** in `theme.xaml`! Never reference `{DynamicResource TextBrush}`. Use hardcoded `#0F172A` or `{DynamicResource MutedTextBrush}`.
+   - Valid keys in `theme.xaml`: `CardStyle`, `CardBgBrush`, `WindowBgBrush`, `BorderBrush`, `SectionTitle`, `FieldLabel`, `PrimaryButton`, `GhostButton`, `AccentBrush`, `MutedTextBrush`, `TextBrush`.
+   - **`TextBrush`** is `<SolidColorBrush x:Key="TextBrush" Color="#1E293B"/>`. You can safely reference `{DynamicResource TextBrush}` for primary text or use hardcoded `#0F172A` / `#1E293B`.
 
 ## 🎨 MANDATORY TRANSIENT VISUALIZATION STANDARD (AVF 3-COLOR)
 1. **Transient Analysis Visualization Framework (AVF)**:
@@ -113,6 +113,32 @@ All tools with background or batch operations (CAD conversion, wiring, piping, c
      )
      ```
      Always set `IsHitTestVisible="False"` on inner TextBlock/StackPanel elements of template buttons so `args.Source` bubbles cleanly to the button.
+
+## 📐 MANDATORY HIGH-DPI BUTTON & PRESET STANDARD
+1. **Minimum Height $\ge 30\text{px}$**:
+   - All standard buttons, preset filter pills, and card action buttons must have `Height >= 30` (standard: `Height="32"` or `Height="34"`).
+   - In WPF with Segoe UI on Windows $125\% - 150\%$ High-DPI display scaling, buttons with `Height < 30` (e.g. 26px, 28px) or internal vertical padding will cause font baseline and descender clipping (`g`, `y`, `p`, `j`).
+2. **Zero Vertical Padding & MinWidth**:
+   - Always specify `MinWidth="0"` and zero vertical padding (e.g. `Padding="10,0"` or `Padding="0"`) on compact buttons and preset pills to ensure clean vertical centering.
+
+## 🎯 MANDATORY INTERACTIVE PICKING & SILENT WORKFLOW STANDARD
+1. **1-Click Direct Pick UX**:
+   - Direct single-element tools (e.g. `Bloom`) should immediately trigger `PickObject()` when selection is empty, skipping modal configuration dialogs unless `Shift-Click` is detected.
+2. **Continuous Loop Connection UX**:
+   - Multi-element connection tools (e.g. `Connect To`) must run in a continuous interactive loop `while True:` wrapped in `try: ... except Autodesk.Revit.Exceptions.OperationCanceledException: break`, allowing users to connect multiple pairs seamlessly without re-launching the tool, exiting silently on `Esc`.
+3. **Silent Success (No Popup Fatigue)**:
+   - Do NOT show modal message dialogs or alerts upon successful completion. Let the visible model geometry changes provide immediate visual confirmation. Reserve popups only for critical unrecoverable errors.
+
+## 🔌 MANDATORY MEP CONNECTOR & ROUTING TOLERANCE STANDARD
+1. **Connector Pairing by Click Location (`ref.GlobalPoint`)**:
+   - When the user clicks a linear element (pipe/duct/tray/conduit) to connect, always use `ref.GlobalPoint` to select the connector closest to where the user clicked, rather than an arbitrary index.
+2. **Cable Tray vs. Conduit Disambiguation**:
+   - Cable Trays and Conduits both share `DomainCableTrayConduit`. Always disambiguate target elements by checking element type/category (`isinstance(elem, CableTray)` vs `isinstance(elem, Conduit)`) before querying connectors or attempting fittings.
+3. **Auto-Transition Fallback**:
+   - When joining elements of differing widths/diameters/shapes, implement a 2-tier connection strategy: attempt direct fitting connection, and if sizes differ or direct connection fails, place `NewTransitionFitting` or match dimensions automatically before connecting.
+4. **Collinear & Perpendicular Tolerances**:
+   - Use normalized vector dot products with standard thresholds: parallel/collinear $|\vec{u} \cdot \vec{v}| \ge 0.999$, perpendicular $|\vec{u} \cdot \vec{v}| \le 0.001$.
+   - For axial alignment, offset $\le 2\text{ mm}$ ($\approx 0.0065\text{ ft}$) is treated as collinear (Extend or Direct Join). Offset $\ge 5\text{ mm}$ triggers Bridge or Elbow routing to prevent zero-length curve exceptions.
 
 ## 🚀 MANDATORY CONTINUOUS GITHUB SYNC (ALWAYS PUSH TO GITHUB)
 1. **Always Sync to GitHub**:

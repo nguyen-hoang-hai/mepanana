@@ -150,8 +150,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Name="txtCategoryCount" Text="26 Selected" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                            <Button Name="btnSelectAll" Grid.Column="1" Content="All" Style="{DynamicResource GhostButton}" Height="22" MinWidth="42" Padding="6,0" FontSize="11" Margin="0,0,4,0"/>
-                            <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="22" MinWidth="42" Padding="6,0" FontSize="11"/>
+                            <Button Name="btnSelectAll" Grid.Column="1" Content="All" Style="{DynamicResource GhostButton}" Height="26" MinWidth="42" Padding="8,0" FontSize="11" Margin="0,0,4,0"/>
+                            <Button Name="btnSelectNone" Grid.Column="2" Content="None" Style="{DynamicResource GhostButton}" Height="26" MinWidth="42" Padding="8,0" FontSize="11"/>
                         </Grid>
 
                         <!-- Scrollable Category ListBox with Virtualization -->

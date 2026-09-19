@@ -1,4 +1,4 @@
-﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Session Status — mepanana" Width="400" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
@@ -35,16 +35,16 @@
 
                 <!-- User Name -->
                 <TextBlock Name="txtUserName" Text="Nguyễn Hoàng Hải"
-                           FontWeight="Bold" FontSize="16" Foreground="{DynamicResource TextBrush}"
+                           FontSize="16" Foreground="{DynamicResource TextBrush}"
                            HorizontalAlignment="Center" Margin="0,0,0,4"/>
 
                 <!-- Active Status Pill -->
                 <Border Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1"
                         CornerRadius="12" Padding="12,3" HorizontalAlignment="Center" Margin="0,0,0,12">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="● " Foreground="#10B981" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="● " Foreground="#10B981" FontSize="11" VerticalAlignment="Center"/>
                         <TextBlock Text="Session Active &amp; Unlocked" Foreground="#047857"
-                                   FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                   FontSize="11.5" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 

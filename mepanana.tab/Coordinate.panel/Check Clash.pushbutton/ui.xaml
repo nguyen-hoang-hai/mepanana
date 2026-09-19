@@ -421,15 +421,15 @@
 
                             <!-- Row 1: Quick Preset Buttons -->
                             <WrapPanel Grid.Row="1">
-                                <Button Name="btnPresetMep" Style="{DynamicResource PrimaryButton}" Height="28" Padding="12,0" Margin="0,0,6,0"
+                                <Button Name="btnPresetMep" Style="{DynamicResource PrimaryButton}" Height="32" MinWidth="0" Padding="12,0" Margin="0,0,6,0"
                                         Content="📡 MEP Default" ToolTip="Reset to standard MEP categories (Pipes, Ducts, Cable Trays, Conduits, Equipment)"/>
-                                <Button Name="btnPresetAll" Style="{DynamicResource GhostButton}" Height="28" Padding="12,0" Margin="0,0,6,0"
+                                <Button Name="btnPresetAll" Style="{DynamicResource GhostButton}" Height="32" MinWidth="0" Padding="12,0" Margin="0,0,6,0"
                                         Content="✅ Select All" ToolTip="Select all visible categories in the list"/>
-                                <Button Name="btnPresetNone" Style="{DynamicResource GhostButton}" Height="28" Padding="12,0" Margin="0,0,6,0"
+                                <Button Name="btnPresetNone" Style="{DynamicResource GhostButton}" Height="32" MinWidth="0" Padding="12,0" Margin="0,0,6,0"
                                         Content="☐ Clear All" ToolTip="Deselect all categories"/>
-                                <Button Name="btnPresetStruct" Style="{DynamicResource GhostButton}" Height="28" Padding="12,0" Margin="0,0,6,0"
+                                <Button Name="btnPresetStruct" Style="{DynamicResource GhostButton}" Height="32" MinWidth="0" Padding="12,0" Margin="0,0,6,0"
                                         Content="🏗️ + Structure" ToolTip="Add structural categories (Framing, Columns, Foundations)"/>
-                                <Button Name="btnPresetArch" Style="{DynamicResource GhostButton}" Height="28" Padding="12,0" Margin="0,0,6,0"
+                                <Button Name="btnPresetArch" Style="{DynamicResource GhostButton}" Height="32" MinWidth="0" Padding="12,0" Margin="0,0,6,0"
                                         Content="🏠 + Architecture" ToolTip="Add architectural categories (Walls, Floors, Ceilings)"/>
                             </WrapPanel>
                         </Grid>

@@ -309,7 +309,7 @@
 
                                             <!-- 1-Click Load CTA Button -->
                                             <Button Grid.Row="4" Tag="{Binding RfaPath}" Name="btnCardLoad"
-                                                    Content="📥 Load" Height="28" FontSize="11"
+                                                    Content="📥 Load" Height="30" FontSize="11"
                                                     Background="#EFF6FF" BorderBrush="#BFDBFE" Foreground="#1D4ED8" Cursor="Hand">
                                                 <Button.Resources>
                                                     <Style TargetType="Border">

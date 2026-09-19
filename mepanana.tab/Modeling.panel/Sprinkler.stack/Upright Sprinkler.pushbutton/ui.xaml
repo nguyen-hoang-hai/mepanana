@@ -58,7 +58,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="2. CONNECTION METHOD" Style="{DynamicResource SectionTitle}" Margin="0" VerticalAlignment="Center" />
-                        <Button x:Name="btnStandards" Grid.Column="1" Content="📖 NFPA 13 &amp; TCVN 7336" Style="{DynamicResource GhostButton}" Height="26" Padding="10,2" FontSize="10.5" Cursor="Hand" ToolTip="Click to view detailed NFPA 13 and TCVN 7336 code clauses for this mode" />
+                        <Button x:Name="btnStandards" Grid.Column="1" Content="📖 NFPA 13 &amp; TCVN 7336" Style="{DynamicResource GhostButton}" Height="30" Padding="10,0" FontSize="11" Cursor="Hand" ToolTip="Click to view detailed NFPA 13 and TCVN 7336 code clauses for this mode" />
                     </Grid>
 
                     <!-- Single Connection Mode Info Card -->

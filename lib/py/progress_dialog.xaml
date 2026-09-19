@@ -23,7 +23,7 @@
 
             <!-- ── Header: Clean Title & Status Subtitle (No Logo) ─────────── -->
             <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                <TextBlock Name="txtTitle" Text="Loading Family Library..." FontWeight="Bold" FontSize="15"
+                <TextBlock Name="txtTitle" Text="Loading Family Library..." FontSize="15"
                            Foreground="#0F172A" TextTrimming="CharacterEllipsis" />
                 <TextBlock Name="txtStatus" Text="Indexing library..." FontSize="12"
                            Foreground="#64748B" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
@@ -45,9 +45,9 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Column="0" Name="txtDetail" Text="Initializing..." FontSize="12"
-                                   Foreground="#334155" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="320" VerticalAlignment="Center" />
+                                   Foreground="#334155" TextTrimming="CharacterEllipsis" MaxWidth="320" VerticalAlignment="Center" />
 
-                        <TextBlock Grid.Column="1" Name="txtPercent" Text="0%" FontSize="13" FontWeight="Bold"
+                        <TextBlock Grid.Column="1" Name="txtPercent" Text="0%" FontSize="13"
                                    Foreground="#2563EB" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </Grid>
 
@@ -65,7 +65,7 @@
 
             <!-- ── Optional Footer Action: Cancel Button ───────────────────── -->
             <Button Grid.Row="2" Name="btnCancel" Content="Cancel Operation"
-                    Height="28" Padding="14,0" FontSize="11" FontWeight="SemiBold"
+                    Height="32" Padding="14,0" FontSize="11"
                     HorizontalAlignment="Right" Margin="0,12,0,0" Visibility="Collapsed" Cursor="Hand"
                     Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" Foreground="#64748B">
                 <Button.Resources>

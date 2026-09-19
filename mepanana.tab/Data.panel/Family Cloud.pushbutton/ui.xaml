@@ -363,7 +363,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <Button Name="btnLoadCard" Grid.Column="0"
                                                             CommandParameter="{Binding}"
-                                                            Height="28" FontSize="11" Margin="0,0,4,0"
+                                                            Height="30" FontSize="11" Margin="0,0,4,0"
                                                             Background="{Binding ButtonBg}"
                                                             BorderBrush="{Binding ButtonBorder}"
                                                             Foreground="{Binding ButtonFg}"
@@ -381,7 +381,7 @@
                                                     </Button>
                                                     <Button Name="btnDeleteCard" Grid.Column="1"
                                                             CommandParameter="{Binding}"
-                                                            Height="28" Width="30"
+                                                            Height="30" Width="30"
                                                             Background="#FEE2E2" BorderBrush="#FCA5A5" BorderThickness="1"
                                                             Cursor="Hand" ToolTip="Delete from Cloud Library">
                                                         <Button.Resources>

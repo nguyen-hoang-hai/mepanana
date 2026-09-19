@@ -219,7 +219,7 @@ finally:
 >    - Nút phụ / Đóng: `Style="{DynamicResource GhostButton}"`
 >    - Màu nhấn thương hiệu: `Foreground="{DynamicResource AccentBrush}"`
 >    - Chữ mờ / chú thích: `Foreground="{DynamicResource MutedTextBrush}"`
->    - ⚠️ **CẢNH BÁO QUAN TRỌNG:** Key `TextBrush` **KHÔNG TỒN TẠI** trong `theme.xaml`! Tuyệt đối không gọi `{DynamicResource TextBrush}` vì sẽ làm chữ bị trong suốt hoặc rơi về màu đen mặc định lỗi. Dùng mã màu trực tiếp `#0F172A` hoặc `{DynamicResource MutedTextBrush}`.
+>    - Chữ chính (Primary Text): `Foreground="{DynamicResource TextBrush}"` (màu `#1E293B` chuẩn trong `theme.xaml`), hoặc dùng trực tiếp `#0F172A`.
 
 ---
 
@@ -247,6 +247,23 @@ finally:
 > 1. **Tách luồng Worker:** Luôn đẩy lệnh thực thi sang luồng phụ `threading.Thread(target=worker)`.
 > 2. **Vòng lặp Polling & Dispatcher:** Luồng chính WPF chạy vòng lặp kiểm tra trạng thái luồng phụ mỗi $100\text{ms}$ (`time.sleep(0.1)`) và gọi `do_events()` để đảm bảo thanh `ProgressBar` và cửa sổ luôn phản hồi mượt mà.
 > 3. **Cơ chế Timeout An Toàn:** Luôn đặt giới hạn thời gian (Timeout ví dụ $120\text{s}$) kèm cờ hủy để tránh tiến trình mồ côi (Zombie Process) làm đầy bộ nhớ máy tính.
+
+---
+
+### 2.9. Quy Chuẩn Nút Bấm & Thẻ Preset Chống Cắt Chữ High-DPI (High-DPI Button Ergonomics):
+> [!IMPORTANT]
+> **TIÊU CHUẨN CHIỀU CAO VÀ PADDING NÚT BẤM TRÊN MÀN HÌNH ĐỘ PHÂN GIẢI CAO:**
+> 1. **Chiều cao tối thiểu $\ge 30\text{px}$:** Tất cả Button, Preset Filter Pill trong thẻ hoặc Toolbar bắt buộc phải có `Height >= 30` (khuyến nghị chuẩn `Height="32"` hoặc `Height="34"`). Trên Windows với độ phóng đại $125\% - 150\%$, các nút có chiều cao $< 30\text{px}$ sẽ bị xén mất nét dưới của các chữ cái như `g, y, p, j` do hộp glyph của phông Segoe UI vượt quá khung viền của nút.
+> 2. **Triệt tiêu Padding dọc & MinWidth:** Bắt buộc khai báo `MinWidth="0"` và `Padding="10,0"` (hoặc `Padding="0"`) đối với các nút nhỏ hoặc nút trong thẻ items để căn giữa text hoàn hảo mà không bị phình to bề ngang ngoài tầm kiểm soát.
+
+---
+
+### 2.10. Quy Chuẩn Trải Nghiệm Thao Tác Tinh Gọn & Im Lặng (Interactive Pick & Silent Workflow):
+> [!IMPORTANT]
+> **TIÊU CHUẨN TRẢI NGHIỆM THAO TÁC KHÔNG RÁC THÔNG BÁO (ZERO-FATIGUE UX):**
+> 1. **1-Click Direct Pick:** Đối với các công cụ thao tác trên đối tượng (như `Bloom`), nếu mô hình đang chưa chọn gì thì click vào nút ribbon sẽ kích hoạt ngay lệnh `uidoc.Selection.PickObject()` để người dùng thao tác tức thì. Chỉ mở hộp thoại cài đặt tham số khi người dùng nhấn giữ `Shift-Click`.
+> 2. **Vòng lặp liên tục cho công cụ nối tuyến (Continuous Loop):** Đối với các công cụ kết nối cặp phần tử (như `Connect To`), duy trì vòng lặp `while True:` cho phép người dùng click chọn nối liên tiếp nhiều cặp đối tượng mà không phải bấm lại nút trên Ribbon. Bắt ngoại lệ `Autodesk.Revit.Exceptions.OperationCanceledException` khi người dùng bấm phím `Esc` để thoát êm dịu, không báo lỗi đỏ.
+> 3. **Thành công trong im lặng (Silent Success):** Tuyệt đối không bật hộp thoại thông báo `show_info` hay `TaskDialog` cản trở khi tác vụ hoàn thành tốt đẹp. Thay đổi hình học hiển thị trực tiếp trên mô hình là minh chứng rõ ràng nhất. Chỉ mở thông báo lỗi khi xảy ra sự cố nghiêm trọng không thể tự động xử lý.
 
 ---
 
@@ -361,7 +378,7 @@ if __name__ == "__main__":
 
 ---
 
-## ⚠️ 4. BẢNG KIỂM SOÁT PHÒNG NGỪA 10 LỖI KINH ĐIỂN (PRE-FLIGHT QUALITY GATE)
+## ⚠️ 4. BẢNG KIỂM SOÁT PHÒNG NGỪA 16 LỖI KINH ĐIỂN (PRE-FLIGHT QUALITY GATE)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -413,6 +430,26 @@ if __name__ == "__main__":
 │    - Với control độc lập: Gán trong Python __init__ (self.btnAction.Click += self.OnActionClick).        │
 │    - Với DataTemplate/ItemsControl: Gán bộ lắng nghe nổi bọt trên container cha trong __init__:           │
 │      self.itemsList.AddHandler(System.Windows.Controls.Button.ClickEvent, RoutedEventHandler(...))       │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 12: CHỮ NÚT BẤM BỊ CẮT CHÂN CHỮ DƯỚI TRÊN MÀN HÌNH HIGH-DPI (125% - 150%)                         │
+│ ➔ NGUYÊN NHÂN: Đặt Height < 30px (ví dụ 22px, 26px, 28px) kết hợp padding dọc làm chữ tràn khung.       │
+│ ➔ GIẢI PHÁP: Luôn đặt Height >= 30px (chuẩn 32px), MinWidth="0", Padding="10,0" hoặc "0" trên mọi button.│
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 13: CỬA SỔ BẬT LÊN QUÁ NHIỀU KHI THAO TÁC PICK MÔ HÌNH (POPUP FATIGUE)                             │
+│ ➔ NGUYÊN NHÂN: Bật TaskDialog/ShowInfo sau mỗi lần nối hoặc mở modal dialog thay vì pick trực tiếp.       │
+│ ➔ GIẢI PHÁP: 1-Click pick ngay, vòng lặp 'while True' với Esc để thoát, thành công trong im lặng.        │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 14: CHỌN SAI ĐẦU CONNECTOR KHI THAO TÁC NỐI ỐNG (WRONG CONNECTOR INDEX)                           │
+│ ➔ NGUYÊN NHÂN: Lấy connector đầu tiên [0] hoặc duyệt ngẫu nhiên thay vì vị trí chuột pick.              │
+│ ➔ GIẢI PHÁP: Dùng ref.GlobalPoint tính khoảng cách Euclid tìm connector gần nhất với vị trí click chuột. │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 15: NHẦM LẪN GIỮA CABLE TRAY VÀ CONDUIT KHI TRUY XUẤT CONNECTOR                                    │
+│ ➔ NGUYÊN NHÂN: Cả 2 cùng thuộc DomainCableTrayConduit nhưng API fitting và kích thước hoàn toàn khác biệt.│
+│ ➔ GIẢI PHÁP: Kiểm tra isinstance(elem, CableTray) vs isinstance(elem, Conduit) trước khi truy xuất.      │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 LỖI 16: NỐI ỐNG/MÁNG KHÁC TIẾT DIỆN GÂY CRASH HOẶC LỖI GEOMETRY DISCONTINUITY                         │
+│ ➔ NGUYÊN NHÂN: Ép kết nối NewElbowFitting hoặc NewTeeFitting giữa 2 phần tử lệch kích cỡ mà không chuyển.│
+│ ➔ GIẢI PHÁP: Cơ chế 2 tầng join_or_transition: chèn NewTransitionFitting tự động nếu kích thước lệch nhau.│
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -424,7 +461,7 @@ if __name__ == "__main__":
 graph TD
     Step1["1. Thiết kế UI Bố cục Card 3 tầng & Tiếng Anh 100%"] --> Step2["2. Tạo Icon 256x256 chuẩn SL bằng py lib/py/make_icon.py"]
     Step2 --> Step3["3. Tách Core Engine vào lib/py/, bọc SafeTransaction"]
-    Step3 --> Step4["4. Đối soát 11 Lỗi thường gặp tại Mục 4"]
+    Step3 --> Step4["4. Đối soát 16 Lỗi thường gặp tại Mục 4"]
     Step4 --> Step5["5. Chạy py_compile & XamlReader kiểm tra 100% file không lỗi"]
     Step5 --> Step6["6. Commit & Push toàn bộ thay đổi lên GitHub"]
     Step6 --> Step7["✅ Nghiệm thu & Bàn giao sản phẩm"]

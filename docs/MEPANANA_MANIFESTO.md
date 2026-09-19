@@ -11,6 +11,9 @@
 4. **Performance First:** Tách biệt các tác vụ tính toán nặng / xử lý hình học phức tạp sang C# compiled DLLs (CadExtractor.dll, MepananaAuth.dll, MepananaAvf.dll).
 5. **pyRevit Built-In First (Zero Code Redundancy):** Bất kể tính năng, tiện ích hay hàm nào đã được thư viện pyRevit hỗ trợ sẵn (`pyrevit.forms`, `pyrevit.revit`, `pyrevit.DB`, `pyrevit.UI`, `pyrevit.script`, `pyrevit.framework`), **tuyệt đối không tự viết thêm mã trùng lặp**! Luôn tái sử dụng tối đa thư viện pyRevit để đơn giản hoá codebase, tăng tính tương thích và bảo trì tối ưu.
 6. **Progress Bar & Real-time Dispatcher:** Mọi công cụ có tác vụ chạy nền/xử lý hàng loạt bắt buộc phải tích hợp thanh `ProgressBar` ở mép trên Footer (`Grid.Row="0"`, `Height="4"`) và bơm tin nhắn qua `from py.ui import do_events` để đảm bảo giao diện luôn mượt mà và không bao giờ bị đơ.
+7. **High-DPI UI Ergonomics:** Toàn bộ nút bấm, thẻ preset trong giao diện WPF phải có chiều cao tối thiểu $\ge 30\text{px}$ (khuyến nghị $32\text{px} - 34\text{px}$), `MinWidth="0"`, triệt tiêu padding dọc để loại bỏ triệt để hiện tượng cắt mất chân chữ (descenders) trên màn hình độ phân giải cao Windows High-DPI ($125\% - 150\%$).
+8. **Modern Interactive Pick UX & Silent Workflow:** Với công cụ tương tác trực tiếp (như `Bloom`), tự động kích hoạt `PickObject` khi người dùng chưa chọn đối tượng (chỉ mở bảng cấu hình khi nhấn giữ `Shift-Click`). Với công cụ kết nối cặp (như `Connect To`), duy trì vòng lặp liên tục `while True:` cho phép click nối liên tiếp nhiều cặp và thoát êm dịu khi nhấn `Esc`. Tuyệt đối không hiển thị popup hộp thoại cản trở khi thao tác mô hình thành công.
+9. **MEP Connector & Routing Precision:** Bắt connector dựa trên vị trí nhấp chuột thực tế (`ref.GlobalPoint`), phân định rõ ràng giữa Cable Tray và Conduit (dù chung Domain), và tích hợp cơ chế tự động đặt phụ kiện chuyển tiếp (Transition) khi hai phần tử khác tiết diện/kích thước.
 
 ---
 

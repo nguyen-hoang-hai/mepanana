@@ -1,8 +1,3 @@
 title: Bloom
-tooltip: >-
-  Auto Bloom MEP Connectors:
-  Automatically draws pipe, duct, or conduit stubs from all open connectors on selected fittings, accessories, and equipment.
-  
-  [Click]: Run Bloom immediately on current selection (or pick elements).
-  [Shift-Click]: Open Bloom Settings (stub length, disciplines, auto-connect).
 author: Hai Nguyen
+tooltip: "🇺🇸 EN: Automatically draws pipe, duct, or conduit stubs from all open connectors on selected fittings, accessories, and equipment.\n• [Click]: Run Bloom immediately on current selection (or pick elements).\n• [Shift-Click]: Open Bloom Settings (stub length, disciplines, auto-connect).\n\n🇻🇳 VN: Tự động vẽ đoạn nối ống gió, ống nước, ống luồn dây điện từ tất cả các đầu nối (connector) còn hở của phụ kiện và thiết bị được chọn.\n• [Click]: Chạy Bloom ngay trên đối tượng chọn (hoặc chọn trên mô hình).\n• [Shift-Click]: Mở Cấu hình Bloom (chiều dài đoạn nối, hệ thống, tự động nối)."
