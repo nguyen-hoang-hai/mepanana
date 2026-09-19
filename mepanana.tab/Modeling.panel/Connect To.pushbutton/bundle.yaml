@@ -1,8 +1,8 @@
-title: Quick Connect
+title: Connect To
 tooltip: >-
-  Quick Connect MEP Elements:
+  Connect To MEP Elements:
   Intelligently connects pipes, ducts, cable trays, and conduits (Direct, Extend, Bridge, Elbow, and Tee).
 
   [Click]: Enter continuous interactive connection mode (pick pairs, Esc to exit).
-  [Shift-Click]: Open Quick Connect Settings (alignment tolerance, preferred connection mode).
+  [Shift-Click]: Open Connect To Settings (alignment tolerance).
 author: Hai Nguyen

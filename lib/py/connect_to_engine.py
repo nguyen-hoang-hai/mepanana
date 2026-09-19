@@ -75,17 +75,17 @@ from py.bloom_engine import (
     _is_cable_tray_target
 )
 
-CONFIG_FILE = os.path.join(os.environ.get("APPDATA", ""), "pyRevit", "mepanana_quick_connect_config.json")
+CONFIG_FILE = os.path.join(os.environ.get("APPDATA", ""), "pyRevit", "mepanana_connect_to_config.json")
 _MIN_LINE_LEN_FT = 0.015  # ~4.5 mm (safely above Revit's 1/16" limit)
 
 
-class QuickConnectConfig(object):
-    """Configuration for Quick Connect operations."""
+class ConnectToConfig(object):
+    """Configuration for Connect To operations."""
 
     def __init__(self):
         self.max_align_offset_mm = 100.0
         self.allow_align_move = True
-        self.preferred_mode = "Auto"  # Auto, ExtendOnly, BridgeOnly, ElbowOnly
+        self.preferred_mode = "Auto"
         self.load()
 
     def load(self):
@@ -113,6 +113,9 @@ class QuickConnectConfig(object):
                 json.dump(data, f, indent=2)
         except Exception:
             pass
+
+
+QuickConnectConfig = ConnectToConfig
 
 
 class MEPConnectSelectionFilter(ISelectionFilter):

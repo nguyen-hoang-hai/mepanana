@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Quick Connect - Multi-tier Intelligent MEP Connection Tool (QC)
+Connect To - Multi-tier Intelligent MEP Connection Tool (CT)
 Direct Join, Collinear Extension/Bridging, Corner Elbows, and Branch Tees.
 
 Part of mepanana.extension.
 Author: Hai Nguyen
 """
-__title__ = "Quick Connect"
-__doc__   = "Intelligently connects pipes, ducts, cable trays, and conduits.\n\n[Click]: Enter continuous interactive connection mode (pick pairs, Esc to exit).\n[Shift-Click]: Open Quick Connect Settings."
+__title__ = "Connect To"
+__doc__   = "Intelligently connects pipes, ducts, cable trays, and conduits.\n\n[Click]: Enter continuous interactive connection mode (pick pairs, Esc to exit).\n[Shift-Click]: Open Connect To Settings."
 
 # ── GATEKEEPER BOILERPLATE (MANDATORY) ───────────────────────────────────────
 import sys
@@ -25,7 +25,7 @@ import traceback
 def _fatal_alert(err_str):
     try:
         log_dir = tempfile.gettempdir()
-        with open(os.path.join(log_dir, "mepanana_quick_connect_error.log"), "w") as f:
+        with open(os.path.join(log_dir, "mepanana_connect_to_error.log"), "w") as f:
             f.write(err_str)
     except Exception:
         pass
@@ -36,7 +36,7 @@ def _fatal_alert(err_str):
         import System.Windows.Forms as WinForms
         WinForms.MessageBox.Show(
             err_str,
-            "Quick Connect - Error Details",
+            "Connect To - Error Details",
             WinForms.MessageBoxButtons.OK,
             WinForms.MessageBoxIcon.Error
         )
@@ -46,7 +46,7 @@ def _fatal_alert(err_str):
 
     try:
         from Autodesk.Revit.UI import TaskDialog
-        TaskDialog.Show("Quick Connect Error", err_str)
+        TaskDialog.Show("Connect To Error", err_str)
     except Exception:
         pass
 
@@ -65,15 +65,15 @@ try:
     from pyrevit import forms, revit, script, EXEC_PARAMS
     from py.core import get_doc, get_uidoc, SafeTransaction, safe_unicode
     from py.ui   import setup_window, show_warning, show_error, show_info
-    from py.quick_connect_engine import (
-        QuickConnectConfig,
+    from py.connect_to_engine import (
+        ConnectToConfig,
         MEPConnectSelectionFilter,
         connect_elements
     )
 
     doc = get_doc()
     if not doc:
-        _fatal_alert("Please open a Revit project before launching Quick Connect.")
+        _fatal_alert("Please open a Revit project before launching Connect To.")
         sys.exit()
 
     uidoc = get_uidoc()
@@ -81,7 +81,7 @@ try:
     # ==========================================================================
     # SETTINGS WINDOW CONTROLLER (SHIFT-CLICK)
     # ==========================================================================
-    class QuickConnectSettingsWindow(forms.WPFWindow):
+    class ConnectToSettingsWindow(forms.WPFWindow):
         def __init__(self, config):
             xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
             forms.WPFWindow.__init__(self, xaml_path)
@@ -126,11 +126,11 @@ try:
     # MAIN EXECUTION ROUTINE
     # ==========================================================================
     def run():
-        config = QuickConnectConfig()
+        config = ConnectToConfig()
 
         # Check if launched in Config Mode (Shift-Click)
         if getattr(EXEC_PARAMS, "config_mode", False):
-            win = QuickConnectSettingsWindow(config)
+            win = ConnectToSettingsWindow(config)
             win.ShowDialog()
             return
 
@@ -141,10 +141,10 @@ try:
                 el1 = doc.GetElement(sel_ids[0])
                 el2 = doc.GetElement(sel_ids[1])
                 if el1 and el2:
-                    with SafeTransaction(doc, "Quick Connect"):
+                    with SafeTransaction(doc, "Connect To"):
                         ok, msg = connect_elements(doc, el1, None, el2, None, config)
                     if not ok:
-                        show_warning(msg, "Quick Connect")
+                        show_warning(msg, "Connect To")
                     return
         except Exception:
             pass
@@ -174,22 +174,22 @@ try:
                 pt2 = ref2.GlobalPoint
 
                 # Step C: Execute connection within atomic SafeTransaction
-                with SafeTransaction(doc, "Quick Connect"):
+                with SafeTransaction(doc, "Connect To"):
                     ok, msg = connect_elements(doc, el1, pt1, el2, pt2, config)
 
                 if ok:
                     connection_count += 1
                 else:
-                    show_warning(msg, "Quick Connect")
+                    show_warning(msg, "Connect To")
 
             except OperationCanceledException:
                 # User pressed Esc to terminate interactive loop
                 break
             except Exception as ex_loop:
-                show_error(u"Quick Connect error: {}".format(safe_unicode(ex_loop)), "Quick Connect")
+                show_error(u"Connect To error: {}".format(safe_unicode(ex_loop)), "Connect To")
                 break
 
     run()
 
 except Exception as ex:
-    _fatal_alert("Quick Connect failed to initialize:\n" + traceback.format_exc())
+    _fatal_alert("Connect To failed to initialize:\n" + traceback.format_exc())
