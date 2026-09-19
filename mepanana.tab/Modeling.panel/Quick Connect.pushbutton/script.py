@@ -92,16 +92,6 @@ try:
             self.txtMaxOffset.Text = str(int(self.config.max_align_offset_mm))
             self.chkAllowMove.IsChecked = bool(self.config.allow_align_move)
 
-            mode = self.config.preferred_mode
-            if mode == "ExtendOnly":
-                self.rbModeExtend.IsChecked = True
-            elif mode == "BridgeOnly":
-                self.rbModeBridge.IsChecked = True
-            elif mode == "ElbowOnly":
-                self.rbModeElbow.IsChecked = True
-            else:
-                self.rbModeAuto.IsChecked = True
-
             # Wire events dynamically (Zero inline events rule)
             self.btnSave.Click += self.OnSave
             self.btnCancel.Click += self.OnCancel
@@ -124,15 +114,7 @@ try:
                 self.config.max_align_offset_mm = 100.0
 
             self.config.allow_align_move = bool(self.chkAllowMove.IsChecked)
-
-            if self.rbModeExtend.IsChecked:
-                self.config.preferred_mode = "ExtendOnly"
-            elif self.rbModeBridge.IsChecked:
-                self.config.preferred_mode = "BridgeOnly"
-            elif self.rbModeElbow.IsChecked:
-                self.config.preferred_mode = "ElbowOnly"
-            else:
-                self.config.preferred_mode = "Auto"
+            self.config.preferred_mode = "Auto"
 
             self.config.save()
             self.Close()
