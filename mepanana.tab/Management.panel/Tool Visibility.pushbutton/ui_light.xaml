@@ -1,0 +1,531 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tool Visibility"
+        Width="520" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        FontFamily="Segoe UI" FontSize="12"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.18"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Window.Resources>
+
+        <!-- ── Primary Button ─────────────────────────────────────────────── -->
+        <Style x:Key="PrimaryBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="20,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="7" Background="#10B981" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#059669"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#047857"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#A7F3D0"/>
+                                <Setter Property="Foreground" Value="#ECFDF5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Ghost / Secondary Button ───────────────────────────────────── -->
+        <Style x:Key="GhostBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="7" Background="#F1F5F9"
+                                BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2E8F0"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#94A3B8"/>
+                                <Setter Property="Foreground" Value="#1E293B"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#CBD5E1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Preset Pill Button ─────────────────────────────────────────── -->
+        <Style x:Key="PillBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="#F8FAFC"
+                                BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#ECFDF5"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#10B981"/>
+                                <Setter Property="Foreground" Value="#059669"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#D1FAE5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Title Action Button (Theme Toggle) ─────────────────────────── -->
+        <Style x:Key="TitleActionBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="Transparent"
+                                Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2E8F0"/>
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#CBD5E1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Title Close Button ─────────────────────────────────────────── -->
+        <Style x:Key="TitleCloseBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="Transparent"
+                                Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FEE2E2"/>
+                                <Setter Property="Foreground" Value="#EF4444"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FECACA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Modern Clean TextBox ───────────────────────────────────────── -->
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CaretBrush" Value="#10B981"/>
+            <Setter Property="SelectionBrush" Value="#10B98150"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Name="bd" CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer Name="PART_ContentHost" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#10B981"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#94A3B8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Tool CheckBox ──────────────────────────────────────────────── -->
+        <Style x:Key="ToolCheck" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="0,2,0,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border Name="itemBorder" CornerRadius="6" Background="Transparent" Padding="8,4">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Name="box" Width="16" Height="16" CornerRadius="4"
+                                        BorderThickness="1.2" BorderBrush="#CBD5E1"
+                                        Background="White" VerticalAlignment="Center">
+                                    <TextBlock Name="mark" Text="✓" FontSize="10" Foreground="#10B981"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Visibility="Collapsed" Margin="0,0,0,1"/>
+                                </Border>
+                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="box" Property="BorderBrush" Value="#10B981"/>
+                                <Setter TargetName="box" Property="Background" Value="#ECFDF5"/>
+                                <Setter TargetName="mark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="itemBorder" Property="Background" Value="#F8FAFC"/>
+                                <Setter TargetName="box" Property="BorderBrush" Value="#10B981"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="box" Property="Background" Value="#F1F5F9"/>
+                                <Setter TargetName="box" Property="BorderBrush" Value="#E2E8F0"/>
+                                <Setter Property="Foreground" Value="#94A3B8"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         ROOT: Transparent Window + Margins for Drop Shadow & Rounded Corners
+    ══════════════════════════════════════════════════════════════════════ -->
+    <Grid Margin="14">
+
+        <!-- ── MASTER WINDOW SHELL ──────────────────────────────────────── -->
+        <Border CornerRadius="12" Background="#F8FAFC"
+                BorderBrush="#CBD5E1" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270"
+                                  Color="#0F172A" Opacity="0.14"/>
+            </Border.Effect>
+
+            <Grid>
+                <!-- ── Centered Watermark ───────────────────────────────────── -->
+                <Image Name="watermarkImage" Opacity="0.18"
+                       Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Width="340" Height="340" Margin="0,20,0,0"
+                       IsHitTestVisible="False">
+                    <Image.Effect>
+                        <BlurEffect Radius="4"/>
+                    </Image.Effect>
+                </Image>
+
+                <!-- ── Window Content Layout ────────────────────────────────── -->
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>   <!-- 0: Title Bar -->
+                        <RowDefinition Height="2"/>    <!-- 1: Accent Line -->
+                        <RowDefinition Height="Auto"/> <!-- 2: Dynamic Content Area -->
+                    </Grid.RowDefinitions>
+
+                    <!-- ── Row 0: Custom Title Bar ──────────────────────────── -->
+                    <Border Grid.Row="0" CornerRadius="11,11,0,0" Background="#F1F5F9"
+                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                        <Grid Name="titleBar" Margin="14,0,10,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Brand Badge -->
+                            <Border Grid.Column="0" CornerRadius="5" Padding="6,2" Margin="0,0,9,0"
+                                    Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="MN" FontSize="10.5" Foreground="#059669"/>
+                            </Border>
+
+                            <!-- Window Title -->
+                            <TextBlock Grid.Column="1" Text="mepanana  ·  Tool Visibility"
+                                       FontSize="12" Foreground="#475569" VerticalAlignment="Center"/>
+
+                            <!-- Theme Toggle Button -->
+                            <Button Grid.Column="2" Name="btnToggleTheme" Content="🌙"
+                                    ToolTip="Switch to Dark Theme"
+                                    Style="{StaticResource TitleActionBtn}" VerticalAlignment="Center"
+                                    Margin="0,0,6,0"/>
+
+                            <!-- Close Button -->
+                            <Button Grid.Column="3" Name="btnClose" Content="✕"
+                                    Style="{StaticResource TitleCloseBtn}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── Row 1: Mepanana Signature Gradient Line ──────────── -->
+                    <Rectangle Grid.Row="1">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#10B981" Offset="0"/>
+                                <GradientStop Color="#3B82F6" Offset="0.5"/>
+                                <GradientStop Color="#F59E0B" Offset="0.8"/>
+                                <GradientStop Color="#EF4444" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <!-- ── Row 2: Form Content ──────────────────────────────── -->
+                    <StackPanel Grid.Row="2">
+
+                        <!-- Window Header -->
+                        <Grid Margin="20,14,20,8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Row 0: Title & Badge -->
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="Ribbon Tool Visibility" FontSize="19" Foreground="#0F172A"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                                <Border Grid.Column="1" CornerRadius="12" Padding="9,4" VerticalAlignment="Center"
+                                        Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Per-Machine" FontSize="11" Foreground="#059669"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Row 1: Subtitle -->
+                            <TextBlock Grid.Row="1" Text="Select which tools appear on the Ribbon. Settings are saved locally on this machine."
+                                       FontSize="11.5" Foreground="#64748B" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        </Grid>
+
+                        <!-- Presets Toolbar & Search -->
+                        <Grid Margin="20,4,20,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="160"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0" Name="btnShowAll" Content="Show All" Style="{StaticResource PillBtn}"/>
+                            <Button Grid.Column="2" Name="btnDefault" Content="Default" Style="{StaticResource PillBtn}"/>
+                            <Button Grid.Column="4" Name="btnHideAll" Content="Hide All" Style="{StaticResource PillBtn}"/>
+
+                            <TextBox Grid.Column="6" Name="txtSearch" Style="{StaticResource ModernTextBox}"
+                                     ToolTip="Search tools..."/>
+                        </Grid>
+
+                        <!-- Panel Cards Container (Scrollable) -->
+                        <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto" Margin="16,0,16,8"
+                                      SnapsToDevicePixels="True">
+                            <StackPanel>
+
+                                <!-- CARD 1: Modeling Tools -->
+                                <Border Name="cardModeling" Background="#E6FFFFFF" CornerRadius="8"
+                                        BorderBrush="#CBD5E1" BorderThickness="1"
+                                        Padding="14,12" Margin="0,0,0,10">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Color="#0F172A" Opacity="0.03"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Rectangle Grid.Column="0" Fill="#10B981" RadiusX="1.5" RadiusY="1.5"/>
+                                            <TextBlock Grid.Column="1" Text="Modeling Tools" FontSize="12.5" Foreground="#0F172A" Margin="8,0,0,0"/>
+                                        </Grid>
+
+                                        <UniformGrid Columns="2">
+                                            <CheckBox Name="chk_Bloom" Content="Bloom" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_CAD_Blocks" Content="CAD Blocks" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_CAD_Wire" Content="CAD Wire" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Connect_To" Content="Connect To" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_MEP_Route" Content="MEP Route" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Pendent_Sprinkler" Content="Pendent Sprinkler" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Upright_Sprinkler" Content="Upright Sprinkler" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Sidewall_Sprinkler" Content="Sidewall Sprinkler" Style="{StaticResource ToolCheck}"/>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- CARD 2: Coordinate Tools -->
+                                <Border Name="cardCoordinate" Background="#E6FFFFFF" CornerRadius="8"
+                                        BorderBrush="#CBD5E1" BorderThickness="1"
+                                        Padding="14,12" Margin="0,0,0,10">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Color="#0F172A" Opacity="0.03"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Rectangle Grid.Column="0" Fill="#3B82F6" RadiusX="1.5" RadiusY="1.5"/>
+                                            <TextBlock Grid.Column="1" Text="Coordinate Tools" FontSize="12.5" Foreground="#0F172A" Margin="8,0,0,0"/>
+                                        </Grid>
+
+                                        <UniformGrid Columns="2">
+                                            <CheckBox Name="chk_Check_Clash" Content="Check Clash" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Display_Clash" Content="Display Clash" Style="{StaticResource ToolCheck}"/>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- CARD 3: Data Tools -->
+                                <Border Name="cardData" Background="#E6FFFFFF" CornerRadius="8"
+                                        BorderBrush="#CBD5E1" BorderThickness="1"
+                                        Padding="14,12" Margin="0,0,0,10">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Color="#0F172A" Opacity="0.03"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Rectangle Grid.Column="0" Fill="#F59E0B" RadiusX="1.5" RadiusY="1.5"/>
+                                            <TextBlock Grid.Column="1" Text="Data Tools" FontSize="12.5" Foreground="#0F172A" Margin="8,0,0,0"/>
+                                        </Grid>
+
+                                        <UniformGrid Columns="2">
+                                            <CheckBox Name="chk_Family_Cloud" Content="Family Cloud" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Family_Local" Content="Family Local" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Schedule_Link" Content="Schedule Link" Style="{StaticResource ToolCheck}"/>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- CARD 4: Management Tools -->
+                                <Border Name="cardManagement" Background="#E6FFFFFF" CornerRadius="8"
+                                        BorderBrush="#CBD5E1" BorderThickness="1"
+                                        Padding="14,12">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Color="#0F172A" Opacity="0.03"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Rectangle Grid.Column="0" Fill="#EF4444" RadiusX="1.5" RadiusY="1.5"/>
+                                            <TextBlock Grid.Column="1" Text="Management Tools" FontSize="12.5" Foreground="#0F172A" Margin="8,0,0,0"/>
+                                        </Grid>
+
+                                        <UniformGrid Columns="2">
+                                            <CheckBox Name="chk_Shortcut_Manager" Content="Shortcut Manager" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Update" Content="Update" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_UI_Sample" Content="UI Sample" Style="{StaticResource ToolCheck}"/>
+                                            <!-- Tool Visibility & Security are locked permanently -->
+                                            <CheckBox Name="chk_Tool_Visibility" Content="Tool Visibility (Locked 🔒)"
+                                                      IsChecked="True" IsEnabled="False" Style="{StaticResource ToolCheck}"/>
+                                        </UniformGrid>
+                                    </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- ── Footer Bar ──────────────────────────────────────── -->
+                        <Border Padding="16,8,16,14" Background="Transparent">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Live Status Label -->
+                                <TextBlock Name="txtStatus" Grid.Column="0" Text="All tools visible"
+                                           FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center"/>
+
+                                <!-- Cancel Button -->
+                                <Button Grid.Column="1" Name="btnCancel" Content="Close"
+                                        Style="{StaticResource GhostBtn}" IsCancel="True"/>
+
+                                <!-- Save & Apply Action Button -->
+                                <Button Grid.Column="3" Name="btnApply" Content="Save &amp; Apply"
+                                        Style="{StaticResource PrimaryBtn}" IsDefault="True"/>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                </Grid>
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

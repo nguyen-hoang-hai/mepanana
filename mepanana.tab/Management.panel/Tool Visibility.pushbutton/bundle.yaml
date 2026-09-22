@@ -1,0 +1,4 @@
+name: Tool Visibility
+button_text: Tool Visibility
+tooltip: "Manage visibility of MEPANANA pushbuttons on the Ribbon.\n\nPreferences are saved per-machine and automatically preserved.\n\n[Click]: Open Tool Visibility Manager"
+author: Hai Nguyen
