@@ -68,6 +68,53 @@ def yield_dispatcher_every(counter, batch_size=25):
         do_events()
 
 
+def is_dark_theme():
+    """
+    Detect whether Revit or Windows is currently running in Dark Mode.
+    
+    Priority:
+    1. Revit 2024+ native UIThemeManager.CurrentTheme == UITheme.Dark
+    2. Revit 2024+ UIThemeManager.CurrentCanvasTheme == UITheme.Dark
+    3. Windows 10/11 Personalize Registry (AppsUseLightTheme == 0)
+    4. Fallback: False (Light Mode)
+    """
+    try:
+        from Autodesk.Revit.UI import UIThemeManager, UITheme
+        if hasattr(UIThemeManager, "CurrentTheme"):
+            return UIThemeManager.CurrentTheme == UITheme.Dark
+    except Exception:
+        pass
+
+    try:
+        from Autodesk.Revit.UI import UIThemeManager, UITheme
+        if hasattr(UIThemeManager, "CurrentCanvasTheme"):
+            return UIThemeManager.CurrentCanvasTheme == UITheme.Dark
+    except Exception:
+        pass
+
+    try:
+        import Microsoft.Win32 as win32
+        key = win32.Registry.CurrentUser.OpenSubKey(
+            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+        )
+        if key:
+            val = key.GetValue("AppsUseLightTheme")
+            if val is not None:
+                return int(val) == 0
+    except Exception:
+        pass
+
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+        val, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+        return int(val) == 0
+    except Exception:
+        pass
+
+    return False
+
+
 # ── Synchronized Modern Alert Dialog ─────────────────────────────────────────
 
 def _show_custom_dialog(message, title, dialog_type="INFO", show_cancel=False, owner=None, topmost=False):

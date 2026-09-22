@@ -1,0 +1,4 @@
+name: UI Sample
+button_text: UI Sample
+tooltip: "Adaptive UI Design Template — automatically matches Revit Dark or Light theme.\n\n[Click]: Open UI Sample (Auto Theme)\n[Shift-Click]: Toggle Theme (Force Light / Dark)"
+author: Hai Nguyen
