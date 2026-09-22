@@ -60,6 +60,11 @@ PANEL_TOOLS = [
     ),
 ]
 
+# Flat list of all known tool names for quick lookup
+_ALL_TOOLS = set()
+for _p, _ts in PANEL_TOOLS:
+    _ALL_TOOLS.update(_ts)
+
 
 def get_config_path():
     """Returns the local per-machine configuration file path in %APPDATA%."""
@@ -117,14 +122,44 @@ def _clean_text(val):
     return str(val).replace("\r", "").replace("\n", " ").strip()
 
 
+def _item_matches_tool(item, tool_name):
+    """
+    Returns True if the AdWindows ribbon item matches the given tool_name.
+    Uses multiple heuristics: Text, AutomationName, Id, Name.
+    """
+    candidates = []
+    for attr in ('Text', 'AutomationName', 'Name'):
+        v = _clean_text(getattr(item, attr, ''))
+        if v:
+            candidates.append(v)
+
+    # Direct text match
+    for c in candidates:
+        if c == tool_name:
+            return True
+
+    # Id substring match — pyRevit encodes tool names into the Id/UID
+    # e.g. "mepanana.tab%Modeling.panel%Bloom.pushbutton" or similar
+    oid = str(getattr(item, 'Id', '') or getattr(item, 'UID', '') or '')
+    tool_slug = tool_name.lower().replace(" ", "")
+    if tool_slug in oid.lower().replace(" ", "").replace("-", "").replace("_", ""):
+        return True
+
+    return False
+
+
 def apply_tool_visibility(hidden_tools=None):
     """
-    Traverses the MEPANANA ribbon and updates item.IsVisible based on the hidden_tools list.
+    Traverses the MEPANANA ribbon via AdWindows and updates item visibility.
+    Returns count of items successfully matched and processed.
     """
     if hidden_tools is None:
         hidden_tools = get_hidden_tools()
     else:
         hidden_tools = set(hidden_tools) - PROTECTED_TOOLS
+
+    matched_count = [0]
+    log_lines = []
 
     try:
         import clr
@@ -135,39 +170,38 @@ def apply_tool_visibility(hidden_tools=None):
         if not ribbon or not ribbon.Tabs:
             return 0
 
-        matched_count = [0]
         for tab in ribbon.Tabs:
             tab_id    = str(getattr(tab, 'Id', '') or '').lower()
             tab_title = str(getattr(tab, 'Title', '') or '').lower()
 
-            if "mepanana" in tab_id or "mepanana" in tab_title:
-                for panel in (tab.Panels or []):
-                    if not panel or not panel.Source:
-                        continue
+            if "mepanana" not in tab_id and "mepanana" not in tab_title:
+                continue
 
-                    panel_total_tools = [0]
-                    panel_visible_tools = [0]
+            for panel in (tab.Panels or []):
+                if not panel or not panel.Source:
+                    continue
 
-                    # Deep recursive visit
-                    def _update_vis(item):
-                        if not hasattr(item, 'IsVisible'):
-                            return
+                panel_any_visible = [False]
 
-                        # Extract button names
-                        t1 = _clean_text(getattr(item, 'Text', ''))
-                        t2 = _clean_text(getattr(item, 'ItemText', ''))
-                        auto_name = _clean_text(getattr(item, 'AutomationName', ''))
-                        item_id = str(getattr(item, 'Id', '') or '')
+                # Traverse all leaf items in this panel
+                def _visit(item):
+                    cls = type(item).__name__
 
-                        # Check if any text matches our tools
+                    # --- Leaf items: actual buttons ---
+                    if hasattr(item, 'IsVisible'):
+                        text    = _clean_text(getattr(item, 'Text', ''))
+                        autoname = _clean_text(getattr(item, 'AutomationName', ''))
+                        name    = _clean_text(getattr(item, 'Name', ''))
+                        oid     = str(getattr(item, 'Id', '') or getattr(item, 'UID', '') or '')
+
+                        log_lines.append("  [{}] Text='{}' Auto='{}' Name='{}' Id='{}'".format(
+                            cls, text, autoname, name, oid[:80]))
+
+                        # Find matching tool name
                         matched_tool = None
                         for p_name, tools in PANEL_TOOLS:
                             for t in tools:
-                                if t == t1 or t == t2 or t == auto_name:
-                                    matched_tool = t
-                                    break
-                                # Also check if tool name is part of id
-                                if t in item_id:
+                                if _item_matches_tool(item, t):
                                     matched_tool = t
                                     break
                             if matched_tool:
@@ -175,108 +209,146 @@ def apply_tool_visibility(hidden_tools=None):
 
                         if matched_tool:
                             matched_count[0] += 1
-                            panel_total_tools[0] += 1
                             if matched_tool in PROTECTED_TOOLS:
                                 item.IsVisible = True
-                                panel_visible_tools[0] += 1
+                                panel_any_visible[0] = True
                             else:
                                 should_hide = matched_tool in hidden_tools
                                 item.IsVisible = not should_hide
+                                log_lines[-1] += " -> should_hide={} visible={}".format(
+                                    should_hide, item.IsVisible)
                                 if not should_hide:
-                                    panel_visible_tools[0] += 1
+                                    panel_any_visible[0] = True
 
-                    _traverse_items(panel.Source.Items, _update_vis)
-                    if hasattr(panel.Source, 'SlideOutPanelItemsView') and panel.Source.SlideOutPanelItemsView:
-                        _traverse_items(panel.Source.SlideOutPanelItemsView, _update_vis)
+                # Simple flat traversal — visit every item in the tree
+                _flat_walk(panel.Source.Items, _visit)
 
-                    # Post-process containers (e.g. RowPanel for Sprinkler.stack):
-                    # Hide container if all its children are hidden
-                    _collapse_containers(panel.Source.Items)
-                    if hasattr(panel.Source, 'SlideOutPanelItemsView') and panel.Source.SlideOutPanelItemsView:
-                        _collapse_containers(panel.Source.SlideOutPanelItemsView)
+                # After processing all items in the panel, collapse empty containers
+                _collapse_empty(panel.Source.Items)
 
-                    # Determine Panel visibility:
-                    # 1. Match panel name/id against PANEL_TOOLS
-                    panel_title_clean = _clean_text(getattr(panel.Source, 'Title', '')).lower()
-                    panel_id_clean = str(getattr(panel.Source, 'Id', '') or getattr(panel, 'Id', '') or '').lower()
-
-                    matched_panel = False
-                    for p_name, p_tools in PANEL_TOOLS:
-                        if p_name.lower() in panel_title_clean or p_name.lower() in panel_id_clean:
-                            matched_panel = True
-                            all_tools_hidden = all(t in hidden_tools for t in p_tools)
-                            if hasattr(panel, 'IsVisible'):
-                                panel.IsVisible = not all_tools_hidden
-                            break
-
-                    # 2. Fallback: if not matched by name, use counted tools inside panel
-                    if not matched_panel and panel_total_tools[0] > 0:
-                        if hasattr(panel, 'IsVisible'):
-                            panel.IsVisible = (panel_visible_tools[0] > 0)
+            # After processing panels, collapse any fully-hidden panels
+            for panel in (tab.Panels or []):
+                if not panel or not panel.Source:
+                    continue
+                # Check if any tool is visible in this panel
+                panel_has_visible = _any_visible(panel.Source.Items)
+                if hasattr(panel, 'IsVisible'):
+                    panel.IsVisible = panel_has_visible
 
         try:
             ribbon.UpdateLayout()
         except Exception:
             pass
 
-        return matched_count[0]
-    except Exception as ex:
-        return 0
-
-
-def _collapse_containers(collection):
-    """Recursively hides containers (like RibbonRowPanel / SplitButton) if all children are hidden."""
-    if not collection:
-        return
-    for item in collection:
-        if not item:
-            continue
-        child_colls = []
-        for attr in ('Items', 'Panels', 'Children', 'SubItems'):
-            val = getattr(item, attr, None)
-            if val is not None and not isinstance(val, (str, unicode)):
-                child_colls.append(val)
-
-        if child_colls:
-            has_visible_child = False
-            for coll in child_colls:
-                _collapse_containers(coll)
-                for child in coll:
-                    if hasattr(child, 'IsVisible') and child.IsVisible:
-                        has_visible_child = True
-                        break
-                if has_visible_child:
-                    break
-
-            if hasattr(item, 'IsVisible'):
-                item.IsVisible = has_visible_child
-
-
-def _traverse_items(obj, callback):
-    """Deeply traverses ribbon elements."""
-    if obj is None:
-        return
-    try:
-        callback(obj)
-    except Exception:
-        pass
-
-    for attr in ('Items', 'Panels', 'Children', 'SubItems'):
+        # Write debug log to temp file
         try:
-            val = getattr(obj, attr, None)
-            if val is not None and not isinstance(val, (str, unicode)):
-                for child in val:
-                    _traverse_items(child, callback)
+            tmp = os.path.join(os.environ.get('TEMP', ''), 'mepanana_tv_debug.txt')
+            with open(tmp, 'w') as f:
+                f.write("hidden_tools={}\n".format(list(hidden_tools)))
+                f.write("matched={}\n\n".format(matched_count[0]))
+                f.write("\n".join(log_lines))
         except Exception:
             pass
 
-    try:
-        from System.Collections import IEnumerable
-        if isinstance(obj, IEnumerable) and not isinstance(obj, (str, unicode)):
-            for child in obj:
-                _traverse_items(child, callback)
-    except Exception:
-        pass
+        return matched_count[0]
+
+    except Exception as ex:
+        try:
+            tmp = os.path.join(os.environ.get('TEMP', ''), 'mepanana_tv_error.txt')
+            with open(tmp, 'w') as f:
+                import traceback
+                f.write(traceback.format_exc())
+        except Exception:
+            pass
+        return 0
+
+
+def _flat_walk(collection, callback):
+    """Flat walk: visit every item in the tree (depth-first), calling callback on each."""
+    if not collection:
+        return
+    for item in collection:
+        if item is None:
+            continue
+        try:
+            callback(item)
+        except Exception:
+            pass
+        # Walk children
+        for attr in ('Items', 'Children', 'SubItems'):
+            try:
+                val = getattr(item, attr, None)
+                if val is not None and not isinstance(val, (str, unicode)):
+                    _flat_walk(val, callback)
+            except Exception:
+                pass
+
+
+def _any_visible(collection):
+    """Returns True if any leaf item with IsVisible=True exists in the tree."""
+    if not collection:
+        return False
+    for item in collection:
+        if item is None:
+            continue
+        # Check children first
+        has_children = False
+        for attr in ('Items', 'Children', 'SubItems'):
+            val = getattr(item, attr, None)
+            if val is not None and not isinstance(val, (str, unicode)):
+                try:
+                    if len(list(val)) > 0:
+                        has_children = True
+                        if _any_visible(val):
+                            return True
+                except Exception:
+                    pass
+
+        if not has_children:
+            if hasattr(item, 'IsVisible') and item.IsVisible:
+                return True
+    return False
+
+
+def _collapse_empty(collection):
+    """Recursively collapses container items (row panels, split buttons) that have no visible children."""
+    if not collection:
+        return
+    for item in collection:
+        if item is None:
+            continue
+        # Only collapse containers (items that have sub-collections)
+        child_colls = []
+        for attr in ('Items', 'Children', 'SubItems'):
+            val = getattr(item, attr, None)
+            if val is not None and not isinstance(val, (str, unicode)):
+                try:
+                    lst = list(val)
+                    if lst:
+                        child_colls.append((attr, val))
+                except Exception:
+                    pass
+
+        if child_colls:
+            # Recurse first
+            for attr, coll in child_colls:
+                _collapse_empty(coll)
+
+            # Now check if any child is visible
+            has_visible = False
+            for attr, coll in child_colls:
+                try:
+                    for child in coll:
+                        if hasattr(child, 'IsVisible') and child.IsVisible:
+                            has_visible = True
+                            break
+                except Exception:
+                    pass
+                if has_visible:
+                    break
+
+            if hasattr(item, 'IsVisible'):
+                item.IsVisible = has_visible
 
 
 # ==============================================================================
@@ -284,10 +356,11 @@ def _traverse_items(obj, callback):
 # ==============================================================================
 _listener_initialized = False
 
+
 def _get_idling_target():
     """
     Returns the Revit application object exposing the Idling event.
-    Can be UIApplication or UIControlledApplication.
+    UIApplication preferred; falls back to __revit__ builtin.
     """
     try:
         from pyrevit import HOST_APP
