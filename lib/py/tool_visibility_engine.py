@@ -151,15 +151,17 @@ def _item_matches_tool(item, tool_name):
 def _process_panel(panel, hidden_tools, matched_count, log_lines):
     """
     Processes a single AdWindows RibbonPanel: sets IsVisible on each matched tool button.
-    Returns True if at least one tool button should remain visible.
+    Returns:
+      True  — at least one matched tool is visible
+      False — all matched tools are hidden (panel should be hidden)
+      None  — no tools from PANEL_TOOLS found in this panel (do NOT touch panel.IsVisible)
     Defined as a standalone function (not a closure) to avoid IronPython 2 late-binding bug.
     """
-    any_visible = False
     items = panel.Source.Items if panel and panel.Source else None
 
     def _visit(item):
         if not hasattr(item, 'IsVisible'):
-            return
+            return None
         text     = _clean_text(getattr(item, 'Text', ''))
         autoname = _clean_text(getattr(item, 'AutomationName', ''))
         name     = _clean_text(getattr(item, 'Name', ''))
@@ -180,7 +182,7 @@ def _process_panel(panel, hidden_tools, matched_count, log_lines):
                 break
 
         if not matched_tool:
-            return
+            return None   # not a managed tool — skip
 
         matched_count[0] += 1
         if matched_tool in PROTECTED_TOOLS:
@@ -192,15 +194,21 @@ def _process_panel(panel, hidden_tools, matched_count, log_lines):
             log_lines[-1] += " -> hide={} visible={}".format(should_hide, item.IsVisible)
             return not should_hide
 
-    # Accumulate visibility results via list to allow mutation in nested scope
+    # Accumulate visibility results via lists to allow mutation in nested scope
+    any_matched = [False]
     visible_flag = [False]
 
     def _visit_with_flag(item):
         result = _visit(item)
-        if result:
-            visible_flag[0] = True
+        if result is not None:
+            any_matched[0] = True
+            if result:
+                visible_flag[0] = True
 
     _flat_walk(items, _visit_with_flag)
+
+    if not any_matched[0]:
+        return None   # no managed tools in this panel — leave it alone
     return visible_flag[0]
 
 
@@ -247,8 +255,9 @@ def apply_tool_visibility(hidden_tools=None):
                 # Hide separators that have no visible non-separator neighbors
                 _clean_separators(panel.Source.Items)
 
-                # Set panel visibility based on whether any known tool is visible
-                if hasattr(panel, 'IsVisible'):
+                # Only manage panel visibility if this panel contains known tools.
+                # Panels with no managed tools (e.g. Security panel) are left untouched.
+                if panel_any_visible is not None and hasattr(panel, 'IsVisible'):
                     panel.IsVisible = panel_any_visible
 
         try:
