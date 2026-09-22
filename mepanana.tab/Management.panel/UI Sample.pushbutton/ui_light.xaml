@@ -352,8 +352,8 @@
             <Grid>
                 <!-- ── Centered Watermark (behind all cards) ────────────────── -->
                 <Image Name="watermarkImage" Opacity="0.22"
-                       Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Width="360" Height="360" Margin="0,20,0,0"
+                       Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Top"
+                       Width="330" Height="330" Margin="0,52,0,0"
                        IsHitTestVisible="False">
                     <Image.Effect>
                         <BlurEffect Radius="4"/>
@@ -646,7 +646,7 @@
                     </StackPanel>
 
                     <!-- ── PNL_RUNNING: Unobstructed Background + Bottom Progress Bar ── -->
-                    <Grid Grid.Row="2" Name="pnlRunning" Visibility="Collapsed" MinHeight="450" Margin="0">
+                    <Grid Grid.Row="2" Name="pnlRunning" Visibility="Collapsed" MinHeight="485" Margin="0">
 
                         <!-- Sleek Bottom Progress Dock — leaves 100% of the artwork visible above -->
                         <Border VerticalAlignment="Bottom" Margin="16,0,16,16"
@@ -688,7 +688,7 @@
                                                FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"/>
                                     <Button Grid.Column="1" Name="btnStopRunning" Content="Cancel"
-                                            Style="{StaticResource GhostBtn}" Height="28" Padding="12,0"
+                                            Style="{StaticResource GhostBtn}" Height="30" Padding="12,0"
                                             FontSize="11" VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>

@@ -487,8 +487,10 @@
                                             <CheckBox Name="chk_Shortcut_Manager" Content="Shortcut Manager" Style="{StaticResource ToolCheck}"/>
                                             <CheckBox Name="chk_Update" Content="Update" Style="{StaticResource ToolCheck}"/>
                                             <CheckBox Name="chk_UI_Sample" Content="UI Sample" Style="{StaticResource ToolCheck}"/>
-                                            <!-- Tool Visibility & Security are locked permanently -->
+                                            <!-- Tool Visibility & Unlock are locked permanently visible -->
                                             <CheckBox Name="chk_Tool_Visibility" Content="Tool Visibility (Locked 🔒)"
+                                                      IsChecked="True" IsEnabled="False" Style="{StaticResource ToolCheck}"/>
+                                            <CheckBox Name="chk_Unlock" Content="Unlock (Locked 🔒)"
                                                       IsChecked="True" IsEnabled="False" Style="{StaticResource ToolCheck}"/>
                                         </UniformGrid>
                                     </StackPanel>
