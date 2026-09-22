@@ -244,6 +244,9 @@ def apply_tool_visibility(hidden_tools=None):
                 # Collapse containers whose children are all hidden
                 _collapse_empty(panel.Source.Items)
 
+                # Hide separators that have no visible non-separator neighbors
+                _clean_separators(panel.Source.Items)
+
                 # Set panel visibility based on whether any known tool is visible
                 if hasattr(panel, 'IsVisible'):
                     panel.IsVisible = panel_any_visible
@@ -274,6 +277,55 @@ def apply_tool_visibility(hidden_tools=None):
         except Exception:
             pass
         return 0
+
+
+def _clean_separators(collection):
+    """
+    Hides RibbonSeparator items that have no visible non-separator neighbor
+    on either side. This cleans up orphaned dividers when adjacent tools are hidden.
+    Works on a flat list of top-level panel items.
+    """
+    if not collection:
+        return
+    try:
+        items = list(collection)
+    except Exception:
+        return
+
+    def _is_separator(item):
+        try:
+            cls = type(item).__name__
+            return 'Separator' in cls
+        except Exception:
+            return False
+
+    def _is_visible_non_sep(item):
+        if item is None:
+            return False
+        if _is_separator(item):
+            return False
+        try:
+            return bool(getattr(item, 'IsVisible', False))
+        except Exception:
+            return False
+
+    for i, item in enumerate(items):
+        if not _is_separator(item):
+            continue
+        if not hasattr(item, 'IsVisible'):
+            continue
+
+        # Check left: any visible non-separator to the left
+        left_visible = any(_is_visible_non_sep(items[j]) for j in range(i) if not _is_separator(items[j]))
+        # Check right: any visible non-separator to the right
+        right_visible = any(_is_visible_non_sep(items[j]) for j in range(i + 1, len(items)) if not _is_separator(items[j]))
+
+        # Hide separator if there's nothing visible on either left or right
+        if not left_visible or not right_visible:
+            try:
+                item.IsVisible = False
+            except Exception:
+                pass
 
 
 def _flat_walk(collection, callback):
