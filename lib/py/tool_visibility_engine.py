@@ -145,6 +145,9 @@ def apply_tool_visibility(hidden_tools=None):
                     if not panel or not panel.Source:
                         continue
 
+                    panel_total_tools = [0]
+                    panel_visible_tools = [0]
+
                     # Deep recursive visit
                     def _update_vis(item):
                         if not hasattr(item, 'IsVisible'):
@@ -172,15 +175,44 @@ def apply_tool_visibility(hidden_tools=None):
 
                         if matched_tool:
                             matched_count[0] += 1
+                            panel_total_tools[0] += 1
                             if matched_tool in PROTECTED_TOOLS:
                                 item.IsVisible = True
+                                panel_visible_tools[0] += 1
                             else:
                                 should_hide = matched_tool in hidden_tools
                                 item.IsVisible = not should_hide
+                                if not should_hide:
+                                    panel_visible_tools[0] += 1
 
                     _traverse_items(panel.Source.Items, _update_vis)
                     if hasattr(panel.Source, 'SlideOutPanelItemsView') and panel.Source.SlideOutPanelItemsView:
                         _traverse_items(panel.Source.SlideOutPanelItemsView, _update_vis)
+
+                    # Post-process containers (e.g. RowPanel for Sprinkler.stack):
+                    # Hide container if all its children are hidden
+                    _collapse_containers(panel.Source.Items)
+                    if hasattr(panel.Source, 'SlideOutPanelItemsView') and panel.Source.SlideOutPanelItemsView:
+                        _collapse_containers(panel.Source.SlideOutPanelItemsView)
+
+                    # Determine Panel visibility:
+                    # 1. Match panel name/id against PANEL_TOOLS
+                    panel_title_clean = _clean_text(getattr(panel.Source, 'Title', '')).lower()
+                    panel_id_clean = str(getattr(panel.Source, 'Id', '') or getattr(panel, 'Id', '') or '').lower()
+
+                    matched_panel = False
+                    for p_name, p_tools in PANEL_TOOLS:
+                        if p_name.lower() in panel_title_clean or p_name.lower() in panel_id_clean:
+                            matched_panel = True
+                            all_tools_hidden = all(t in hidden_tools for t in p_tools)
+                            if hasattr(panel, 'IsVisible'):
+                                panel.IsVisible = not all_tools_hidden
+                            break
+
+                    # 2. Fallback: if not matched by name, use counted tools inside panel
+                    if not matched_panel and panel_total_tools[0] > 0:
+                        if hasattr(panel, 'IsVisible'):
+                            panel.IsVisible = (panel_visible_tools[0] > 0)
 
         try:
             ribbon.UpdateLayout()
@@ -190,6 +222,34 @@ def apply_tool_visibility(hidden_tools=None):
         return matched_count[0]
     except Exception as ex:
         return 0
+
+
+def _collapse_containers(collection):
+    """Recursively hides containers (like RibbonRowPanel / SplitButton) if all children are hidden."""
+    if not collection:
+        return
+    for item in collection:
+        if not item:
+            continue
+        child_colls = []
+        for attr in ('Items', 'Panels', 'Children', 'SubItems'):
+            val = getattr(item, attr, None)
+            if val is not None and not isinstance(val, (str, unicode)):
+                child_colls.append(val)
+
+        if child_colls:
+            has_visible_child = False
+            for coll in child_colls:
+                _collapse_containers(coll)
+                for child in coll:
+                    if hasattr(child, 'IsVisible') and child.IsVisible:
+                        has_visible_child = True
+                        break
+                if has_visible_child:
+                    break
+
+            if hasattr(item, 'IsVisible'):
+                item.IsVisible = has_visible_child
 
 
 def _traverse_items(obj, callback):
