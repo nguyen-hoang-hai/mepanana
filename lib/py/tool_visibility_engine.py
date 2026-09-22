@@ -135,7 +135,7 @@ def apply_tool_visibility(hidden_tools=None):
         if not ribbon or not ribbon.Tabs:
             return 0
 
-        updated_count = 0
+        matched_count = [0]
         for tab in ribbon.Tabs:
             tab_id    = str(getattr(tab, 'Id', '') or '').lower()
             tab_title = str(getattr(tab, 'Title', '') or '').lower()
@@ -171,6 +171,7 @@ def apply_tool_visibility(hidden_tools=None):
                                 break
 
                         if matched_tool:
+                            matched_count[0] += 1
                             if matched_tool in PROTECTED_TOOLS:
                                 item.IsVisible = True
                             else:
@@ -186,9 +187,8 @@ def apply_tool_visibility(hidden_tools=None):
         except Exception:
             pass
 
-        return len(hidden_tools)
+        return matched_count[0]
     except Exception as ex:
-        print("apply_tool_visibility error: {}".format(ex))
         return 0
 
 
@@ -224,10 +224,34 @@ def _traverse_items(obj, callback):
 # ==============================================================================
 _listener_initialized = False
 
+def _get_idling_target():
+    """
+    Returns the Revit application object exposing the Idling event.
+    Can be UIApplication or UIControlledApplication.
+    """
+    try:
+        from pyrevit import HOST_APP
+        if hasattr(HOST_APP, 'uiapp') and HOST_APP.uiapp and hasattr(HOST_APP.uiapp, 'Idling'):
+            return HOST_APP.uiapp
+    except Exception:
+        pass
+
+    try:
+        import __builtin__
+        rvt = getattr(__builtin__, '__revit__', None)
+        if rvt and hasattr(rvt, 'Idling'):
+            return rvt
+    except Exception:
+        pass
+
+    return None
+
+
 def init_startup_listener():
     """
-    Registers a one-shot Idling listener to apply hidden tools
-    as soon as Revit finishes loading the Ribbon on startup.
+    Applies hidden tools to the Ribbon.
+    Tries immediate application first (for pyRevit reload).
+    If the ribbon tab is not yet populated (fresh startup), registers an Idling listener.
     """
     global _listener_initialized
     if _listener_initialized:
@@ -235,7 +259,19 @@ def init_startup_listener():
     _listener_initialized = True
 
     try:
-        from pyrevit import HOST_APP
+        hidden = get_hidden_tools()
+        if not hidden:
+            return
+
+        # 1. Try immediate application (works when Ribbon is already loaded, e.g. pyRevit Reload)
+        applied = apply_tool_visibility(hidden)
+        if applied > 0:
+            return
+
+        # 2. If not applied yet (fresh Revit launch), register Idling listener on UIApplication
+        target = _get_idling_target()
+        if not target:
+            return
 
         _attempt_count = [0]
         max_attempts = 15
@@ -243,25 +279,24 @@ def init_startup_listener():
         def _on_idling(sender, args):
             _attempt_count[0] += 1
             try:
-                # Check if Ribbon is available and populated
-                hidden = get_hidden_tools()
-                if not hidden:
-                    # Nothing to hide, stop listening
-                    HOST_APP.app.Idling -= _on_idling
+                cur_hidden = get_hidden_tools()
+                if not cur_hidden:
+                    _detach()
                     return
 
-                apply_tool_visibility(hidden)
-
-                # Stop listening after a few frames to ensure layout is settled
-                if _attempt_count[0] >= 3:
-                    HOST_APP.app.Idling -= _on_idling
+                res = apply_tool_visibility(cur_hidden)
+                if res > 0 or _attempt_count[0] >= 3:
+                    _detach()
             except Exception:
                 if _attempt_count[0] >= max_attempts:
-                    try:
-                        HOST_APP.app.Idling -= _on_idling
-                    except Exception:
-                        pass
+                    _detach()
 
-        HOST_APP.app.Idling += _on_idling
-    except Exception as ex:
-        print("init_startup_listener exception: {}".format(ex))
+        def _detach():
+            try:
+                target.Idling -= _on_idling
+            except Exception:
+                pass
+
+        target.Idling += _on_idling
+    except Exception:
+        pass
