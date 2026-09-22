@@ -274,10 +274,13 @@ def _flat_walk(collection, callback):
             callback(item)
         except Exception:
             pass
-        # Walk children
+        # Walk children — wrap each attr individually to avoid IronPython protected-member TypeError
         for attr in ('Items', 'Children', 'SubItems'):
             try:
                 val = getattr(item, attr, None)
+            except (TypeError, AttributeError, Exception):
+                continue
+            try:
                 if val is not None and not isinstance(val, (str, unicode)):
                     _flat_walk(val, callback)
             except Exception:
@@ -294,10 +297,14 @@ def _any_visible(collection):
         # Check children first
         has_children = False
         for attr in ('Items', 'Children', 'SubItems'):
-            val = getattr(item, attr, None)
+            try:
+                val = getattr(item, attr, None)
+            except (TypeError, AttributeError, Exception):
+                continue
             if val is not None and not isinstance(val, (str, unicode)):
                 try:
-                    if len(list(val)) > 0:
+                    lst = list(val)
+                    if lst:
                         has_children = True
                         if _any_visible(val):
                             return True
@@ -320,7 +327,10 @@ def _collapse_empty(collection):
         # Only collapse containers (items that have sub-collections)
         child_colls = []
         for attr in ('Items', 'Children', 'SubItems'):
-            val = getattr(item, attr, None)
+            try:
+                val = getattr(item, attr, None)
+            except (TypeError, AttributeError, Exception):
+                continue
             if val is not None and not isinstance(val, (str, unicode)):
                 try:
                     lst = list(val)
