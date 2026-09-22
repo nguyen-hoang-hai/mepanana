@@ -148,6 +148,62 @@ def _item_matches_tool(item, tool_name):
     return False
 
 
+def _process_panel(panel, hidden_tools, matched_count, log_lines):
+    """
+    Processes a single AdWindows RibbonPanel: sets IsVisible on each matched tool button.
+    Returns True if at least one tool button should remain visible.
+    Defined as a standalone function (not a closure) to avoid IronPython 2 late-binding bug.
+    """
+    any_visible = False
+    items = panel.Source.Items if panel and panel.Source else None
+
+    def _visit(item):
+        if not hasattr(item, 'IsVisible'):
+            return
+        text     = _clean_text(getattr(item, 'Text', ''))
+        autoname = _clean_text(getattr(item, 'AutomationName', ''))
+        name     = _clean_text(getattr(item, 'Name', ''))
+        oid      = str(getattr(item, 'Id', '') or getattr(item, 'UID', '') or '')
+        cls      = type(item).__name__
+
+        log_lines.append("  [{}] Text='{}' Auto='{}' Name='{}' Id='{}'".format(
+            cls, text, autoname, name, oid[:80]))
+
+        # Match against known tools
+        matched_tool = None
+        for p_name, tools in PANEL_TOOLS:
+            for t in tools:
+                if _item_matches_tool(item, t):
+                    matched_tool = t
+                    break
+            if matched_tool:
+                break
+
+        if not matched_tool:
+            return
+
+        matched_count[0] += 1
+        if matched_tool in PROTECTED_TOOLS:
+            item.IsVisible = True
+            return True   # signal visible
+        else:
+            should_hide = matched_tool in hidden_tools
+            item.IsVisible = not should_hide
+            log_lines[-1] += " -> hide={} visible={}".format(should_hide, item.IsVisible)
+            return not should_hide
+
+    # Accumulate visibility results via list to allow mutation in nested scope
+    visible_flag = [False]
+
+    def _visit_with_flag(item):
+        result = _visit(item)
+        if result:
+            visible_flag[0] = True
+
+    _flat_walk(items, _visit_with_flag)
+    return visible_flag[0]
+
+
 def apply_tool_visibility(hidden_tools=None):
     """
     Traverses the MEPANANA ribbon via AdWindows and updates item visibility.
@@ -181,59 +237,16 @@ def apply_tool_visibility(hidden_tools=None):
                 if not panel or not panel.Source:
                     continue
 
-                panel_any_visible = [False]
+                panel_any_visible = _process_panel(
+                    panel, hidden_tools, matched_count, log_lines
+                )
 
-                # Traverse all leaf items in this panel
-                def _visit(item):
-                    cls = type(item).__name__
-
-                    # --- Leaf items: actual buttons ---
-                    if hasattr(item, 'IsVisible'):
-                        text    = _clean_text(getattr(item, 'Text', ''))
-                        autoname = _clean_text(getattr(item, 'AutomationName', ''))
-                        name    = _clean_text(getattr(item, 'Name', ''))
-                        oid     = str(getattr(item, 'Id', '') or getattr(item, 'UID', '') or '')
-
-                        log_lines.append("  [{}] Text='{}' Auto='{}' Name='{}' Id='{}'".format(
-                            cls, text, autoname, name, oid[:80]))
-
-                        # Find matching tool name
-                        matched_tool = None
-                        for p_name, tools in PANEL_TOOLS:
-                            for t in tools:
-                                if _item_matches_tool(item, t):
-                                    matched_tool = t
-                                    break
-                            if matched_tool:
-                                break
-
-                        if matched_tool:
-                            matched_count[0] += 1
-                            if matched_tool in PROTECTED_TOOLS:
-                                item.IsVisible = True
-                                panel_any_visible[0] = True
-                            else:
-                                should_hide = matched_tool in hidden_tools
-                                item.IsVisible = not should_hide
-                                log_lines[-1] += " -> should_hide={} visible={}".format(
-                                    should_hide, item.IsVisible)
-                                if not should_hide:
-                                    panel_any_visible[0] = True
-
-                # Simple flat traversal — visit every item in the tree
-                _flat_walk(panel.Source.Items, _visit)
-
-                # After processing all items in the panel, collapse empty containers
+                # Collapse containers whose children are all hidden
                 _collapse_empty(panel.Source.Items)
 
-            # After processing panels, collapse any fully-hidden panels
-            for panel in (tab.Panels or []):
-                if not panel or not panel.Source:
-                    continue
-                # Check if any tool is visible in this panel
-                panel_has_visible = _any_visible(panel.Source.Items)
+                # Set panel visibility based on whether any known tool is visible
                 if hasattr(panel, 'IsVisible'):
-                    panel.IsVisible = panel_has_visible
+                    panel.IsVisible = panel_any_visible
 
         try:
             ribbon.UpdateLayout()
