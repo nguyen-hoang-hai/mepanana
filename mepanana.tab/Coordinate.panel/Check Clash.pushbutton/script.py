@@ -341,6 +341,8 @@ try:
             self.btnExportExcel.Click += self._on_export_excel
             if hasattr(self, 'btnClose') and self.btnClose:
                 self.btnClose.Click += lambda s, e: self.Close()
+            if hasattr(self, 'btnFooterClose') and self.btnFooterClose:
+                self.btnFooterClose.Click += lambda s, e: self.Close()
 
             # Categories (VV) Tab wiring & initialization
             self._all_cat_vms = []

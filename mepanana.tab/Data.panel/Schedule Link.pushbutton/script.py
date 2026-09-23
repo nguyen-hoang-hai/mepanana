@@ -18,6 +18,7 @@ try:
     import System.Windows
     from System.Windows import Thickness, Visibility
     from System.Windows.Controls import CheckBox
+    from System.Windows.Media import SolidColorBrush, Color
     from Microsoft.Win32 import OpenFileDialog
     from System.Windows.Forms import FolderBrowserDialog, DialogResult
 
@@ -66,6 +67,8 @@ try:
 
             if hasattr(self, 'btnClose') and self.btnClose:
                 self.btnClose.Click += lambda s, e: self.Close()
+            if hasattr(self, 'btnFooterClose') and self.btnFooterClose:
+                self.btnFooterClose.Click += lambda s, e: self.Close()
             if hasattr(self, 'btnCloseImport') and self.btnCloseImport:
                 self.btnCloseImport.Click += lambda s, e: self.Close()
             if hasattr(self, 'btnCloseTitle') and self.btnCloseTitle:
@@ -125,7 +128,11 @@ try:
                     chk.IsChecked = s["selected"]
                     chk.Tag = s
                     chk.Margin = Thickness(4, 4, 4, 4)
-                    chk.FontSize = 13
+                    chk.FontSize = 12.5
+                    if self.dark_mode:
+                        chk.Foreground = SolidColorBrush(Color.FromRgb(241, 245, 249))
+                    else:
+                        chk.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))
                     chk.Checked += self.on_item_checked
                     chk.Unchecked += self.on_item_unchecked
                     self.lstExportSchedules.Items.Add(chk)

@@ -384,7 +384,10 @@ try:
 
             self.btnAnalyze.Click += self.on_analyze
             self.btnClear.Click   += self.on_clear
-            self.btnClose.Click   += self.on_close
+            if hasattr(self, 'btnFooterClose') and self.btnFooterClose:
+                self.btnFooterClose.Click += self.on_close
+            if hasattr(self, 'btnClose') and self.btnClose:
+                self.btnClose.Click += self.on_close
             self.lstClashes.SelectionChanged += self.on_clash_selected
 
             # Auto-detect pre-selected elements in Revit

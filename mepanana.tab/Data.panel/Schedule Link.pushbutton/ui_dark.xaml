@@ -20,6 +20,130 @@
     </Window.Triggers>
 
     <Window.Resources>
+
+        <!-- ── Modern Sleek ScrollBar (Dark Theme) ───────────────────────────── -->
+        <Style x:Key="ScrollBarTrackButton" TargetType="{x:Type RepeatButton}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Rectangle Fill="{TemplateBinding Background}" Height="{TemplateBinding Height}" Width="{TemplateBinding Width}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarThumbVertical" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="thumbBd" CornerRadius="3" Background="#475569" Margin="1,0,1,0"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="thumbBd" Property="Background" Value="#64748B"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="thumbBd" Property="Background" Value="#94A3B8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarThumbHorizontal" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="thumbBd" CornerRadius="3" Background="#475569" Margin="0,1,0,1"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="thumbBd" Property="Background" Value="#64748B"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="thumbBd" Property="Background" Value="#94A3B8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="Height" Value="6"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="Transparent">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollBarTrackButton}" Command="ScrollBar.PageLeftCommand"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ScrollBarThumbHorizontal}"/>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollBarTrackButton}" Command="ScrollBar.PageRightCommand"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="6"/>
+                    <Setter Property="Height" Value="Auto"/>
+                    <Setter Property="Margin" Value="2,0,0,0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="Transparent">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollBarTrackButton}" Command="ScrollBar.PageUpCommand"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ScrollBarThumbVertical}"/>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollBarTrackButton}" Command="ScrollBar.PageDownCommand"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Default High-Contrast Typography for Dark Mode Controls -->
+        <Style TargetType="{x:Type CheckBox}">
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+        </Style>
+
         <!-- Primary Button -->
         <Style x:Key="PrimaryBtn" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
@@ -143,7 +267,7 @@
         <Style x:Key="SegmentedTabRadio" TargetType="RadioButton">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="Foreground" Value="#CBD5E1"/>
             <Setter Property="Padding" Value="18,6"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -227,7 +351,7 @@
                                     Margin="0,0,6,0"/>
 
                             <!-- Close Button -->
-                            <Button Grid.Column="3" Name="btnCloseTitle" Content="✕"
+                            <Button Grid.Column="3" Name="btnClose" Content="✕"
                                     Style="{StaticResource TitleCloseBtn}" VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
@@ -296,7 +420,7 @@
 
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Rectangle Fill="#10B981" Width="3" RadiusX="1.5" RadiusY="1.5" Margin="0,0,6,0"/>
-                                            <TextBlock Text="PROJECT SCHEDULES" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                            <TextBlock Text="PROJECT SCHEDULES" FontSize="11" Foreground="#CBD5E1" VerticalAlignment="Center"/>
                                         </StackPanel>
 
                                         <!-- Search Box with Icon -->
@@ -306,7 +430,7 @@
                                                     <ColumnDefinition Width="26"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="🔍" FontSize="11" Foreground="#94A3B8"
+                                                <TextBlock Grid.Column="0" Text="🔍" FontSize="11" Foreground="#CBD5E1"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                 <TextBox Name="txtSearchExport" Grid.Column="1" BorderThickness="0" Background="Transparent"
                                                          VerticalContentAlignment="Center" FontSize="12" Foreground="#F8FAFC"
@@ -330,7 +454,7 @@
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="1" Name="txtSelectedCount" Text="0 of 0 selected"
-                                                   Foreground="#94A3B8" FontSize="11.5"
+                                                   Foreground="#CBD5E1" FontSize="11.5"
                                                    VerticalAlignment="Center" HorizontalAlignment="Right"/>
                                     </Grid>
 
@@ -380,7 +504,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0" Text="Export Folder:" FontSize="12" Foreground="#94A3B8"
+                                        <TextBlock Grid.Column="0" Text="Export Folder:" FontSize="12" Foreground="#CBD5E1"
                                                    VerticalAlignment="Center" Margin="0,0,10,0"/>
 
                                         <Border Grid.Column="1" Height="34" CornerRadius="6" Background="#0F172A" BorderBrush="#334155" BorderThickness="1">
@@ -392,7 +516,7 @@
                                         <Button Grid.Column="2" Name="btnBrowseFolder" Content="📂 Browse..."
                                                 Style="{StaticResource GhostBtn}" Height="34" Padding="12,0" Margin="8,0,0,0"/>
 
-                                        <Button Grid.Column="4" Name="btnClose" Content="Close"
+                                        <Button Grid.Column="4" Name="btnFooterClose" Content="Close"
                                                 Style="{StaticResource GhostBtn}" Height="34" Width="80" IsCancel="True"/>
 
                                         <Button Grid.Column="6" Name="btnExport" Content="📤 Export to Excel"
@@ -425,7 +549,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBlock Grid.Column="0" Text="Excel File:" FontSize="12" Foreground="#94A3B8"
+                                    <TextBlock Grid.Column="0" Text="Excel File:" FontSize="12" Foreground="#CBD5E1"
                                                VerticalAlignment="Center" Margin="0,0,10,0"/>
 
                                     <Border Grid.Column="1" Height="34" CornerRadius="6" Background="#0F172A" BorderBrush="#334155" BorderThickness="1">

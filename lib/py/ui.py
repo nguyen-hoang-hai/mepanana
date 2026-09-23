@@ -102,6 +102,9 @@ def setup_modern_window(window, dark_mode=False, set_revit_owner=True):
     if hasattr(window, 'btnClose') and window.btnClose is not None:
         window.btnClose.Click += lambda s, e: window.Close()
 
+    if hasattr(window, 'btnFooterClose') and window.btnFooterClose is not None:
+        window.btnFooterClose.Click += lambda s, e: window.Close()
+
     if hasattr(window, 'btnToggleTheme') and window.btnToggleTheme is not None:
         def on_toggle_theme(s, e):
             window.switch_requested = True

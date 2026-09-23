@@ -107,6 +107,8 @@ class PendentSprinklerWindow(forms.WPFWindow):
             self.btnGenerate.Click += self.OnGenerate
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += self.OnClose
+        if hasattr(self, 'btnFooterClose'):
+            self.btnFooterClose.Click += self.OnClose
         if hasattr(self, 'btnStandards'):
             self.btnStandards.Click += self.OnShowStandards
 
