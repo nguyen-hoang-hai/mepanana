@@ -153,7 +153,7 @@ def are_already_connected(el1, el2):
     return False
 
 
-def get_connector_at_point(elem, target_pt, tolerance=0.08):
+def get_connector_at_point(elem, target_pt, tolerance=0.15):
     """Finds a connector on elem matching target_pt within tolerance (in feet)."""
     cm = get_connector_manager(elem)
     if not cm:
@@ -190,38 +190,70 @@ def get_best_connector(elem, pick_point=None):
 def get_best_connector_pair(el1, pt1, el2, pt2):
     """
     Finds the best open connector on el1 and el2.
-    - If pick points are provided, finds closest open connector to each pick point.
-    - If pick points are NOT provided (pre-selection), finds the pair of open connectors
-      (one on el1, one on el2) with the minimum distance between them.
+    Evaluates all possible open connector pairs and prioritizes geometrically
+    viable pairs (collinear facing, corner elbow intersecting, or touching)
+    over non-viable pairs, while respecting user pick point proximity.
     """
     open1 = get_open_connectors(el1)
     open2 = get_open_connectors(el2)
     if not open1 or not open2:
         return None, None
 
-    if pt1 and pt2:
-        c1 = min(open1, key=lambda c: c.Origin.DistanceTo(pt1))
-        c2 = min(open2, key=lambda c: c.Origin.DistanceTo(pt2))
-        return c1, c2
-    elif pt1:
-        c1 = min(open1, key=lambda c: c.Origin.DistanceTo(pt1))
-        c2 = min(open2, key=lambda c: c.Origin.DistanceTo(c1.Origin))
-        return c1, c2
-    elif pt2:
-        c2 = min(open2, key=lambda c: c.Origin.DistanceTo(pt2))
-        c1 = min(open1, key=lambda c: c.Origin.DistanceTo(c2.Origin))
-        return c1, c2
-    else:
-        # Pre-selection: pick pair with minimum distance
-        best_pair = (open1[0], open2[0])
-        min_dist = float("inf")
-        for c1 in open1:
-            for c2 in open2:
-                d = c1.Origin.DistanceTo(c2.Origin)
-                if d < min_dist:
-                    min_dist = d
-                    best_pair = (c1, c2)
-        return best_pair
+    if len(open1) == 1 and len(open2) == 1:
+        return open1[0], open2[0]
+
+    best_pair = None
+    best_score = float("inf")
+
+    for c1 in open1:
+        p1 = c1.Origin
+        d1 = c1.CoordinateSystem.BasisZ
+        for c2 in open2:
+            p2 = c2.Origin
+            d2 = c2.CoordinateSystem.BasisZ
+            dist = p1.DistanceTo(p2)
+            dot_dir = d1.DotProduct(d2)
+
+            # User pick proximity
+            pick_dist = 0.0
+            if pt1:
+                pick_dist += p1.DistanceTo(pt1)
+            if pt2:
+                pick_dist += p2.DistanceTo(pt2)
+
+            # Check geometric viability
+            is_viable = False
+
+            # Case A: Touching / very close (< 3mm)
+            if dist < 0.01:
+                is_viable = True
+            else:
+                V = p2 - p1
+                dir_v = V.Normalize()
+                # Case B: Collinear / facing each other
+                if dot_dir < -0.7 and abs(dir_v.DotProduct(d1) - 1.0) < 0.35:
+                    is_viable = True
+                # Case C: Corner / elbow intersection
+                elif 0.25 <= abs(dot_dir) <= 0.96:
+                    angle_deg = d1.AngleTo(d2) * 180.0 / math.pi
+                    if 15.0 <= angle_deg <= 165.0:
+                        p_int, line_dist = calculate_line_intersection_3d(p1, d1, p2, d2, tolerance=0.15)
+                        if p_int and line_dist <= 0.15:
+                            if (p_int - p1).DotProduct(d1) > -0.1 and (p_int - p2).DotProduct(d2) > -0.1:
+                                is_viable = True
+
+            # Scoring: smaller score is better
+            # Viable pairs get massive priority (-1000 ft)
+            # Mutual distance has heavy weight, pick distance has modest weight
+            score = dist + 0.2 * pick_dist
+            if is_viable:
+                score -= 1000.0
+
+            if score < best_score:
+                best_score = score
+                best_pair = (c1, c2)
+
+    return best_pair if best_pair else (open1[0], open2[0])
 
 
 def is_element_standalone(elem):
@@ -269,8 +301,12 @@ def extend_curve_to_point(curve_elem, target_pt, which_end_pt):
 
     try:
         if pt0.DistanceTo(which_end_pt) < pt1.DistanceTo(which_end_pt):
+            if target_pt.DistanceTo(pt1) < 0.005:
+                return False
             new_line = Line.CreateBound(target_pt, pt1)
         else:
+            if pt0.DistanceTo(target_pt) < 0.005:
+                return False
             new_line = Line.CreateBound(pt0, target_pt)
         curve_elem.Location.Curve = new_line
         return True
@@ -403,6 +439,7 @@ def create_bridging_mep_curve(doc, ref_elem, ref_conn, p_start, p_end):
 def join_or_transition(doc, c1, c2):
     """
     Attempts to join c1 and c2 directly via c1.ConnectTo(c2) or c2.ConnectTo(c1).
+    If that fails (due to Revit requiring a coupling), attempts NewUnionFitting.
     If that fails (due to size/shape mismatch), attempts NewTransitionFitting in both orders.
     """
     try:
@@ -414,6 +451,20 @@ def join_or_transition(doc, c1, c2):
     try:
         c2.ConnectTo(c1)
         return True, "Directly joined connectors."
+    except Exception:
+        pass
+
+    try:
+        union = doc.Create.NewUnionFitting(c1, c2)
+        if union:
+            return True, "Connected with union fitting."
+    except Exception:
+        pass
+
+    try:
+        union = doc.Create.NewUnionFitting(c2, c1)
+        if union:
+            return True, "Connected with union fitting."
     except Exception:
         pass
 
@@ -431,7 +482,75 @@ def join_or_transition(doc, c1, c2):
     except Exception:
         pass
 
-    return False, "Could not join or place transition between connectors."
+    return False, "Could not join or place fitting between connectors."
+
+
+def _pick_hits_body(elem, pick_pt, end_tol=0.08):
+    """Returns True if pick_pt is on the interior body of a linear curve element, not at an endpoint."""
+    if not pick_pt or not elem or not is_linear_curve(elem):
+        return False
+    line = elem.Location.Curve
+    ep0 = line.GetEndPoint(0)
+    ep1 = line.GetEndPoint(1)
+    # If click is very close to either endpoint, it's an endpoint pick (not a body pick)
+    if pick_pt.DistanceTo(ep0) < end_tol or pick_pt.DistanceTo(ep1) < end_tol:
+        return False
+    dir_line = (ep1 - ep0).Normalize()
+    length = ep0.DistanceTo(ep1)
+    t = (pick_pt - ep0).DotProduct(dir_line)
+    if 0.0 < t < length:
+        return True
+    return False
+
+
+def _is_branch_to_main_candidate(branch_el, branch_pt, main_el, main_pt):
+    """
+    Checks if branch_el and main_el form a genuine Branch-into-Main (Tee) scenario:
+    1. main_el is a straight linear curve and pick point is on its interior body.
+    2. branch_el has an open connector.
+    3. branch connector direction is NOT parallel/collinear to main run (|dot| < 0.85).
+    4. branch connector ray intersects the main curve interior within tolerance.
+    """
+    if not is_linear_curve(main_el) or not _pick_hits_body(main_el, main_pt):
+        return False, None, None
+
+    m_crv = main_el.Location.Curve
+    m_p0 = m_crv.GetEndPoint(0)
+    m_p1 = m_crv.GetEndPoint(1)
+    m_vec = m_p1 - m_p0
+    m_len = m_vec.GetLength()
+    if m_len < 0.1:
+        return False, None, None
+    m_dir = m_vec.Normalize()
+
+    b_conn = get_best_connector(branch_el, branch_pt)
+    if not b_conn:
+        return False, None, None
+
+    b_p = b_conn.Origin
+    b_dir = b_conn.CoordinateSystem.BasisZ
+
+    # CRITICAL: Branch cannot be parallel or collinear to the main run!
+    # If |b_dir . m_dir| >= 0.85 (angle < ~31 deg), this is parallel/collinear, NOT a branch!
+    if abs(b_dir.DotProduct(m_dir)) >= 0.85:
+        return False, None, None
+
+    # Ray intersection
+    p_int, line_dist = calculate_line_intersection_3d(b_p, b_dir, m_p0, m_dir, tolerance=0.15)
+    if not p_int or line_dist > 0.15:
+        return False, None, None
+
+    # Verify intersection is in front of the branch connector (pointing towards main)
+    if (p_int - b_p).DotProduct(b_dir) < -0.05:
+        return False, None, None
+
+    # Verify intersection falls on the interior body of the main curve (with 50mm buffer)
+    buffer_ft = mm_to_ft(50.0)
+    t_proj = (p_int - m_p0).DotProduct(m_dir)
+    if t_proj <= buffer_ft or t_proj >= (m_len - buffer_ft):
+        return False, None, None
+
+    return True, b_conn, p_int
 
 
 def connect_elements(doc, el1, pt1, el2, pt2, config=None):
@@ -455,34 +574,16 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
     if are_already_connected(el1, el2):
         return True, "These elements are already connected."
 
-    # 1. Special check: Branch into Main pipe/duct (Tier 5)
-    # Triggered when a pick point is on the BODY (interior) of a linear element, not at an endpoint.
-    def _pick_hits_body(elem, pick_pt, end_tol=0.08):
-        """Returns True if pick_pt is on the interior body of a linear curve element, not at an endpoint."""
-        if not pick_pt or not elem or not is_linear_curve(elem):
-            return False
-        line = elem.Location.Curve
-        ep0 = line.GetEndPoint(0)
-        ep1 = line.GetEndPoint(1)
-        # If click is very close to either endpoint, it's an endpoint pick (not a body pick)
-        if pick_pt.DistanceTo(ep0) < end_tol or pick_pt.DistanceTo(ep1) < end_tol:
-            return False
-        # Project pick_pt onto the infinite line; if projection falls within segment bounds, it's a body hit
-        dir_line = (ep1 - ep0).Normalize()
-        length = ep0.DistanceTo(ep1)
-        t = (pick_pt - ep0).DotProduct(dir_line)
-        if 0.0 < t < length:
-            return True
-        return False
+    # 1. Special check: Branch into Main pipe/duct (Tier 5 - Tee)
+    # ONLY triggers when one element is angled towards the interior body of the other.
+    # Collinear/parallel elements will NEVER trigger this!
+    is_branch, b_conn, p_int = _is_branch_to_main_candidate(el1, pt1, el2, pt2)
+    if is_branch:
+        return _try_branch_to_main(doc, el1, b_conn, el2, p_int)
 
-    if pt2 and _pick_hits_body(el2, pt2) and is_linear_curve(el2):
-        c1_branch = get_best_connector(el1, pt1)
-        if c1_branch:
-            return _try_branch_to_main(doc, el1, c1_branch, el2)
-    elif pt1 and _pick_hits_body(el1, pt1) and is_linear_curve(el1):
-        c2_branch = get_best_connector(el2, pt2)
-        if c2_branch:
-            return _try_branch_to_main(doc, el2, c2_branch, el1)
+    is_branch, b_conn, p_int = _is_branch_to_main_candidate(el2, pt2, el1, pt1)
+    if is_branch:
+        return _try_branch_to_main(doc, el2, b_conn, el1, p_int)
 
     # 2. Retrieve targeted open connectors
     # Uses pick points when provided, or finds the closest pair of open connectors for pre-selection
@@ -515,40 +616,54 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
     dot_dir = d1.DotProduct(d2)
 
     # =========================================================================
-    # TIER 2: COLLINEAR / COAXIAL FACING (dot_dir < -0.95 and dir_v aligned)
+    # TIER 2: COLLINEAR / COAXIAL FACING (dot_dir < -0.85 and dir_v aligned)
     # =========================================================================
-    is_collinear_facing = dot_dir < -0.95 and abs(dir_v.DotProduct(d1) - 1.0) < 0.08
+    is_collinear_facing = dot_dir < -0.85 and abs(dir_v.DotProduct(d1) - 1.0) < 0.15
 
     if is_collinear_facing and config.preferred_mode in ("Auto", "ExtendOnly", "BridgeOnly"):
         # 2A: Try extending existing linear curve (cleanest Revit BIM geometry)
         if config.preferred_mode != "BridgeOnly":
             # Try extending el2 to p1
             if is_linear_curve(el2):
+                orig_crv2 = el2.Location.Curve
                 if extend_curve_to_point(el2, p1, p2):
                     doc.Regenerate()
-                    c2_new = get_connector_at_point(el2, p1)
+                    c2_new = get_connector_at_point(el2, p1, tolerance=0.15)
                     if c2_new:
                         ok, msg = join_or_transition(doc, c1, c2_new)
                         if ok:
                             return True, "Extended curve and connected directly."
+                    # If join failed, restore el2 curve
+                    try:
+                        el2.Location.Curve = orig_crv2
+                        doc.Regenerate()
+                    except Exception:
+                        pass
 
             # Try extending el1 to p2
             if is_linear_curve(el1):
+                orig_crv1 = el1.Location.Curve
                 if extend_curve_to_point(el1, p2, p1):
                     doc.Regenerate()
-                    c1_new = get_connector_at_point(el1, p2)
+                    c1_new = get_connector_at_point(el1, p2, tolerance=0.15)
                     if c1_new:
                         ok, msg = join_or_transition(doc, c1_new, c2)
                         if ok:
                             return True, "Extended curve and connected directly."
+                    # If join failed, restore el1 curve
+                    try:
+                        el1.Location.Curve = orig_crv1
+                        doc.Regenerate()
+                    except Exception:
+                        pass
 
         # 2B: Bridge with a new matching segment
         if dist >= _MIN_LINE_LEN_FT:
             new_seg = create_bridging_mep_curve(doc, el1, c1, p1, p2)
             if new_seg:
                 doc.Regenerate()
-                seg_c1 = get_connector_at_point(new_seg, p1)
-                seg_c2 = get_connector_at_point(new_seg, p2)
+                seg_c1 = get_connector_at_point(new_seg, p1, tolerance=0.15)
+                seg_c2 = get_connector_at_point(new_seg, p2, tolerance=0.15)
                 if seg_c1 and seg_c2:
                     ok1, _ = join_or_transition(doc, c1, seg_c1)
                     ok2, _ = join_or_transition(doc, seg_c2, c2)
@@ -562,9 +677,9 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
         # Calculate 3D intersection of connector axes
         # Ray 1: p1 along d1
         # Ray 2: p2 along d2
-        p_int, line_dist = calculate_line_intersection_3d(p1, d1, p2, d2, tolerance=0.08)
+        p_int, line_dist = calculate_line_intersection_3d(p1, d1, p2, d2, tolerance=0.15)
 
-        if p_int and line_dist <= 0.08:
+        if p_int and line_dist <= 0.15:
             # Verify intersection is in front of both connectors (or within reasonable reach)
             v1_to_int = p_int - p1
             v2_to_int = p_int - p2
@@ -581,15 +696,21 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
 
                 if extended1 or extended2 or (p1.DistanceTo(p_int) < 0.01 and p2.DistanceTo(p_int) < 0.01):
                     doc.Regenerate()
-                    c1_int = get_connector_at_point(el1, p_int)
-                    c2_int = get_connector_at_point(el2, p_int)
+                    c1_int = get_connector_at_point(el1, p_int, tolerance=0.15)
+                    c2_int = get_connector_at_point(el2, p_int, tolerance=0.15)
 
                     if c1_int and c2_int:
                         try:
                             elbow = doc.Create.NewElbowFitting(c1_int, c2_int)
                             if elbow:
                                 return True, "Connected with an elbow fitting ({:.1f}°).".format(angle_deg)
-                        except Exception as ex_elb:
+                        except Exception:
+                            pass
+                        try:
+                            elbow = doc.Create.NewElbowFitting(c2_int, c1_int)
+                            if elbow:
+                                return True, "Connected with an elbow fitting ({:.1f}°).".format(angle_deg)
+                        except Exception:
                             pass
 
     # =========================================================================
@@ -637,7 +758,7 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
                             if is_linear_curve(el2):
                                 if extend_curve_to_point(el2, p1_a, p2_a):
                                     doc.Regenerate()
-                                    c2_ext = get_connector_at_point(el2, p1_a)
+                                    c2_ext = get_connector_at_point(el2, p1_a, tolerance=0.15)
                                     if c2_ext:
                                         ok_j, msg_j = join_or_transition(doc, c1_aligned, c2_ext)
                                         if ok_j:
@@ -646,7 +767,7 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
                             if is_linear_curve(el1):
                                 if extend_curve_to_point(el1, p2_a, p1_a):
                                     doc.Regenerate()
-                                    c1_ext = get_connector_at_point(el1, p2_a)
+                                    c1_ext = get_connector_at_point(el1, p2_a, tolerance=0.15)
                                     if c1_ext:
                                         ok_j, msg_j = join_or_transition(doc, c1_ext, c2_aligned)
                                         if ok_j:
@@ -657,8 +778,8 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
                             new_seg = create_bridging_mep_curve(doc, el1, c1_aligned, p1_a, p2_a)
                             if new_seg:
                                 doc.Regenerate()
-                                seg_c1 = get_connector_at_point(new_seg, p1_a)
-                                seg_c2 = get_connector_at_point(new_seg, p2_a)
+                                seg_c1 = get_connector_at_point(new_seg, p1_a, tolerance=0.15)
+                                seg_c2 = get_connector_at_point(new_seg, p2_a, tolerance=0.15)
                                 if seg_c1 and seg_c2:
                                     ok1, _ = join_or_transition(doc, c1_aligned, seg_c1)
                                     ok2, _ = join_or_transition(doc, seg_c2, c2_aligned)
@@ -670,7 +791,7 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
     return False, "Could not connect elements. Please ensure routing preferences are configured and elements can reach each other."
 
 
-def _try_branch_to_main(doc, branch_elem, branch_conn, main_elem):
+def _try_branch_to_main(doc, branch_elem, branch_conn, main_elem, p_int=None):
     """
     Tier 5: Projects branch connector along its axis to hit main curve and places Tee fitting.
     """
@@ -685,22 +806,24 @@ def _try_branch_to_main(doc, branch_elem, branch_conn, main_elem):
     b_p = branch_conn.Origin
     b_dir = branch_conn.CoordinateSystem.BasisZ
 
-    # Calculate intersection between branch ray and main line
-    p_int, dist = calculate_line_intersection_3d(b_p, b_dir, m_p0, m_dir, tolerance=0.08)
-    if not p_int or dist > 0.08:
-        return False, "Branch axis does not intersect the main run."
+    if not p_int:
+        # Calculate intersection between branch ray and main line
+        p_int, dist = calculate_line_intersection_3d(b_p, b_dir, m_p0, m_dir, tolerance=0.15)
+        if not p_int or dist > 0.15:
+            return False, "Branch axis does not intersect the main run."
 
-    # Check that intersection is strictly along the interior of main curve
-    proj_on_main = (p_int - m_p0).DotProduct(m_dir)
-    total_len = m_p0.DistanceTo(m_p1)
-    buffer_ft = mm_to_ft(50.0)
+        # Check that intersection is strictly along the interior of main curve
+        proj_on_main = (p_int - m_p0).DotProduct(m_dir)
+        total_len = m_p0.DistanceTo(m_p1)
+        buffer_ft = mm_to_ft(50.0)
 
-    if proj_on_main <= buffer_ft or proj_on_main >= (total_len - buffer_ft):
-        return False, "Branch intersects too close to the end of the main run."
+        if proj_on_main <= buffer_ft or proj_on_main >= (total_len - buffer_ft):
+            return False, "Branch intersects too close to the end of the main run."
 
     # 1. Extend branch to p_int
     if not extend_curve_to_point(branch_elem, p_int, b_p):
-        return False, "Could not extend branch curve to main run."
+        if b_p.DistanceTo(p_int) > 0.01:
+            return False, "Could not extend branch curve to main run."
     doc.Regenerate()
 
     # 2. Break main curve at p_int
@@ -720,9 +843,9 @@ def _try_branch_to_main(doc, branch_elem, branch_conn, main_elem):
     new_piece = doc.GetElement(new_piece_id)
 
     # 3. Retrieve connectors at p_int
-    c_branch = get_connector_at_point(branch_elem, p_int)
-    c_main1 = get_connector_at_point(main_elem, p_int)
-    c_main2 = get_connector_at_point(new_piece, p_int)
+    c_branch = get_connector_at_point(branch_elem, p_int, tolerance=0.15)
+    c_main1 = get_connector_at_point(main_elem, p_int, tolerance=0.15)
+    c_main2 = get_connector_at_point(new_piece, p_int, tolerance=0.15)
 
     if not (c_branch and c_main1 and c_main2):
         return False, "Could not resolve 3 connectors at Tee intersection."
@@ -731,7 +854,23 @@ def _try_branch_to_main(doc, branch_elem, branch_conn, main_elem):
         tee = doc.Create.NewTeeFitting(c_main1, c_main2, c_branch)
         if tee:
             return True, "Connected branch into main with Tee fitting."
-    except Exception as ex_tee:
-        return False, "Failed to insert Tee fitting: {}".format(safe_unicode(ex_tee))
+    except Exception:
+        pass
 
-    return False, "Could not complete Tee connection."
+    try:
+        tee = doc.Create.NewTeeFitting(c_main2, c_main1, c_branch)
+        if tee:
+            return True, "Connected branch into main with Tee fitting."
+    except Exception:
+        pass
+
+    # For ducts: also try NewTakeoffFitting if Tee fails
+    if isinstance(main_elem, Duct):
+        try:
+            takeoff = doc.Create.NewTakeoffFitting(c_branch, main_elem)
+            if takeoff:
+                return True, "Connected branch into main with Takeoff fitting."
+        except Exception:
+            pass
+
+    return False, "Could not insert Tee fitting. Check routing preferences."
