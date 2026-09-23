@@ -31,7 +31,7 @@ import subprocess
 from pyrevit import forms, revit, script, DB, UI
 from py.core import get_doc, get_uidoc, safe_unicode, smart_match
 from py.ui import (
-    setup_window, show_info, show_warning, show_error, show_success,
+    setup_modern_window, is_dark_theme, show_info, show_warning, show_error, show_success,
     show_confirm, do_events, yield_dispatcher_every, MepananaProgressBar
 )
 from py.family_cloud_engine import (
@@ -378,10 +378,12 @@ def scan_library_folder_with_progress(folder_path, active_revit_year=2024, cache
 
 class FamilyLocalWindow(forms.WPFWindow):
     """Interactive WPF Studio for browsing, filtering and loading local families."""
-    def __init__(self, doc, preloaded_items=None, total_bytes=0):
-        xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+    def __init__(self, doc, preloaded_items=None, total_bytes=0, dark_mode=False):
+        self.dark_mode = dark_mode
+        xaml_file = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+        xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
         forms.WPFWindow.__init__(self, xaml_path)
-        setup_window(self)
+        setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
 
         self.doc = doc
         self.active_revit_year = get_active_revit_year(doc)
@@ -416,6 +418,8 @@ class FamilyLocalWindow(forms.WPFWindow):
             self.btnBatchLoadTop.Click += self.OnBatchLoad
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += lambda s, e: self.Close()
+        if hasattr(self, 'btnFooterClose'):
+            self.btnFooterClose.Click += lambda s, e: self.Close()
 
         # Connect Dynamic Card Loading Event via ItemsControl
         if hasattr(self, 'itemsCards'):
@@ -739,8 +743,21 @@ def run():
     )
 
     # 2. OPEN MAIN STUDIO WINDOW WITH PRELOADED CARDS!
-    win = FamilyLocalWindow(doc, preloaded_items=items, total_bytes=total_bytes)
-    win.ShowDialog()
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    while True:
+        win = FamilyLocalWindow(doc, preloaded_items=items, total_bytes=total_bytes, dark_mode=current_dark)
+        win.ShowDialog()
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            items = win.all_families
+            continue
+        break
 
 if __name__ == "__main__":
     run()

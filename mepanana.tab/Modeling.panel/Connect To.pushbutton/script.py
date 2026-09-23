@@ -63,7 +63,7 @@ try:
 
     from pyrevit import forms, revit, script, EXEC_PARAMS
     from py.core import get_doc, get_uidoc, SafeTransaction, safe_unicode
-    from py.ui   import setup_window, show_warning, show_error, show_info
+    from py.ui   import setup_modern_window, is_dark_theme, show_warning, show_error, show_info
     from py.connect_to_engine import (
         ConnectToConfig,
         MEPConnectSelectionFilter,
@@ -81,10 +81,12 @@ try:
     # SETTINGS WINDOW CONTROLLER (SHIFT-CLICK)
     # ==========================================================================
     class ConnectToSettingsWindow(forms.WPFWindow):
-        def __init__(self, config):
-            xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        def __init__(self, config, dark_mode=False):
+            self.dark_mode = dark_mode
+            xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+            xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
-            setup_window(self)
+            setup_modern_window(self, dark_mode=dark_mode)
             self.config = config
 
             # Populate controls from stored config
@@ -132,8 +134,14 @@ try:
 
         # Check if launched in Config Mode (Shift-Click)
         if getattr(EXEC_PARAMS, "config_mode", False):
-            win = ConnectToSettingsWindow(config)
-            win.ShowDialog()
+            current_dark = is_dark_theme()
+            while True:
+                win = ConnectToSettingsWindow(config, dark_mode=current_dark)
+                win.ShowDialog()
+                if getattr(win, 'switch_requested', False):
+                    current_dark = not current_dark
+                    continue
+                break
             return
 
         # 1. Pre-selection check: If exactly 2 elements are pre-selected

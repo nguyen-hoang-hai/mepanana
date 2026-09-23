@@ -66,7 +66,7 @@ try:
     from Autodesk.Revit.DB.Analysis import SpatialFieldManager
     from pyrevit import forms, revit
     from py.core import get_doc, get_uidoc, SafeTransaction, get_id_value, safe_unicode
-    from py.ui   import setup_window, show_info, show_warning, show_error, show_success, do_events
+    from py.ui   import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, show_success, do_events
 
     from py.clash_analysis_engine import (
         scan_clashes, render_clashes_avf, clear_clash_analysis, ClashItem
@@ -334,10 +334,12 @@ try:
     # ── Main Controller Window ───────────────────────────────────────────────────
 
     class DisplayClashWindow(forms.WPFWindow):
-        def __init__(self):
-            xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        def __init__(self, dark_mode=False):
+            self.dark_mode = dark_mode
+            xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+            xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
-            setup_window(self)
+            setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
             
             self.doc = doc
             self.uidoc = uidoc
@@ -631,25 +633,38 @@ try:
 
 
     # ── Launcher ──────────────────────────────────────────────────────────────
-    win = DisplayClashWindow()
-
-    # Modeless: Show() + Dispatcher.PushFrame() keeps Python scope alive without
-    # blocking Revit (same pattern as Check Clash tool).
+    current_dark = is_dark_theme()
     try:
-        revit_handle = System.IntPtr(uidoc.Application.MainWindowHandle)
-        helper = WindowInteropHelper(win)
-        helper.Owner = revit_handle
+        if __shiftclick__:
+            current_dark = not current_dark
     except Exception:
         pass
 
-    frame = DispatcherFrame()
+    while True:
+        win = DisplayClashWindow(dark_mode=current_dark)
 
-    def _on_closed(s, e):
-        frame.Continue = False
+        # Modeless: Show() + Dispatcher.PushFrame() keeps Python scope alive without
+        # blocking Revit (same pattern as Check Clash tool).
+        try:
+            revit_handle = System.IntPtr(uidoc.Application.MainWindowHandle)
+            helper = WindowInteropHelper(win)
+            helper.Owner = revit_handle
+        except Exception:
+            pass
 
-    win.Closed += _on_closed
-    win.Show()
-    Dispatcher.PushFrame(frame)
+        frame = DispatcherFrame()
+
+        def _on_closed(s, e):
+            frame.Continue = False
+
+        win.Closed += _on_closed
+        win.Show()
+        Dispatcher.PushFrame(frame)
+
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        break
 
 except Exception as ex:
     _fatal_alert(u"Display Clash Initialization Error:\n\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()))

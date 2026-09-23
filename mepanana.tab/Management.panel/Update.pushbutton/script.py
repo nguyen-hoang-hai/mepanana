@@ -29,7 +29,7 @@ from System.Threading import ThreadPool, WaitCallback
 
 from pyrevit import forms, script
 from py.core import safe_unicode
-from py.ui import setup_window, show_info, show_success, show_warning, show_error, show_confirm, do_events
+from py.ui import setup_modern_window, is_dark_theme, show_info, show_success, show_warning, show_error, show_confirm, do_events
 
 import py.updater_engine
 try:
@@ -40,10 +40,12 @@ from py.updater_engine import get_local_version, check_cloud_version, download_a
 
 
 class MepananaUpdateWindow(forms.WPFWindow):
-    def __init__(self):
-        xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+    def __init__(self, dark_mode=False):
+        self.dark_mode = dark_mode
+        xaml_file = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+        xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
         forms.WPFWindow.__init__(self, xaml_path)
-        setup_window(self)
+        setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
 
         self.local_info = get_local_version()
         self.cloud_info = None
@@ -55,6 +57,8 @@ class MepananaUpdateWindow(forms.WPFWindow):
             self.btnUpdate.Click += self.OnUpdateClick
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += self.OnCloseClick
+        if hasattr(self, 'btnFooterClose'):
+            self.btnFooterClose.Click += self.OnCloseClick
 
         self.InitDisplay()
         self.CheckUpdatesAsync()
@@ -111,13 +115,23 @@ class MepananaUpdateWindow(forms.WPFWindow):
 
                         if hasattr(self, 'badgeCloud') and hasattr(self, 'txtCloudBadge'):
                             if is_new_update:
-                                self.badgeCloud.Background = SolidColorBrush(Color.FromRgb(220, 252, 231))
-                                self.txtCloudBadge.Text = u"NEW UPDATE READY"
-                                self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(21, 128, 61))
+                                if self.dark_mode:
+                                    self.badgeCloud.Background = SolidColorBrush(Color.FromRgb(6, 78, 59))
+                                    self.txtCloudBadge.Text = u"NEW UPDATE READY"
+                                    self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(110, 231, 183))
+                                else:
+                                    self.badgeCloud.Background = SolidColorBrush(Color.FromRgb(220, 252, 231))
+                                    self.txtCloudBadge.Text = u"NEW UPDATE READY"
+                                    self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(21, 128, 61))
                             else:
-                                self.badgeCloud.Background = SolidColorBrush(Color.FromRgb(241, 245, 249))
-                                self.txtCloudBadge.Text = u"UP TO DATE"
-                                self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(71, 85, 105))
+                                if self.dark_mode:
+                                    self.badgeCloud.Background = SolidColorBrush(Color.FromRgb(15, 23, 42))
+                                    self.txtCloudBadge.Text = u"UP TO DATE"
+                                    self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(148, 163, 184))
+                                else:
+                                    self.badgeCloud.Background = SolidColorBrush(Color.FromRgb(241, 245, 249))
+                                    self.txtCloudBadge.Text = u"UP TO DATE"
+                                    self.txtCloudBadge.Foreground = SolidColorBrush(Color.FromRgb(71, 85, 105))
 
                         if hasattr(self, 'btnUpdate'):
                             self.btnUpdate.IsEnabled = True
@@ -224,5 +238,17 @@ class MepananaUpdateWindow(forms.WPFWindow):
 
 
 if __name__ == "__main__":
-    win = MepananaUpdateWindow()
-    win.ShowDialog()
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    while True:
+        win = MepananaUpdateWindow(dark_mode=current_dark)
+        win.ShowDialog()
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        break

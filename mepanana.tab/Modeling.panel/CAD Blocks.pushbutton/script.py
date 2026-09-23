@@ -28,7 +28,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.DB.Structure import StructuralType
 from py.core import get_doc, get_uidoc, SafeTransaction, get_element_name, mm_to_ft, get_id_value, safe_unicode
-from py.ui   import show_error, show_warning, setup_window, do_events, yield_dispatcher_every
+from py.ui   import show_error, show_warning, setup_modern_window, is_dark_theme, do_events, yield_dispatcher_every
 from py.cad  import extract_cad_blocks
 
 
@@ -74,10 +74,12 @@ class MappingRule(object):
 # ==============================================================================
 class CadBlockPlacerWindow(forms.WPFWindow):
 
-    def __init__(self, saved_rules):
-        xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+    def __init__(self, saved_rules, dark_mode=False):
+        self.dark_mode = dark_mode
+        xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+        xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
         forms.WPFWindow.__init__(self, xaml_path)
-        setup_window(self)
+        setup_modern_window(self, dark_mode=dark_mode)
 
         self.rules                = saved_rules
         self.current_rule         = None
@@ -164,6 +166,8 @@ class CadBlockPlacerWindow(forms.WPFWindow):
         self.btnPlace.Click           += self._on_place
         if hasattr(self, 'btnClose') and self.btnClose:
             self.btnClose.Click       += lambda s, e: self.Close()
+        if hasattr(self, 'btnCancel') and self.btnCancel:
+            self.btnCancel.Click      += lambda s, e: self.Close()
         self.btnPreviewSingle.Click   += self._on_preview_single
         self.lstRules.SelectionChanged += self._on_rule_selected
         self.cmbRuleLayer.SelectionChanged  += self._on_detail_changed
@@ -643,10 +647,21 @@ class SummaryWindow(forms.WPFWindow):
 # ==============================================================================
 try:
     SAVED_RULES = []
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
 
     while True:
-        win = CadBlockPlacerWindow(SAVED_RULES)
+        win = CadBlockPlacerWindow(SAVED_RULES, dark_mode=current_dark)
         win.ShowDialog()
+
+        if getattr(win, 'switch_requested', False):
+            SAVED_RULES = win.rules
+            current_dark = not current_dark
+            continue
 
         if not hasattr(win, 'action') or win.action == "CANCEL":
             break

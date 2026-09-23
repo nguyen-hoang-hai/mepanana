@@ -43,7 +43,7 @@ from System.Windows.Media import Brushes, SolidColorBrush, Color, PointCollectio
 from Autodesk.Revit.DB.Plumbing import FlexPipeType, PipeType
 from pyrevit import revit, DB, UI, forms
 from py.core import get_id_value, safe_unicode, mm_to_ft, ft_to_mm
-from py.ui import setup_window, show_info, show_warning, show_error, do_events
+from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events
 from py.sprinkler_engine import (
     cluster_sprinklers_by_main_pipe,
     generate_sprinkler_network,
@@ -87,10 +87,12 @@ class SprinklerSelectionFilter(UI.Selection.ISelectionFilter):
 # ── WPF Window Controller ─────────────────────────────────────────────────────
 
 class PendentSprinklerWindow(forms.WPFWindow):
-    def __init__(self, main_pipe=None, selected_sprinklers=None, is_flex_mode=True, riser_height="300", drop_dn_idx=0):
-        xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+    def __init__(self, main_pipe=None, selected_sprinklers=None, is_flex_mode=True, riser_height="300", drop_dn_idx=0, dark_mode=False):
+        self.dark_mode = dark_mode
+        xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+        xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
         forms.WPFWindow.__init__(self, xaml_path)
-        setup_window(self)
+        setup_modern_window(self, dark_mode=dark_mode)
 
         self.action = None
         self.main_pipe = main_pipe
@@ -438,6 +440,12 @@ def run():
     is_flex_mode = True
     riser_height = "300"
     drop_dn_idx = 0
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
 
     while True:
         win = PendentSprinklerWindow(
@@ -445,9 +453,14 @@ def run():
             selected_sprinklers=selected_sprinklers,
             is_flex_mode=is_flex_mode,
             riser_height=riser_height,
-            drop_dn_idx=drop_dn_idx
+            drop_dn_idx=drop_dn_idx,
+            dark_mode=current_dark
         )
         win.ShowDialog()
+
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
 
         # Capture user choices
         is_flex_mode = hasattr(win, 'rbFlex') and (win.rbFlex.IsChecked == True)

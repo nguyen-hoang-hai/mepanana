@@ -23,7 +23,7 @@ from Autodesk.Revit.Exceptions import OperationCanceledException
 
 from pyrevit import script, forms
 from py.core import get_doc, get_uidoc, safe_unicode
-from py.ui import setup_window, show_warning, show_error, show_info
+from py.ui import setup_modern_window, is_dark_theme, show_warning, show_error, show_info
 from py.mep_route_engine import MEPElementFilter, route_mep_elements
 
 doc = get_doc()
@@ -36,9 +36,12 @@ if not doc:
 class RouteWindow(forms.WPFWindow):
     """MEP Angled Routing Controller Window."""
 
-    def __init__(self, xaml_file_name):
-        forms.WPFWindow.__init__(self, xaml_file_name)
-        setup_window(self)
+    def __init__(self, dark_mode=False):
+        self.dark_mode = dark_mode
+        xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+        xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
+        forms.WPFWindow.__init__(self, xaml_path)
+        setup_modern_window(self, dark_mode=dark_mode)
 
         self.angle_value = None
 
@@ -128,45 +131,54 @@ class RouteWindow(forms.WPFWindow):
 
 
 if __name__ == "__main__":
-    xaml_path = script.get_bundle_file("ui.xaml")
-    if os.path.exists(xaml_path):
-        win = RouteWindow(xaml_path)
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    angle_val = None
+    while True:
+        win = RouteWindow(dark_mode=current_dark)
         win.ShowDialog()
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        angle_val = win.angle_value
+        break
 
-        if win.angle_value is not None:
-            angle_val = win.angle_value
-            # Continuous selection loop on Revit main thread
-            while True:
-                try:
-                    ref1 = uidoc.Selection.PickObject(
-                        ObjectType.Element,
-                        MEPElementFilter(),
-                        "Select FIRST parallel MEP Element (Press ESC to finish)"
-                    )
-                    ref2 = uidoc.Selection.PickObject(
-                        ObjectType.Element,
-                        MEPElementFilter(),
-                        "Select SECOND parallel MEP Element (Press ESC to finish)"
-                    )
+    if angle_val is not None:
+        # Continuous selection loop on Revit main thread
+        while True:
+            try:
+                ref1 = uidoc.Selection.PickObject(
+                    ObjectType.Element,
+                    MEPElementFilter(),
+                    "Select FIRST parallel MEP Element (Press ESC to finish)"
+                )
+                ref2 = uidoc.Selection.PickObject(
+                    ObjectType.Element,
+                    MEPElementFilter(),
+                    "Select SECOND parallel MEP Element (Press ESC to finish)"
+                )
 
-                    elem1 = doc.GetElement(ref1)
-                    elem2 = doc.GetElement(ref2)
+                elem1 = doc.GetElement(ref1)
+                elem2 = doc.GetElement(ref2)
 
-                    # Guard against picking the same element twice
-                    if elem1.Id.IntegerValue == elem2.Id.IntegerValue:
-                        show_warning("Cannot route an element to itself. Please pick 2 distinct parallel elements.")
-                        continue
+                # Guard against picking the same element twice
+                if elem1.Id.IntegerValue == elem2.Id.IntegerValue:
+                    show_warning("Cannot route an element to itself. Please pick 2 distinct parallel elements.")
+                    continue
 
-                    # Execute routing
-                    success, msg = route_mep_elements(doc, elem1, elem2, angle_val)
-                    if not success:
-                        show_warning(msg)
+                # Execute routing
+                success, msg = route_mep_elements(doc, elem1, elem2, angle_val)
+                if not success:
+                    show_warning(msg)
 
-                except OperationCanceledException:
-                    # User pressed ESC to finish gracefully
-                    break
-                except Exception as ex:
-                    show_error("Routing operation failed:\n{}".format(safe_unicode(ex)))
-                    break
-    else:
-        show_error("UI file 'ui.xaml' not found.")
+            except OperationCanceledException:
+                # User pressed ESC to finish gracefully
+                break
+            except Exception as ex:
+                show_error("Routing operation failed:\n{}".format(safe_unicode(ex)))
+                break

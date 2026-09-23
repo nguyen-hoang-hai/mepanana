@@ -67,7 +67,7 @@ try:
     from pyrevit import forms, revit, script
 
     from py.core import get_doc, get_uidoc, SafeTransaction, SafeTransactionGroup, mm_to_ft, safe_unicode
-    from py.ui   import setup_window, show_warning, show_error, yield_dispatcher_every
+    from py.ui   import setup_modern_window, is_dark_theme, show_warning, show_error, yield_dispatcher_every
     from py.cad_wire_engine import (
         get_cad_links_in_view, get_wire_types, get_electrical_panels,
         extract_curves_from_cad, stitch_curves_to_paths,
@@ -89,10 +89,12 @@ try:
     # MAIN WINDOW CONTROLLER
     # ==========================================================================
     class CadWireWindow(forms.WPFWindow):
-        def __init__(self):
-            xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        def __init__(self, dark_mode=False):
+            self.dark_mode = dark_mode
+            xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+            xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
-            setup_window(self)
+            setup_modern_window(self, dark_mode=dark_mode)
 
             self.action = "CANCEL"
             self.active_view = doc.ActiveView
@@ -277,8 +279,20 @@ try:
                 self.txtStatus.Text = "Error occurred."
 
     # Launch Window
-    win = CadWireWindow()
-    win.ShowDialog()
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    while True:
+        win = CadWireWindow(dark_mode=current_dark)
+        win.ShowDialog()
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        break
 
 except Exception as global_ex:
     _fatal_alert("GLOBAL FATAL ERROR in CAD Wire:\n\n" + traceback.format_exc())

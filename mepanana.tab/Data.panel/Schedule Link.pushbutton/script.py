@@ -24,7 +24,7 @@ try:
     from pyrevit import forms
     from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, safe_unicode
-    from py.ui   import show_info, show_warning, show_error, setup_window
+    from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme
     from py.schedule_io import get_all_schedules, extract_schedule_data, preview_schedule_diff, apply_schedule_import
     from py.excel_io import export_schedules_to_excel, read_excel_workbook
 
@@ -57,10 +57,19 @@ try:
                 self.StatusDisplay = status
 
     class ScheduleLinkWindow(forms.WPFWindow):
-        def __init__(self):
-            xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        def __init__(self, dark_mode=False):
+            self.dark_mode = dark_mode
+            xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+            xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
-            setup_window(self)
+            setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+
+            if hasattr(self, 'btnClose') and self.btnClose:
+                self.btnClose.Click += lambda s, e: self.Close()
+            if hasattr(self, 'btnCloseImport') and self.btnCloseImport:
+                self.btnCloseImport.Click += lambda s, e: self.Close()
+            if hasattr(self, 'btnCloseTitle') and self.btnCloseTitle:
+                self.btnCloseTitle.Click += lambda s, e: self.Close()
 
             self.all_schedules = []
             self.current_excel_data = None
@@ -286,8 +295,21 @@ try:
             except Exception as ex:
                 show_error(u"Error updating parameters in Revit:\n{}".format(safe_unicode(ex)), "Error")
 
-    win = ScheduleLinkWindow()
-    win.ShowDialog()
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    while True:
+        win = ScheduleLinkWindow(dark_mode=current_dark)
+        win.ShowDialog()
+
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        break
 
 except Exception as ex:
     err_msg = u"Schedule Link Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc())

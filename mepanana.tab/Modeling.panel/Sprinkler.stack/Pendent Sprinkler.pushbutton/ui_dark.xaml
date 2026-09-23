@@ -1,0 +1,528 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Pendent Sprinkler Studio"
+        Width="500" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        FontFamily="Segoe UI" FontSize="12"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.18"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Window.Resources>
+        <!-- Primary Button -->
+        <Style x:Key="PrimaryBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="18,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="7" Background="#10B981" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#059669"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#047857"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#064E3B"/>
+                                <Setter Property="Foreground" Value="#059669"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Ghost Button Dark -->
+        <Style x:Key="GhostBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#CBD5E1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="7" Background="#1E293B"
+                                BorderBrush="#334155" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#334155"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#475569"/>
+                                <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#475569"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Title Action Button Dark -->
+        <Style x:Key="TitleActionBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="Transparent"
+                                Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#334155"/>
+                                <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#475569"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Title Close Button Dark -->
+        <Style x:Key="TitleCloseBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="Transparent"
+                                Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#7F1D1D"/>
+                                <Setter Property="Foreground" Value="#F87171"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#991B1B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Clean Dark ComboBox -->
+        <Style x:Key="ModernComboBox" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="Background" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border Name="bd" CornerRadius="6"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Name="ContentSite" IsHitTestVisible="False"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      Margin="{TemplateBinding Padding}"
+                                                      VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="▾" FontSize="10"
+                                               Foreground="#94A3B8"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <ToggleButton Grid.ColumnSpan="2" Focusable="False" IsTabStop="False"
+                                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent" IsHitTestVisible="True"/>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                </Grid>
+                            </Border>
+                            <Popup Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False">
+                                <Border Background="#1E293B" BorderBrush="#475569" BorderThickness="1"
+                                        CornerRadius="6" Margin="0,4,0,0"
+                                        MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="14" ShadowDepth="4" Opacity="0.5" Color="#000000"/>
+                                    </Border.Effect>
+                                    <ScrollViewer SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#10B981"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#64748B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Dark RadioButton -->
+        <Style x:Key="ModernRadio" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#E2E8F0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Name="ring" Width="16" Height="16" CornerRadius="8"
+                                    BorderThickness="1.2" BorderBrush="#475569"
+                                    Background="#0F172A" VerticalAlignment="Center">
+                                <Ellipse Name="dot" Width="6" Height="6" Fill="#34D399"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         Visibility="Collapsed"/>
+                            </Border>
+                            <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ring" Property="BorderBrush" Value="#10B981"/>
+                                <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ring" Property="BorderBrush" Value="#10B981"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- ROOT CONTAINER -->
+    <Grid Margin="14">
+        <!-- MASTER WINDOW SHELL (Dark Slate) -->
+        <Border CornerRadius="12" Background="#0F172A"
+                BorderBrush="#334155" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="5" Direction="270"
+                                  Color="#000000" Opacity="0.55"/>
+            </Border.Effect>
+
+            <Grid>
+                <!-- Centered Watermark -->
+                <Image Name="watermarkImage" Opacity="0.22"
+                       Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Top"
+                       Width="340" Height="340" Margin="0,50,0,0"
+                       IsHitTestVisible="False">
+                    <Image.Effect>
+                        <BlurEffect Radius="4"/>
+                    </Image.Effect>
+                </Image>
+
+                <!-- Window Content Layout -->
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>   <!-- 0: Title Bar -->
+                        <RowDefinition Height="2"/>    <!-- 1: Accent Line -->
+                        <RowDefinition Height="Auto"/> <!-- 2: Content Area -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Row 0: Custom Title Bar (Dark) -->
+                    <Border Grid.Row="0" CornerRadius="11,11,0,0" Background="#1E293B"
+                            BorderBrush="#334155" BorderThickness="0,0,0,1">
+                        <Grid Name="titleBar" Margin="14,0,10,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Brand Badge -->
+                            <Border Grid.Column="0" CornerRadius="5" Padding="6,2" Margin="0,0,9,0"
+                                    Background="#064E3B" BorderBrush="#059669" BorderThickness="1"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="MN" FontSize="10.5" Foreground="#34D399"/>
+                            </Border>
+
+                            <!-- Window Title -->
+                            <TextBlock Grid.Column="1" Text="mepanana  ·  Pendent Sprinkler"
+                                       FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
+
+                            <!-- Theme Toggle Button -->
+                            <Button Grid.Column="2" Name="btnToggleTheme" Content="☀️"
+                                    ToolTip="Switch to Light Theme"
+                                    Style="{StaticResource TitleActionBtn}" VerticalAlignment="Center"
+                                    Margin="0,0,6,0"/>
+
+                            <!-- Close Button -->
+                            <Button Grid.Column="3" Name="btnClose" Content="✕"
+                                    Style="{StaticResource TitleCloseBtn}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Row 1: Signature Gradient Line -->
+                    <Rectangle Grid.Row="1">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#10B981" Offset="0"/>
+                                <GradientStop Color="#3B82F6" Offset="0.5"/>
+                                <GradientStop Color="#F59E0B" Offset="0.8"/>
+                                <GradientStop Color="#EF4444" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <!-- Row 2: Form Content -->
+                    <StackPanel Grid.Row="2" Name="pnlForm">
+                        <!-- Window Header -->
+                        <Grid Margin="18,14,18,10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="Pendent Sprinkler Studio" FontSize="18" Foreground="#F8FAFC"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                                <Border Grid.Column="1" CornerRadius="12" Padding="9,4" VerticalAlignment="Center"
+                                        Background="#064E3B" BorderBrush="#059669" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="6" Height="6" Fill="#10B981" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Active View" FontSize="11" Foreground="#34D399"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock Grid.Row="1" Text="Generate branch lines and flexible/rigid drops per NFPA 13 &amp; TCVN 7336."
+                                       FontSize="11.5" Foreground="#94A3B8" Margin="0,4,0,0"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+
+                        <!-- Cards Container -->
+                        <StackPanel Margin="16,2,16,8">
+                            <!-- Card 1: Element Selection (Dark Frosted Glass) -->
+                            <Border Background="#E01E293B" CornerRadius="8" BorderBrush="#334155" BorderThickness="1"
+                                    Padding="14,12" Margin="0,0,0,10">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270"
+                                                      Color="#000000" Opacity="0.25"/>
+                                </Border.Effect>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Rectangle Grid.Column="0" Fill="#10B981" RadiusX="1.5" RadiusY="1.5"/>
+                                        <TextBlock Grid.Column="1" Text="Element Selection" FontSize="12.5" Foreground="#F8FAFC" Margin="8,0,0,0"/>
+                                    </Grid>
+
+                                    <!-- Pick Main Pipe -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Name="btnPickMain" Content="🎯 Pick Main Pipe" Style="{StaticResource GhostBtn}" Height="32"/>
+                                        <TextBlock Name="txtMainPipeStatus" Grid.Column="1" Text="No main pipe selected"
+                                                   FontSize="11.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="10,0,0,0"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </Grid>
+
+                                    <!-- Select Heads -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Name="btnSelectSprinklers" Content="⛶ Select Heads" Style="{StaticResource GhostBtn}" Height="32"/>
+                                        <TextBlock Name="txtSprinklerStatus" Grid.Column="1" Text="0 pendent heads selected"
+                                                   FontSize="11.5" Foreground="#94A3B8" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 2: Connection Method (Dark Frosted Glass) -->
+                            <Border Background="#E01E293B" CornerRadius="8" BorderBrush="#334155" BorderThickness="1"
+                                    Padding="14,12" Margin="0,0,0,10">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270"
+                                                      Color="#000000" Opacity="0.25"/>
+                                </Border.Effect>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Rectangle Grid.Column="0" Fill="#10B981" RadiusX="1.5" RadiusY="1.5"/>
+                                        <TextBlock Grid.Column="1" Text="Connection Method" FontSize="12.5" Foreground="#F8FAFC" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="2" Name="btnStandards" Content="📖 Standards" Style="{StaticResource GhostBtn}" Height="28" Padding="8,0" FontSize="11"/>
+                                    </Grid>
+
+                                    <!-- Dual Mode Radios -->
+                                    <Border Background="#0B132B" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                                        <StackPanel>
+                                            <RadioButton Name="rbFlex" GroupName="SprinklerMode" IsChecked="True" Style="{StaticResource ModernRadio}" Margin="0,0,0,6">
+                                                <TextBlock Text="🌀 Flexible Hose (G-FLEX S-Curve - NFPA 13)" Foreground="#F8FAFC"/>
+                                            </RadioButton>
+                                            <RadioButton Name="rbRigid" GroupName="SprinklerMode" Style="{StaticResource ModernRadio}">
+                                                <TextBlock Text="📐 Rigid Steel Pipe (Direct Drop &amp; Riser Nipple)" Foreground="#F8FAFC"/>
+                                            </RadioButton>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Parameters: Drop Size & Riser Height -->
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Drop Pipe Size:" FontSize="11" Foreground="#94A3B8" Margin="1,0,0,4"/>
+                                            <ComboBox Name="cmbDropSize" Style="{StaticResource ModernComboBox}">
+                                                <ComboBoxItem Content="DN25 (1&quot;) - Standard" IsSelected="True"/>
+                                                <ComboBoxItem Content="DN32 (1-1/4&quot;)"/>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Name="panelRiser">
+                                            <TextBlock Name="lblRiserHeight" Text="Riser Height:" FontSize="11" Foreground="#94A3B8" Margin="1,0,0,4"/>
+                                            <Border Height="32" CornerRadius="6" Background="#0F172A" BorderBrush="#334155" BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="42"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Name="txtRiserHeight" Grid.Column="0" Text="300"
+                                                             BorderThickness="0" Background="Transparent"
+                                                             VerticalContentAlignment="Center" Padding="10,0"
+                                                             Foreground="#F8FAFC" FontSize="12.5"
+                                                             CaretBrush="#34D399"/>
+                                                    <Border Grid.Column="1" Background="#1E293B" BorderBrush="#334155" BorderThickness="1,0,0,0" CornerRadius="0,5,5,0">
+                                                        <TextBlock Text="mm" FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <TextBlock Name="txtModeNote" Text="* Automatic minimum drop check (ΔZ ≥ 150mm / R ≥ 250mm per NFPA 13)"
+                                               FontSize="10.5" Foreground="#94A3B8" Margin="1,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 3: Live Schematic Preview (Dark Frosted Glass) -->
+                            <Border Background="#E01E293B" CornerRadius="8" BorderBrush="#334155" BorderThickness="1"
+                                    Padding="14,10" Margin="0,0,0,4">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270"
+                                                      Color="#000000" Opacity="0.25"/>
+                                </Border.Effect>
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Rectangle Grid.Column="0" Fill="#10B981" RadiusX="1.5" RadiusY="1.5"/>
+                                        <TextBlock Grid.Column="1" Text="Live Schematic Preview" FontSize="12.5" Foreground="#F8FAFC" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        <TextBlock Name="txtPreviewTag" Grid.Column="2" Text="⚡ Mode: Flex Hose" FontSize="10.5" Foreground="#34D399" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Border Background="#0B132B" CornerRadius="6" BorderBrush="#1E293B" BorderThickness="1" Padding="4">
+                                        <Canvas Name="canvasPreview" Height="130" ClipToBounds="True" Background="Transparent"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Footer Bar -->
+                        <Border Padding="16,8,16,14" Background="Transparent">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <ProgressBar Name="progressBar" Grid.Row="0" Height="3" Margin="0,0,0,10"
+                                             Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Name="txtStatus" Grid.Column="0" Text="Ready"
+                                               FontSize="11.5" Foreground="#94A3B8" VerticalAlignment="Center"/>
+
+                                    <Button Grid.Column="1" Name="btnClose" Content="Close"
+                                            Style="{StaticResource GhostBtn}" IsCancel="True"/>
+
+                                    <Button Grid.Column="3" Name="btnGenerate" Content="Create Sprinklers"
+                                            Style="{StaticResource PrimaryBtn}" IsDefault="True"/>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

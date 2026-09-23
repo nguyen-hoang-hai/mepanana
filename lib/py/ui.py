@@ -46,6 +46,75 @@ def setup_window(window, set_revit_owner=True):
     window.PreviewKeyDown += on_preview_key_down
 
 
+def load_watermark(window, custom_path=None):
+    """Load watermark PNG into window.watermarkImage safely."""
+    if not hasattr(window, 'watermarkImage') or window.watermarkImage is None:
+        return
+    try:
+        from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption
+        from System import Uri, UriKind
+        target_path = custom_path
+        if not target_path or not os.path.exists(target_path):
+            target_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "background.png"))
+        if os.path.exists(target_path):
+            file_uri = "file:///" + target_path.replace("\\", "/")
+            bmp = BitmapImage()
+            bmp.BeginInit()
+            bmp.UriSource = Uri(file_uri, UriKind.Absolute)
+            bmp.CacheOption = BitmapCacheOption.OnLoad
+            bmp.EndInit()
+            window.watermarkImage.Source = bmp
+    except Exception:
+        pass
+
+
+def setup_modern_window(window, dark_mode=False, set_revit_owner=True):
+    """
+    Standard initialization for modern MEPANANA Adaptive Glassmorphism windows:
+    - Sets Revit MainWindowHandle as owner
+    - Loads watermark image into window.watermarkImage
+    - Wires titleBar dragging to window.DragMove()
+    - Wires btnClose to window.Close()
+    - Wires btnToggleTheme to toggle switch_requested and Close()
+    - Binds ESC key to close
+    """
+    window.switch_requested = False
+    window.dark_mode = dark_mode
+
+    if set_revit_owner:
+        try:
+            from pyrevit import HOST_APP
+            if HOST_APP and hasattr(HOST_APP, "uiapp") and HOST_APP.uiapp:
+                WindowInteropHelper(window).Owner = HOST_APP.uiapp.MainWindowHandle
+        except Exception:
+            pass
+
+    load_watermark(window)
+
+    if hasattr(window, 'titleBar') and window.titleBar is not None:
+        def on_drag(sender, e):
+            try:
+                window.DragMove()
+            except Exception:
+                pass
+        window.titleBar.MouseLeftButtonDown += on_drag
+
+    if hasattr(window, 'btnClose') and window.btnClose is not None:
+        window.btnClose.Click += lambda s, e: window.Close()
+
+    if hasattr(window, 'btnToggleTheme') and window.btnToggleTheme is not None:
+        def on_toggle_theme(s, e):
+            window.switch_requested = True
+            window.Close()
+        window.btnToggleTheme.Click += on_toggle_theme
+
+    def on_preview_key_down(sender, args):
+        if args.Key == Key.Escape:
+            sender.Close()
+            args.Handled = True
+    window.PreviewKeyDown += on_preview_key_down
+
+
 def do_events():
     """
     Pumps the Windows Dispatcher queue to force immediate WPF UI repainting

@@ -1,0 +1,350 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Shortcut Manager"
+        Width="820" Height="620" MinWidth="700" MinHeight="480"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        FontFamily="Segoe UI" FontSize="12.5"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType">
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard>
+                <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.18"/>
+                </Storyboard>
+            </BeginStoryboard>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Window.Resources>
+        <!-- Primary Button (Emerald Accent) -->
+        <Style x:Key="PrimaryBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="18,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="#10B981" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#059669"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#047857"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#A7F3D0"/>
+                                <Setter Property="Foreground" Value="#ECFDF5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Ghost Button -->
+        <Style x:Key="GhostBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="#F1F5F9"
+                                BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2E8F0"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#94A3B8"/>
+                                <Setter Property="Foreground" Value="#1E293B"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#CBD5E1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Title Action Button (Theme Toggle) -->
+        <Style x:Key="TitleActionBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="Transparent"
+                                Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E2E8F0"/>
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#CBD5E1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Title Close Button -->
+        <Style x:Key="TitleCloseBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Name="bd" CornerRadius="6" Background="Transparent"
+                                Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FEE2E2"/>
+                                <Setter Property="Foreground" Value="#EF4444"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FCA5A5"/>
+                                <Setter Property="Foreground" Value="#B91C1C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Master Window Shell with Drop Shadow -->
+    <Grid Margin="12">
+        <Border CornerRadius="12" Background="#F8FAFC"
+                BorderBrush="#CBD5E1" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270"
+                                  Color="#0F172A" Opacity="0.14"/>
+            </Border.Effect>
+
+            <Grid ClipToBounds="True">
+                <!-- Centered Watermark Background Logo -->
+                <Image Name="watermarkImage"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Width="340" Height="340"
+                       Opacity="0.14" Stretch="Uniform"
+                       IsHitTestVisible="False">
+                    <Image.Effect>
+                        <BlurEffect Radius="1.5"/>
+                    </Image.Effect>
+                </Image>
+
+                <!-- Window Content Grid -->
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>  <!-- Row 0: Custom TitleBar -->
+                        <RowDefinition Height="2"/>   <!-- Row 1: Signature Gradient Line -->
+                        <RowDefinition Height="*"/>   <!-- Row 2: Main Content Area -->
+                    </Grid.RowDefinitions>
+
+                    <!-- ── Row 0: Custom Draggable Title Bar ── -->
+                    <Border Grid.Row="0" CornerRadius="11,11,0,0" Background="#F1F5F9"
+                            BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                        <Grid Name="titleBar" Margin="14,0,10,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Brand Badge -->
+                            <Border Grid.Column="0" CornerRadius="5" Padding="6,2" Margin="0,0,9,0"
+                                    Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="MN" FontSize="10.5" Foreground="#059669"/>
+                            </Border>
+
+                            <!-- Window Title -->
+                            <TextBlock Grid.Column="1" Text="mepanana  ·  Shortcut Manager"
+                                       FontSize="12" Foreground="#475569" VerticalAlignment="Center"/>
+
+                            <!-- Theme Toggle Button -->
+                            <Button Grid.Column="2" Name="btnToggleTheme" Content="🌙"
+                                    ToolTip="Switch to Dark Theme"
+                                    Style="{StaticResource TitleActionBtn}" VerticalAlignment="Center"
+                                    Margin="0,0,6,0"/>
+
+                            <!-- Close Button -->
+                            <Button Grid.Column="3" Name="btnClose" Content="✕"
+                                    Style="{StaticResource TitleCloseBtn}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- ── Row 1: Signature 4-Color Gradient Line ── -->
+                    <Rectangle Grid.Row="1">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                <GradientStop Color="#10B981" Offset="0"/>
+                                <GradientStop Color="#3B82F6" Offset="0.5"/>
+                                <GradientStop Color="#F59E0B" Offset="0.8"/>
+                                <GradientStop Color="#EF4444" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <!-- ── Row 2: Main Content Area ── -->
+                    <Grid Grid.Row="2" Margin="14,12,14,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>     <!-- Tools Card -->
+                            <RowDefinition Height="Auto"/>  <!-- Conflict Warning Banner -->
+                            <RowDefinition Height="Auto"/>  <!-- Bottom Action Card -->
+                        </Grid.RowDefinitions>
+
+                        <!-- ── Main Tools Card ── -->
+                        <Border Grid.Row="0" Background="#E6FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1"
+                                CornerRadius="8" Margin="0,0,0,10" Padding="14">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Color="#0F172A" Opacity="0.05"/>
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>  <!-- Header Title & Info -->
+                                    <RowDefinition Height="Auto"/>  <!-- Table Column Headers -->
+                                    <RowDefinition Height="*"/>     <!-- Scrollable Tools List -->
+                                </Grid.RowDefinitions>
+
+                                <!-- Header Title & Info -->
+                                <Grid Grid.Row="0" Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Rectangle Width="3" Height="14" Fill="#10B981" Margin="0,0,6,0" VerticalAlignment="Center" RadiusX="1.5" RadiusY="1.5"/>
+                                        <TextBlock Text="mepanana Tool Shortcuts" FontSize="12" Foreground="#0F172A" VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <Border Grid.Column="1" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1"
+                                            CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
+                                        <TextBlock Name="txtTotalToolsCount" Text="0 Tools"
+                                                   FontSize="11.5" Foreground="#0F172A"/>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Table Column Headers -->
+                                <Border Grid.Row="1" Background="#F8FAFC"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,1"
+                                        Padding="10,8" Margin="0,0,0,4">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="230"/> <!-- Tool Name & Panel -->
+                                            <ColumnDefinition Width="110"/> <!-- Current Shortcut -->
+                                            <ColumnDefinition Width="180"/> <!-- New Shortcut Input -->
+                                            <ColumnDefinition Width="*"/>   <!-- Status -->
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="TOOL NAME"
+                                                   FontSize="10.5" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="1" Text="CURRENT"
+                                                   FontSize="10.5" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="2" Text="NEW SHORTCUT"
+                                                   FontSize="10.5" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="3" Text="STATUS"
+                                                   FontSize="10.5" Foreground="#64748B"
+                                                   HorizontalAlignment="Right" Margin="0,0,6,0"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Tools List ScrollViewer -->
+                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <StackPanel Name="pnlToolsList" Margin="0,2,0,0"/>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+
+                        <!-- ── Conflict Warning Banner ── -->
+                        <Border Grid.Row="1" Name="bdrConflictBanner" Visibility="Collapsed"
+                                Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="1"
+                                CornerRadius="8" Padding="12,8" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="⚠" FontSize="16" Foreground="#B45309"
+                                            VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Name="txtConflictMessage" Text="Conflict detected with existing Revit shortcut."
+                                               FontSize="12" Foreground="#92400E" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Please press a different key combination or clear the shortcut."
+                                               FontSize="11" Foreground="#B45309" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- ── Bottom Action Card ── -->
+                        <Border Grid.Row="2" Background="#E6FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1"
+                                CornerRadius="8" Padding="14,10" Margin="0">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Direction="270" Color="#0F172A" Opacity="0.05"/>
+                            </Border.Effect>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <ProgressBar Name="progressBar" Grid.Row="0" Height="4" Margin="0,0,0,8" Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0" Name="btnResetAll" Content="↺ Reset All"
+                                            Style="{StaticResource GhostBtn}" Height="34" Padding="16,0"/>
+
+                                    <TextBlock Grid.Column="1" Text="Tip: Click input box and press keys. Press Backspace to clear."
+                                               Foreground="#64748B" FontSize="11"
+                                               VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8,0"/>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Name="btnFooterClose" Content="Close" Style="{StaticResource GhostBtn}" Height="34" Padding="16,0" Margin="0,0,8,0" IsCancel="True"/>
+                                        <Button Name="btnApply" Content="✓ Apply Shortcuts" Style="{StaticResource PrimaryBtn}" Height="34" Padding="18,0" FontSize="12.5" IsDefault="True"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

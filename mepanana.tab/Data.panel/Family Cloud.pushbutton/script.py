@@ -68,7 +68,7 @@ HOST_REVIT_YEAR = get_active_revit_year()
 
 from py.core import get_doc, safe_unicode, smart_match
 from py.ui import (
-    setup_window, show_info, show_success, show_warning, show_error,
+    setup_modern_window, is_dark_theme, show_info, show_success, show_warning, show_error,
     show_confirm, do_events, MepananaProgressBar
 )
 from py.family_cloud_engine import (
@@ -257,10 +257,12 @@ class FamilyCardItem(System.Object):
 # ── Main WPF Window ──────────────────────────────────────────────────────────
 
 class FamilyCloudWindow(forms.WPFWindow):
-    def __init__(self, preloaded_catalog=None):
-        xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+    def __init__(self, preloaded_catalog=None, dark_mode=False):
+        self.dark_mode = dark_mode
+        xaml_file = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+        xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
         forms.WPFWindow.__init__(self, xaml_path)
-        setup_window(self)
+        setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
 
         self._is_updating = False
         self.all_families = []
@@ -302,6 +304,8 @@ class FamilyCloudWindow(forms.WPFWindow):
             self.btnExecuteUpload.Click += self.OnExecuteUploadClick
         if hasattr(self, 'btnClose'):
             self.btnClose.Click += lambda s, a: self.Close()
+        if hasattr(self, 'btnFooterClose'):
+            self.btnFooterClose.Click += lambda s, a: self.Close()
 
         # Connect Dynamic Card Actions (Load / Delete / Checkbox) via ItemsControl
         if hasattr(self, 'itemsFamilyCards'):
@@ -1041,8 +1045,20 @@ def run():
         pb.update(status="Preparing family cards...", detail="Loaded {} cloud families".format(fams_count))
 
     # 2. Open Main Studio Window with preloaded cards!
-    win = FamilyCloudWindow(preloaded_catalog=catalog_data)
-    win.ShowDialog()
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    while True:
+        win = FamilyCloudWindow(preloaded_catalog=catalog_data, dark_mode=current_dark)
+        win.ShowDialog()
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        break
 
 
 if __name__ == "__main__":

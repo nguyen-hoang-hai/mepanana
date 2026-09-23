@@ -63,7 +63,7 @@ try:
 
     from pyrevit import forms
     from py.core import get_doc, get_uidoc, get_id_value, safe_unicode
-    from py.ui import setup_window, do_events
+    from py.ui import setup_modern_window, is_dark_theme, do_events
     from py.clash_analysis_engine import (
         scan_clashes, recheck_single_clash, focus_clash_3d, focus_element_3d, check_element_exists,
         export_clash_report, import_clash_report
@@ -314,12 +314,14 @@ try:
 
     # ── Main Controller Window ───────────────────────────────────────────────
     class CheckClashWindow(forms.WPFWindow):
-        def __init__(self, doc, uidoc):
-            xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        def __init__(self, doc, uidoc, dark_mode=False, prev_state=None):
+            self.dark_mode = dark_mode
+            xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+            xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
 
-            # Apply theme and bind ESC key
-            setup_window(self)
+            # Apply modern window setup (watermark, titlebar drag, ESC, etc.)
+            setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
 
             self.doc = doc
             self.uidoc = uidoc
@@ -337,7 +339,8 @@ try:
             self.btnNext.Click += self._on_next_clash
             self.btnImportExcel.Click += self._on_import_excel
             self.btnExportExcel.Click += self._on_export_excel
-            self.btnClose.Click += lambda s, e: self.Close()
+            if hasattr(self, 'btnClose') and self.btnClose:
+                self.btnClose.Click += lambda s, e: self.Close()
 
             # Categories (VV) Tab wiring & initialization
             self._all_cat_vms = []
@@ -359,6 +362,10 @@ try:
             try:
                 self._init_categories()
                 self._load_category_prefs()
+                if prev_state and "active_cat_ids" in prev_state:
+                    active_ids = prev_state["active_cat_ids"]
+                    for vm in self._all_cat_vms:
+                        vm.IsChecked = vm.CatInt in active_ids
                 self._apply_cat_filter()
                 self._update_cat_summary()
             except Exception:
@@ -374,8 +381,28 @@ try:
 
             self.PreviewKeyDown += self._on_key_down
 
+            if prev_state:
+                self._all_clash_vms = prev_state.get("all_clash_vms", [])
+                self._current_tab = prev_state.get("current_tab", "ACTIVE")
+                if hasattr(self, 'txtTolerance') and "tolerance" in prev_state:
+                    self.txtTolerance.Text = prev_state["tolerance"]
+                if hasattr(self, 'cmbScope') and "scope_idx" in prev_state:
+                    self.cmbScope.SelectedIndex = prev_state["scope_idx"]
+                if hasattr(self, 'chkIncludeHost') and "include_host" in prev_state:
+                    self.chkIncludeHost.IsChecked = prev_state["include_host"]
+
             # Initialize view state & pill styles
             self._apply_filter()
+
+        def get_state(self):
+            return {
+                "all_clash_vms": self._all_clash_vms,
+                "current_tab": self._current_tab,
+                "tolerance": self.txtTolerance.Text if hasattr(self, 'txtTolerance') else "0",
+                "scope_idx": self.cmbScope.SelectedIndex if hasattr(self, 'cmbScope') else 0,
+                "include_host": self.chkIncludeHost.IsChecked if hasattr(self, 'chkIncludeHost') else True,
+                "active_cat_ids": {c.CatInt for c in self._all_cat_vms if getattr(c, 'IsChecked', False)} if hasattr(self, '_all_cat_vms') else set()
+            }
 
         # ---------------------------------------------------------------------
         # Categories (VV) Tab Handlers
@@ -1006,12 +1033,12 @@ try:
                 self.btnTabAll.Content = u"All ({})".format(total)
 
                 transparent_brush = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
-                white_brush = _hex_brush("#FFFFFF")
-                text_muted = _hex_brush("#64748B")
+                active_bg = _hex_brush("#1E293B") if getattr(self, 'dark_mode', False) else _hex_brush("#FFFFFF")
+                text_muted = _hex_brush("#94A3B8") if getattr(self, 'dark_mode', False) else _hex_brush("#64748B")
 
                 if self._current_tab == "ACTIVE":
-                    self.btnTabActive.Background = white_brush
-                    self.btnTabActive.Foreground = _hex_brush("#DC2626")
+                    self.btnTabActive.Background = active_bg
+                    self.btnTabActive.Foreground = _hex_brush("#F87171" if getattr(self, 'dark_mode', False) else "#DC2626")
                     self.btnTabActive.FontWeight = FontWeights.Normal
 
                     self.btnTabResolved.Background = transparent_brush
@@ -1027,8 +1054,8 @@ try:
                     self.btnTabActive.Foreground = text_muted
                     self.btnTabActive.FontWeight = FontWeights.Normal
 
-                    self.btnTabResolved.Background = white_brush
-                    self.btnTabResolved.Foreground = _hex_brush("#059669")
+                    self.btnTabResolved.Background = active_bg
+                    self.btnTabResolved.Foreground = _hex_brush("#34D399" if getattr(self, 'dark_mode', False) else "#059669")
                     self.btnTabResolved.FontWeight = FontWeights.Normal
 
                     self.btnTabAll.Background = transparent_brush
@@ -1044,8 +1071,8 @@ try:
                     self.btnTabResolved.Foreground = text_muted
                     self.btnTabResolved.FontWeight = FontWeights.Normal
 
-                    self.btnTabAll.Background = white_brush
-                    self.btnTabAll.Foreground = _hex_brush("#2563EB")
+                    self.btnTabAll.Background = active_bg
+                    self.btnTabAll.Foreground = _hex_brush("#60A5FA" if getattr(self, 'dark_mode', False) else "#2563EB")
                     self.btnTabAll.FontWeight = FontWeights.Normal
             except Exception:
                 pass
@@ -1165,35 +1192,38 @@ try:
         _fatal_alert("Please open a Revit project before launching Check Clash.")
         sys.exit()
 
-    win = CheckClashWindow(doc, uidoc)
-
-    # ── TRUE MODELESS WINDOW — pyRevit-compatible pattern ────────────────────
-    # ShowDialog() = modal: disables ALL Revit interaction (ribbon + viewport)
-    # Show() alone = crashes: script scope GC'd immediately → Python handlers lost
-    #
-    # Solution: Show() + Dispatcher.PushFrame()
-    #   - Show()         → modeless, Revit stays fully interactive (ribbon + 3D view)
-    #   - PushFrame()    → nested WPF message loop, keeps Python scope alive
-    #   - frame.Continue → set to False on Closed → exits loop cleanly
-    #
-    # This is the same pattern pyRevit uses internally for its own modeless tools
-    # (e.g. Section Box Navigator).
-    # ─────────────────────────────────────────────────────────────────────────
+    current_dark = is_dark_theme()
     try:
-        revit_handle = System.IntPtr(uidoc.Application.MainWindowHandle)
-        helper = WindowInteropHelper(win)
-        helper.Owner = revit_handle
+        if __shiftclick__:
+            current_dark = not current_dark
     except Exception:
         pass
 
-    frame = DispatcherFrame()
+    state = None
+    while True:
+        win = CheckClashWindow(doc, uidoc, dark_mode=current_dark, prev_state=state)
 
-    def _on_win_closed(s, e):
-        frame.Continue = False
+        try:
+            revit_handle = System.IntPtr(uidoc.Application.MainWindowHandle)
+            helper = WindowInteropHelper(win)
+            helper.Owner = revit_handle
+        except Exception:
+            pass
 
-    win.Closed += _on_win_closed
-    win.Show()
-    Dispatcher.PushFrame(frame)  # blocks here (keeps scope alive) but pumps all Windows msgs
+        frame = DispatcherFrame()
+
+        def _on_win_closed(s, e):
+            frame.Continue = False
+
+        win.Closed += _on_win_closed
+        win.Show()
+        Dispatcher.PushFrame(frame)  # blocks here (keeps scope alive) but pumps all Windows msgs
+
+        if getattr(win, 'switch_requested', False):
+            state = win.get_state()
+            current_dark = not current_dark
+            continue
+        break
 
 except Exception as ex:
     err = traceback.format_exc()

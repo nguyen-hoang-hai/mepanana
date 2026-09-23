@@ -27,7 +27,7 @@ try:
     from pyrevit import forms, HOST_APP
     from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, get_app, safe_unicode
-    from py.ui   import show_info, show_warning, show_error, setup_window
+    from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme
     from py.shortcut_io import ShortcutDatabase, scan_mepanana_tools
 
     # ── Authentication Gatekeeper ─────────────────────────────────────────────────
@@ -83,11 +83,16 @@ try:
             self.tool_info = tool_info
             self.current_sc = (current_sc or "").strip().upper()
             self.parent = parent_window
+            is_dark = getattr(self.parent, 'dark_mode', False)
 
             # Root Container
             self.container = Border()
-            self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
-            self.container.BorderBrush = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
+            if is_dark:
+                self.container.Background = SolidColorBrush(Color.FromArgb(255, 30, 41, 59))
+                self.container.BorderBrush = SolidColorBrush(Color.FromArgb(255, 51, 65, 85))
+            else:
+                self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
+                self.container.BorderBrush = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
             self.container.BorderThickness = Thickness(0, 0, 0, 1)
             self.container.Padding = Thickness(10, 8, 10, 8)
 
@@ -127,15 +132,14 @@ try:
 
             txt_title = TextBlock()
             txt_title.Text = tool_info["name"]
-            txt_title.FontWeight = System.Windows.FontWeights.SemiBold
             txt_title.FontSize = 12.5
-            txt_title.Foreground = SolidColorBrush(Color.FromArgb(255, 30, 41, 59))
+            txt_title.Foreground = SolidColorBrush(Color.FromArgb(255, 248, 250, 252) if is_dark else Color.FromArgb(255, 30, 41, 59))
             sp_text.Children.Add(txt_title)
 
             txt_panel = TextBlock()
             txt_panel.Text = u"Panel: {}".format(tool_info["panel"])
             txt_panel.FontSize = 11
-            txt_panel.Foreground = SolidColorBrush(Color.FromArgb(255, 100, 116, 139))
+            txt_panel.Foreground = SolidColorBrush(Color.FromArgb(255, 148, 163, 184) if is_dark else Color.FromArgb(255, 100, 116, 139))
             sp_text.Children.Add(txt_panel)
 
             sp_tool.Children.Add(sp_text)
@@ -151,7 +155,6 @@ try:
 
             self.txt_current = TextBlock()
             self.txt_current.FontSize = 12
-            self.txt_current.FontWeight = System.Windows.FontWeights.SemiBold
             self.bdr_current.Child = self.txt_current
             self.update_current_badge()
 
@@ -164,7 +167,10 @@ try:
             self.txt_input.Width = 165
             self.txt_input.HorizontalAlignment = HorizontalAlignment.Left
             self.txt_input.FontSize = 12.5
-            self.txt_input.FontWeight = System.Windows.FontWeights.SemiBold
+            if is_dark:
+                self.txt_input.Background = SolidColorBrush(Color.FromArgb(255, 15, 23, 42))
+                self.txt_input.BorderBrush = SolidColorBrush(Color.FromArgb(255, 51, 65, 85))
+                self.txt_input.Foreground = SolidColorBrush(Color.FromArgb(255, 248, 250, 252))
             self.txt_input.VerticalContentAlignment = VerticalAlignment.Center
             self.txt_input.Text = self.current_sc
             self.txt_input.PreviewKeyDown += self.on_preview_key_down
@@ -183,7 +189,6 @@ try:
 
             self.txt_status = TextBlock()
             self.txt_status.FontSize = 11.5
-            self.txt_status.FontWeight = System.Windows.FontWeights.SemiBold
             self.bdr_status.Child = self.txt_status
 
             Grid.SetColumn(self.bdr_status, 3)
@@ -193,13 +198,22 @@ try:
             self.has_conflict = False
 
         def update_current_badge(self):
+            is_dark = getattr(self.parent, 'dark_mode', False)
             if self.current_sc:
-                self.bdr_current.Background = SolidColorBrush(Color.FromArgb(255, 239, 246, 255))
-                self.txt_current.Foreground = SolidColorBrush(Color.FromArgb(255, 37, 99, 235))
+                if is_dark:
+                    self.bdr_current.Background = SolidColorBrush(Color.FromArgb(255, 30, 58, 138))
+                    self.txt_current.Foreground = SolidColorBrush(Color.FromArgb(255, 147, 197, 253))
+                else:
+                    self.bdr_current.Background = SolidColorBrush(Color.FromArgb(255, 239, 246, 255))
+                    self.txt_current.Foreground = SolidColorBrush(Color.FromArgb(255, 37, 99, 235))
                 self.txt_current.Text = self.current_sc
             else:
-                self.bdr_current.Background = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
-                self.txt_current.Foreground = SolidColorBrush(Color.FromArgb(255, 148, 163, 184))
+                if is_dark:
+                    self.bdr_current.Background = SolidColorBrush(Color.FromArgb(255, 15, 23, 42))
+                    self.txt_current.Foreground = SolidColorBrush(Color.FromArgb(255, 100, 116, 139))
+                else:
+                    self.bdr_current.Background = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
+                    self.txt_current.Foreground = SolidColorBrush(Color.FromArgb(255, 148, 163, 184))
                 self.txt_current.Text = u"—"
 
         def on_preview_key_down(self, sender, args):
@@ -263,33 +277,56 @@ try:
 
         def set_status(self, status_type, text=""):
             self.has_conflict = (status_type == "CONFLICT")
+            is_dark = getattr(self.parent, 'dark_mode', False)
             if status_type == "UNCHANGED":
-                self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
-                self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 100, 116, 139))
+                if is_dark:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 15, 23, 42))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 148, 163, 184))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 30, 41, 59))
+                else:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 100, 116, 139))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
                 self.txt_status.Text = u"Unchanged"
-                self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
             elif status_type == "MODIFIED":
-                self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 254, 243, 199))
-                self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 146, 64, 14))
+                if is_dark:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 69, 26, 3))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 251, 191, 36))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 30, 41, 59))
+                else:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 254, 243, 199))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 146, 64, 14))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
                 self.txt_status.Text = u"🟡 Modified"
-                self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
             elif status_type == "CLEARED":
-                self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
-                self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 148, 163, 184))
+                if is_dark:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 15, 23, 42))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 100, 116, 139))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 30, 41, 59))
+                else:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 241, 245, 249))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 148, 163, 184))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
                 self.txt_status.Text = u"⚪ Cleared"
-                self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
             elif status_type == "CONFLICT":
-                self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 254, 226, 226))
-                self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 153, 27, 27))
+                if is_dark:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 69, 10, 10))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 252, 165, 165))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 45, 18, 20))
+                else:
+                    self.bdr_status.Background = SolidColorBrush(Color.FromArgb(255, 254, 226, 226))
+                    self.txt_status.Foreground = SolidColorBrush(Color.FromArgb(255, 153, 27, 27))
+                    self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 241, 242))
                 self.txt_status.Text = u"🔴 Conflict"
-                self.container.Background = SolidColorBrush(Color.FromArgb(255, 255, 241, 242))
 
 
     class ShortcutManagerWindow(forms.WPFWindow):
-        def __init__(self):
-            xaml_path = os.path.join(os.path.dirname(__file__), "ui.xaml")
+        def __init__(self, dark_mode=False):
+            self.dark_mode = dark_mode
+            xaml_file = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
+            xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
             forms.WPFWindow.__init__(self, xaml_path)
-            setup_window(self)
+            setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
 
             # Detect Revit Version
             version_str = None
@@ -316,6 +353,8 @@ try:
             # Events
             self.btnResetAll.Click += self.on_reset_all
             self.btnApply.Click += self.on_apply
+            if hasattr(self, 'btnFooterClose'):
+                self.btnFooterClose.Click += lambda s, e: self.Close()
 
             self.validate_all()
 
@@ -401,8 +440,20 @@ try:
             else:
                 show_error(msg, "Error Saving Shortcuts")
 
-    win = ShortcutManagerWindow()
-    win.ShowDialog()
+    current_dark = is_dark_theme()
+    try:
+        if __shiftclick__:
+            current_dark = not current_dark
+    except Exception:
+        pass
+
+    while True:
+        win = ShortcutManagerWindow(dark_mode=current_dark)
+        win.ShowDialog()
+        if getattr(win, 'switch_requested', False):
+            current_dark = not current_dark
+            continue
+        break
 
 except Exception as ex:
     err_msg = u"Shortcut Manager Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc())
