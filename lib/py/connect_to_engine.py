@@ -187,6 +187,61 @@ def get_best_connector(elem, pick_point=None):
     return open_conns[0]
 
 
+def get_best_connector_pair(el1, pt1, el2, pt2):
+    """
+    Finds the best open connector on el1 and el2.
+    - If pick points are provided, finds closest open connector to each pick point.
+    - If pick points are NOT provided (pre-selection), finds the pair of open connectors
+      (one on el1, one on el2) with the minimum distance between them.
+    """
+    open1 = get_open_connectors(el1)
+    open2 = get_open_connectors(el2)
+    if not open1 or not open2:
+        return None, None
+
+    if pt1 and pt2:
+        c1 = min(open1, key=lambda c: c.Origin.DistanceTo(pt1))
+        c2 = min(open2, key=lambda c: c.Origin.DistanceTo(pt2))
+        return c1, c2
+    elif pt1:
+        c1 = min(open1, key=lambda c: c.Origin.DistanceTo(pt1))
+        c2 = min(open2, key=lambda c: c.Origin.DistanceTo(c1.Origin))
+        return c1, c2
+    elif pt2:
+        c2 = min(open2, key=lambda c: c.Origin.DistanceTo(pt2))
+        c1 = min(open1, key=lambda c: c.Origin.DistanceTo(c2.Origin))
+        return c1, c2
+    else:
+        # Pre-selection: pick pair with minimum distance
+        best_pair = (open1[0], open2[0])
+        min_dist = float("inf")
+        for c1 in open1:
+            for c2 in open2:
+                d = c1.Origin.DistanceTo(c2.Origin)
+                if d < min_dist:
+                    min_dist = d
+                    best_pair = (c1, c2)
+        return best_pair
+
+
+def is_element_standalone(elem):
+    """
+    Returns True if elem has NO connected connectors (completely free to move/shift).
+    """
+    if not elem:
+        return False
+    cm = get_connector_manager(elem)
+    if not cm:
+        return False
+    try:
+        for c in cm.Connectors:
+            if c.IsConnected:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def is_linear_curve(elem):
     """Returns True if elem has an editable straight Line LocationCurve."""
     if hasattr(elem, "Location") and isinstance(elem.Location, LocationCurve):
@@ -347,8 +402,8 @@ def create_bridging_mep_curve(doc, ref_elem, ref_conn, p_start, p_end):
 
 def join_or_transition(doc, c1, c2):
     """
-    Attempts to join c1 and c2 directly via c1.ConnectTo(c2).
-    If that fails (due to size/shape mismatch), attempts NewTransitionFitting.
+    Attempts to join c1 and c2 directly via c1.ConnectTo(c2) or c2.ConnectTo(c1).
+    If that fails (due to size/shape mismatch), attempts NewTransitionFitting in both orders.
     """
     try:
         c1.ConnectTo(c2)
@@ -357,7 +412,20 @@ def join_or_transition(doc, c1, c2):
         pass
 
     try:
+        c2.ConnectTo(c1)
+        return True, "Directly joined connectors."
+    except Exception:
+        pass
+
+    try:
         fitting = doc.Create.NewTransitionFitting(c1, c2)
+        if fitting:
+            return True, "Connected with transition fitting."
+    except Exception:
+        pass
+
+    try:
+        fitting = doc.Create.NewTransitionFitting(c2, c1)
         if fitting:
             return True, "Connected with transition fitting."
     except Exception:
@@ -387,16 +455,11 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
     if are_already_connected(el1, el2):
         return True, "These elements are already connected."
 
-    # 1. Retrieve targeted connectors
-    c1 = get_best_connector(el1, pt1)
-    c2 = get_best_connector(el2, pt2)
-
-    # Special check: Branch into Main pipe/duct (Tier 5)
-    # Triggered when the pick point is on the BODY (interior) of a linear element,
-    # NOT at one of its endpoints. This works regardless of whether open connectors exist.
+    # 1. Special check: Branch into Main pipe/duct (Tier 5)
+    # Triggered when a pick point is on the BODY (interior) of a linear element, not at an endpoint.
     def _pick_hits_body(elem, pick_pt, end_tol=0.08):
         """Returns True if pick_pt is on the interior body of a linear curve element, not at an endpoint."""
-        if not is_linear_curve(elem):
+        if not pick_pt or not elem or not is_linear_curve(elem):
             return False
         line = elem.Location.Curve
         ep0 = line.GetEndPoint(0)
@@ -412,13 +475,24 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
             return True
         return False
 
-    if c1 and _pick_hits_body(el2, pt2) and is_linear_curve(el2):
-        return _try_branch_to_main(doc, el1, c1, el2)
-    elif c2 and _pick_hits_body(el1, pt1) and is_linear_curve(el1):
-        return _try_branch_to_main(doc, el2, c2, el1)
+    if pt2 and _pick_hits_body(el2, pt2) and is_linear_curve(el2):
+        c1_branch = get_best_connector(el1, pt1)
+        if c1_branch:
+            return _try_branch_to_main(doc, el1, c1_branch, el2)
+    elif pt1 and _pick_hits_body(el1, pt1) and is_linear_curve(el1):
+        c2_branch = get_best_connector(el2, pt2)
+        if c2_branch:
+            return _try_branch_to_main(doc, el2, c2_branch, el1)
+
+    # 2. Retrieve targeted open connectors
+    # Uses pick points when provided, or finds the closest pair of open connectors for pre-selection
+    c1, c2 = get_best_connector_pair(el1, pt1, el2, pt2)
 
     if not c1 or not c2:
         return False, "Could not find open MEP connectors on the selected elements."
+
+    if c1.Domain != c2.Domain:
+        return False, "Cannot connect elements of different disciplines (e.g. Pipe to Duct)."
 
     p1 = c1.Origin
     p2 = c2.Origin
@@ -523,36 +597,73 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
     # =========================================================================
     max_offset_ft = mm_to_ft(config.max_align_offset_mm)
     if config.allow_align_move and dot_dir < -0.7:
-        # Calculate lateral offset vector to align el2's axis to c1
+        # Calculate lateral offset vector to align axes
         proj_dist = V.DotProduct(d2)
         offset_vec = V - (d2 * proj_dist)
         offset_len = offset_vec.GetLength()
 
         if 0.001 < offset_len <= max_offset_ft:
-            # Check if el2 is safe to move (has only 1 connector or other connectors are free)
-            el2_conns = get_open_connectors(el2)
-            all_conns = get_connector_manager(el2)
-            total_count = len(list(all_conns.Connectors)) if all_conns else 0
-            is_standalone = len(el2_conns) == total_count or total_count <= 2
+            move_elem = None
+            trans_vec = None
 
-            if is_standalone:
+            # Only move an element if it is truly standalone (no connected connectors)
+            if is_element_standalone(el2):
+                move_elem = el2
+                trans_vec = -offset_vec  # Shift el2 onto el1's axis
+            elif is_element_standalone(el1):
+                move_elem = el1
+                trans_vec = offset_vec   # Shift el1 onto el2's axis
+
+            if move_elem and trans_vec:
                 try:
-                    ElementTransformUtils.MoveElement(doc, el2.Id, offset_vec)
+                    ElementTransformUtils.MoveElement(doc, move_elem.Id, trans_vec)
                     doc.Regenerate()
 
-                    # Re-fetch connector after move
-                    c2_moved = get_best_connector(el2, p1)
-                    if c2_moved:
-                        p2_new = c2_moved.Origin
-                        # Now collinear, extend el2 to p1
-                        if is_linear_curve(el2):
-                            if extend_curve_to_point(el2, p1, p2_new):
+                    # Re-fetch connectors after move
+                    c1_aligned, c2_aligned = get_best_connector_pair(el1, pt1, el2, pt2)
+                    if c1_aligned and c2_aligned:
+                        p1_a = c1_aligned.Origin
+                        p2_a = c2_aligned.Origin
+                        dist_a = p1_a.DistanceTo(p2_a)
+
+                        # If touching -> direct join
+                        if dist_a < 0.005:
+                            ok_snap, msg_snap = join_or_transition(doc, c1_aligned, c2_aligned)
+                            if ok_snap:
+                                return True, "Aligned axis and joined directly ({:.1f} mm offset).".format(ft_to_mm(offset_len))
+
+                        # Collinear extension
+                        if config.preferred_mode != "BridgeOnly":
+                            if is_linear_curve(el2):
+                                if extend_curve_to_point(el2, p1_a, p2_a):
+                                    doc.Regenerate()
+                                    c2_ext = get_connector_at_point(el2, p1_a)
+                                    if c2_ext:
+                                        ok_j, msg_j = join_or_transition(doc, c1_aligned, c2_ext)
+                                        if ok_j:
+                                            return True, "Aligned axis and extended curve ({:.1f} mm offset).".format(ft_to_mm(offset_len))
+
+                            if is_linear_curve(el1):
+                                if extend_curve_to_point(el1, p2_a, p1_a):
+                                    doc.Regenerate()
+                                    c1_ext = get_connector_at_point(el1, p2_a)
+                                    if c1_ext:
+                                        ok_j, msg_j = join_or_transition(doc, c1_ext, c2_aligned)
+                                        if ok_j:
+                                            return True, "Aligned axis and extended curve ({:.1f} mm offset).".format(ft_to_mm(offset_len))
+
+                        # Collinear bridge
+                        if dist_a >= _MIN_LINE_LEN_FT:
+                            new_seg = create_bridging_mep_curve(doc, el1, c1_aligned, p1_a, p2_a)
+                            if new_seg:
                                 doc.Regenerate()
-                                c2_ext = get_connector_at_point(el2, p1)
-                                if c2_ext:
-                                    ok, msg = join_or_transition(doc, c1, c2_ext)
-                                    if ok:
-                                        return True, "Aligned axis and connected ({:.1f} mm offset).".format(ft_to_mm(offset_len))
+                                seg_c1 = get_connector_at_point(new_seg, p1_a)
+                                seg_c2 = get_connector_at_point(new_seg, p2_a)
+                                if seg_c1 and seg_c2:
+                                    ok1, _ = join_or_transition(doc, c1_aligned, seg_c1)
+                                    ok2, _ = join_or_transition(doc, seg_c2, c2_aligned)
+                                    if ok1 and ok2:
+                                        return True, "Aligned axis and bridged with matching segment ({:.1f} mm offset).".format(ft_to_mm(offset_len))
                 except Exception:
                     pass
 

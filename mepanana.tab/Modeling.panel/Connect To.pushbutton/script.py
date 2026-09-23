@@ -37,15 +37,8 @@ def _fatal_alert(err_str):
         pass
 
     try:
-        import clr
-        clr.AddReference("System.Windows.Forms")
-        import System.Windows.Forms as WinForms
-        WinForms.MessageBox.Show(
-            err_str,
-            "Connect To - Error Details",
-            WinForms.MessageBoxButtons.OK,
-            WinForms.MessageBoxIcon.Error
-        )
+        from py.ui import show_error
+        show_error(err_str, "Connect To")
         return
     except Exception:
         pass
@@ -112,9 +105,12 @@ try:
 
         def OnSave(self, sender, args):
             try:
-                val = float(self.txtMaxOffset.Text.strip())
+                raw_txt = self.txtMaxOffset.Text.strip() if hasattr(self, 'txtMaxOffset') and self.txtMaxOffset.Text else ""
+                val = float(raw_txt) if raw_txt else 100.0
                 if val < 5.0:
                     val = 5.0
+                elif val > 1000.0:
+                    val = 1000.0
                 self.config.max_align_offset_mm = val
             except Exception:
                 self.config.max_align_offset_mm = 100.0

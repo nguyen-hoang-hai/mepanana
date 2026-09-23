@@ -21,7 +21,7 @@
             <StackPanel>
                 <TextBlock Text="Connect To Settings"
                            FontSize="15"
-                           Foreground="#0F172A"/>
+                           Foreground="{DynamicResource TextBrush}"/>
                 <TextBlock Text="Configure intelligent multi-tier MEP connection tolerance"
                            FontSize="11.5"
                            Foreground="{DynamicResource MutedTextBrush}"
@@ -99,7 +99,7 @@
                 <!-- Safe Alignment Checkbox -->
                 <CheckBox Name="chkAllowMove"
                           Content="Allow auto-shifting standalone elements within tolerance"
-                          Foreground="#0F172A"
+                          Foreground="{DynamicResource TextBrush}"
                           Margin="0,2,0,0"/>
             </StackPanel>
         </Border>
@@ -115,6 +115,7 @@
             <Button Name="btnCancel"
                     Grid.Column="1"
                     Content="Cancel"
+                    IsCancel="True"
                     Width="88"
                     Height="34"
                     Margin="0,0,8,0"
@@ -123,6 +124,7 @@
             <Button Name="btnSave"
                     Grid.Column="2"
                     Content="Save Settings"
+                    IsDefault="True"
                     Width="110"
                     Height="34"
                     Style="{DynamicResource PrimaryButton}"/>
