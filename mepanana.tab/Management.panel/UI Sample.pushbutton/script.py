@@ -28,7 +28,7 @@ if not is_authenticated():
     if not require_auth():
         sys.exit()
 
-from py.ui import is_dark_theme
+from py.ui import is_dark_theme, load_watermark
 
 try:
     import clr
@@ -62,22 +62,8 @@ try:
             self._populate()
 
         def _load_watermark(self):
-            """Load the 32-bit transparent sticker background."""
-            try:
-                from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption
-                from System import Uri, UriKind
-                img_path = os.path.join(os.path.dirname(__file__), "background.png")
-                if os.path.exists(img_path):
-                    file_uri = "file:///" + img_path.replace("\\", "/")
-                    bmp = BitmapImage()
-                    bmp.BeginInit()
-                    bmp.UriSource = Uri(file_uri, UriKind.Absolute)
-                    bmp.CacheOption = BitmapCacheOption.OnLoad
-                    bmp.EndInit()
-                    self.watermarkImage.Source = bmp
-            except Exception as ex:
-                import traceback
-                print("Watermark load exception: " + traceback.format_exc())
+            """Load the 32-bit transparent sticker background from shared lib."""
+            load_watermark(self)
 
         def _setup_events(self):
             self.titleBar.MouseLeftButtonDown += self._on_drag

@@ -450,6 +450,7 @@ try:
             is_custom = bool(self.radCustom.IsChecked)
             if hasattr(self, 'pnlCustomSettings'):
                 self.pnlCustomSettings.IsEnabled = is_custom
+                self.pnlCustomSettings.Opacity = 1.0 if is_custom else 0.55
             self.txtSearchCategory.IsEnabled = is_custom
             self.btnClearCategorySearch.IsEnabled = is_custom
             self.btnSelectAll.IsEnabled = is_custom
