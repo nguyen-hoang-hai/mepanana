@@ -218,7 +218,6 @@ class CadBlockPlacerWindow(forms.WPFWindow):
             if cad:
                 self._selected_cad   = cad
                 self._cached_blocks, err = extract_cad_blocks(cad)
-                if err: print("CAD warn: " + str(err))
                 self._cached_cad_name = cad_name
         elif not self._cached_blocks and self._cached_cad_name:
             cad = self.cad_map.get(self._cached_cad_name)
@@ -500,11 +499,10 @@ class CadBlockPlacerWindow(forms.WPFWindow):
                     try:
                         inst = self._place_element(blocks[0], symbol, level, offset_ft, rot_deg)
                         self.preview_element_ids.append(inst.Id)
-                    except Exception as e:
-                        print("Preview error: " + str(e))
+                    except Exception:
+                        pass
                 doc.Regenerate()
-        except Exception as e:
-            print("Preview tx error: " + str(e))
+        except Exception:
             return False
 
         if self.preview_element_ids:
@@ -576,9 +574,8 @@ class CadBlockPlacerWindow(forms.WPFWindow):
                             if inst:
                                 all_placed.Add(inst.Id)
                                 placed_count += 1
-                        except Exception as e:
+                        except Exception:
                             failed_count += 1
-                            print("Place error: " + str(e))
                         current += 1
                         pct = int((float(current) / total_blocks) * 100)
                         self.progressBar.Value = pct
@@ -692,5 +689,9 @@ except Exception as e:
             f.write(traceback.format_exc())
     except Exception:
         pass
-    print("FATAL ERROR: " + safe_unicode(e))
+    try:
+        from py.ui import show_error
+        show_error(u"CAD Blocks Error:\n" + safe_unicode(e), title="CAD Blocks Error")
+    except Exception:
+        pass
 

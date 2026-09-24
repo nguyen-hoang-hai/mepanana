@@ -323,5 +323,5 @@ except Exception as ex:
     try:
         from py.ui import show_error
         show_error(err_msg, "Schedule Link Error")
-    except:
-        print(err_msg)
+    except Exception:
+        forms.alert(err_msg, title="Schedule Link Error")
