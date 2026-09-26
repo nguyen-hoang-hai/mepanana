@@ -4,8 +4,8 @@ background:
 layout:
   - Shortcut Manager
   - ---
-  - Update
-  - ---
   - UI Sample
   - ---
   - Tool Visibility
+  - ---
+  - Update
