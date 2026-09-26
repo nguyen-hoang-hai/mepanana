@@ -32,7 +32,7 @@ from pyrevit import forms, revit, script, DB, UI
 from py.core import get_doc, get_uidoc, safe_unicode, smart_match
 from py.ui import (
     setup_modern_window, is_dark_theme, show_info, show_warning, show_error, show_success,
-    show_confirm, do_events, yield_dispatcher_every, MepananaProgressBar
+    show_confirm, do_events, yield_dispatcher_every, MepananaProgressBar, RunningModeManager
 )
 from py.family_cloud_engine import (
     extract_preview_png_bytes, extract_rfa_category, extract_rfa_version,
@@ -384,6 +384,7 @@ class FamilyLocalWindow(forms.WPFWindow):
         xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
         forms.WPFWindow.__init__(self, xaml_path)
         setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         self.doc = doc
         self.active_revit_year = get_active_revit_year(doc)
@@ -441,12 +442,68 @@ class FamilyLocalWindow(forms.WPFWindow):
     # ── Directory Scanning & Indexing ─────────────────────────────────────────
 
     def ScanDirectory(self, folder_path):
-        """Scans directory with MepananaProgressBar and refreshes UI."""
-        items, total_bytes = scan_library_folder_with_progress(
-            folder_path, active_revit_year=self.active_revit_year, cache_db=self.cache_db
-        )
+        """Scans directory with in-window floating capsule dock and refreshes UI."""
+        if not folder_path or not os.path.isdir(folder_path):
+            return
+
+        save_saved_folder(folder_path)
+        self.rmm.start(u"Scanning Library Folder…", u"Discovering .rfa family files…")
+
+        rfa_paths = []
+        try:
+            for root, dirs, files in os.walk(folder_path):
+                if self.rmm.is_cancelled:
+                    break
+                for f in files:
+                    if f.lower().endswith(".rfa") and not f.startswith("."):
+                        name_no_ext = os.path.splitext(f)[0]
+                        if len(name_no_ext) > 5 and name_no_ext[-5] == '.' and name_no_ext[-4:].isdigit():
+                            continue
+                        rfa_paths.append(os.path.join(root, f))
+        except Exception as ex:
+            self.rmm.restore_form()
+            show_error(u"Error scanning folder:\n{}".format(safe_unicode(ex)), "Scan Error")
+            return
+
+        total_files = len(rfa_paths)
+        if total_files == 0 or self.rmm.is_cancelled:
+            self.rmm.restore_form()
+            return
+
+        items = []
+        total_bytes = 0
+        cache_updated = False
+
+        for idx, rfa_path in enumerate(rfa_paths):
+            if self.rmm.is_cancelled:
+                break
+
+            clean_name = os.path.splitext(os.path.basename(rfa_path))[0]
+            pct = int((idx + 1) * 100.0 / total_files)
+            self.rmm.update(pct, u"Indexing ({}/{}): {}".format(idx + 1, total_files, clean_name))
+
+            cached_meta = self.cache_db.get(rfa_path.lower())
+            try:
+                item = LocalFamilyItem(rfa_path, active_revit_year=self.active_revit_year, cached_meta=cached_meta)
+                items.append(item)
+                total_bytes += item.FileSize
+
+                if not cached_meta or cached_meta.get("mtime") != item.MTime:
+                    self.cache_db[rfa_path.lower()] = item.to_cache_dict()
+                    cache_updated = True
+            except Exception:
+                pass
+
+        if cache_updated:
+            save_cache_db(self.cache_db)
+
         self.all_families = items
         self.UpdateStatsAndFilters(items, total_bytes)
+        self.rmm.finish(
+            u"Library Indexing Complete",
+            u"Indexed {} families".format(len(items)),
+            auto_restore_delay_ms=1000
+        )
 
     def UpdateStatsAndFilters(self, items, total_bytes):
         """Updates stats badge, category sidebar, version filter and cards view."""
@@ -652,7 +709,7 @@ class FamilyLocalWindow(forms.WPFWindow):
             show_error(u"Failed to load family '{}':\n{}".format(fam_name, safe_unicode(ex)), "Load Error")
 
     def OnBatchLoad(self, sender, args):
-        """Batch loads all checked families with live progress dialog."""
+        """Batch loads all checked families with modern floating capsule dock."""
         selected_items = [it for it in self.all_families if it.IsSelected]
         if not selected_items:
             show_warning("Please select at least 1 family to load.", "Empty Selection")
@@ -669,6 +726,8 @@ class FamilyLocalWindow(forms.WPFWindow):
             ):
                 return
 
+        self.rmm.start(u"Batch Loading Families…", u"Preparing to load {} families…".format(len(selected_items)))
+
         opt = SafeFamilyLoadOptions()
         success_count = 0
         failed_count = 0
@@ -678,34 +737,41 @@ class FamilyLocalWindow(forms.WPFWindow):
         tg.Start()
 
         try:
-            with MepananaProgressBar(title="Loading Selected Families...", total=len(selected_items), cancellable=True) as pb:
-                for idx, it in enumerate(selected_items):
-                    if pb.is_cancelled:
-                        break
+            total = len(selected_items)
+            for idx, it in enumerate(selected_items):
+                if self.rmm.is_cancelled:
+                    break
 
-                    fam_name = it.Name
-                    pb.update(
-                        current_value=idx + 1,
-                        status="Loading into project ({}/{})...".format(idx + 1, len(selected_items)),
-                        detail=fam_name
-                    )
+                fam_name = it.Name
+                pct = int((idx + 1) * 100.0 / total)
+                self.rmm.update(
+                    pct,
+                    u"Loading ({}/{}): {}".format(idx + 1, total, fam_name)
+                )
 
-                    t = DB.Transaction(self.doc, "Load Family {}".format(fam_name))
-                    try:
-                        t.Start()
-                        clr_family = clr.Reference[DB.Family]()
-                        ok = self.doc.LoadFamily(it.RfaPath, opt, clr_family)
-                        t.Commit()
-                        success_count += 1
-                    except Exception as ex:
-                        if t.HasStarted() and not t.HasEnded():
-                            t.RollBack()
-                        failed_count += 1
-                        errors.append(u"{}: {}".format(fam_name, safe_unicode(ex)))
-
-                    yield_dispatcher_every(idx + 1, batch_size=5)
+                t = DB.Transaction(self.doc, "Load Family {}".format(fam_name))
+                try:
+                    t.Start()
+                    clr_family = clr.Reference[DB.Family]()
+                    ok = self.doc.LoadFamily(it.RfaPath, opt, clr_family)
+                    t.Commit()
+                    success_count += 1
+                except Exception as ex:
+                    if t.HasStarted() and not t.HasEnded():
+                        t.RollBack()
+                    failed_count += 1
+                    errors.append(u"{}: {}".format(fam_name, safe_unicode(ex)))
 
             tg.Assimilate()
+
+            if hasattr(self, 'txtStatus'):
+                self.txtStatus.Text = u"Completed: {} loaded, {} failed.".format(success_count, failed_count)
+
+            self.rmm.finish(
+                u"Batch Loading Complete" if not self.rmm.is_cancelled else u"Batch Loading Cancelled",
+                u"Loaded: {} | Failed: {}".format(success_count, failed_count),
+                auto_restore_delay_ms=2000
+            )
 
             msg = u"🎉 Batch Loading Complete!\n\n"
             msg += u"• Loaded Successfully: {} families\n".format(success_count)
@@ -714,14 +780,12 @@ class FamilyLocalWindow(forms.WPFWindow):
                 if errors:
                     msg += u"\n⚠️ Error summary:\n• " + u"\n• ".join(errors[:3])
 
-            if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = u"Completed: {} loaded, {} failed.".format(success_count, failed_count)
-
             show_info(msg, "Batch Loading Summary")
 
         except Exception as ex:
             if tg.HasStarted() and not tg.HasEnded():
                 tg.RollBack()
+            self.rmm.finish(u"Error", str(ex), auto_restore_delay_ms=2000)
             show_error(u"Error during batch load:\n{}".format(safe_unicode(ex)), "Batch Load Error")
 
 

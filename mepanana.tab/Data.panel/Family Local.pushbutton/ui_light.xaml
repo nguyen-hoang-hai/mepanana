@@ -430,11 +430,12 @@
 
                     <!-- ── Row 2: Main Workspace ── -->
                     <Grid Grid.Row="2" Margin="14,12,14,12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />  <!-- Top Header Card (Folder Picker & Stats) -->
-                            <RowDefinition Height="*" />     <!-- Catalog Workspace (Sidebar & Cards) -->
-                            <RowDefinition Height="Auto" />  <!-- FooterBar with ProgressBar & Actions -->
-                        </Grid.RowDefinitions>
+                        <Grid Name="pnlForm">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />  <!-- Top Header Card (Folder Picker & Stats) -->
+                                <RowDefinition Height="*" />     <!-- Catalog Workspace (Sidebar & Cards) -->
+                                <RowDefinition Height="Auto" />  <!-- FooterBar with ProgressBar & Actions -->
+                            </Grid.RowDefinitions>
 
                         <!-- ── Top Header Card: Folder Picker & Actions ── -->
                         <Border Grid.Row="0" Background="#E6FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1"
@@ -784,8 +785,51 @@
                             </Grid>
                         </Border>
                     </Grid>
+
+                    <!-- RUNNING MODE: Modern Floating Capsule Dock -->
+                    <Grid Name="pnlRunning" Visibility="Collapsed" VerticalAlignment="Stretch">
+                        <Border VerticalAlignment="Bottom" Margin="0,0,0,0"
+                                Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="10" Padding="14,10,14,10">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270"
+                                                  Color="#0F172A" Opacity="0.10"/>
+                            </Border.Effect>
+                            <StackPanel>
+                                <!-- Top row: Status title & Percentage -->
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock Name="txtRunningTitle" Text="Loading Families…"
+                                               FontSize="12" Foreground="#0F172A" VerticalAlignment="Center"/>
+                                    <TextBlock Name="txtRunningPercent" Text="0%"
+                                               FontSize="12" Foreground="#10B981" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Middle row: Capsule Progress Bar -->
+                                <Border Height="6" CornerRadius="3" Background="#E2E8F0" Margin="0,0,0,8" ClipToBounds="True">
+                                    <ProgressBar Name="progressBarRunning" Height="6" BorderThickness="0"
+                                                 Minimum="0" Maximum="100" Value="0"
+                                                 Background="Transparent" Foreground="#10B981"/>
+                                </Border>
+
+                                <!-- Bottom row: Step detail & Cancel button -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Name="txtRunningDetail" Grid.Column="0" Text="Loading family into project…"
+                                               FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="1" Name="btnStopRunning" Content="Cancel"
+                                            Style="{StaticResource GhostBtn}" Height="30" Padding="12,0"
+                                            FontSize="11" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Grid>
-        </Border>
-    </Grid>
+        </Grid>
+    </Border>
+</Grid>
 </Window>

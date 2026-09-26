@@ -69,7 +69,7 @@ HOST_REVIT_YEAR = get_active_revit_year()
 from py.core import get_doc, safe_unicode, smart_match
 from py.ui import (
     setup_modern_window, is_dark_theme, show_info, show_success, show_warning, show_error,
-    show_confirm, do_events, MepananaProgressBar
+    show_confirm, do_events, MepananaProgressBar, RunningModeManager
 )
 from py.family_cloud_engine import (
     STANDARD_CATEGORIES,
@@ -263,6 +263,7 @@ class FamilyCloudWindow(forms.WPFWindow):
         xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
         forms.WPFWindow.__init__(self, xaml_path)
         setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         self._is_updating = False
         self.all_families = []
@@ -654,12 +655,7 @@ class FamilyCloudWindow(forms.WPFWindow):
             show_warning(u"None of the selected families are compatible with your current Revit version.", title="Cannot Load Families")
             return
 
-        # 4-Step Lifecycle per GEMINI.md ProgressBar standard
-        if hasattr(self, 'btnBatchLoad'): self.btnBatchLoad.IsEnabled = False
-        if hasattr(self, 'btnBatchDelete'): self.btnBatchDelete.IsEnabled = False
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = System.Windows.Visibility.Visible
-            self.progressBar.Value = 0
+        self.rmm.start(u"Batch Loading Families…", u"Preparing to load {} families…".format(len(compatibles)))
 
         total = len(compatibles)
         success_count = 0
@@ -667,11 +663,10 @@ class FamilyCloudWindow(forms.WPFWindow):
 
         try:
             for idx, item in enumerate(compatibles):
+                if self.rmm.is_cancelled:
+                    break
                 pct = int((float(idx) / total) * 100.0)
-                if hasattr(self, 'progressBar'): self.progressBar.Value = pct
-                if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Loading ({}/{}): {}...".format(idx + 1, total, item.Name)
-                do_events()
+                self.rmm.update(pct, u"Loading ({}/{}): {}…".format(idx + 1, total, item.Name))
 
                 target = getattr(item, "DownloadUrl", "") or getattr(item, "RfaFullPath", "")
                 if not target:
@@ -684,9 +679,11 @@ class FamilyCloudWindow(forms.WPFWindow):
                 else:
                     failed_items.append(u"{}: {}".format(item.Name, msg))
 
-                pct_done = int((float(idx + 1) / total) * 100.0)
-                if hasattr(self, 'progressBar'): self.progressBar.Value = pct_done
-                do_events()
+            self.rmm.finish(
+                u"Batch Loading Complete" if not self.rmm.is_cancelled else u"Batch Loading Cancelled",
+                u"Loaded: {}/{}".format(success_count, total),
+                auto_restore_delay_ms=2000
+            )
 
             if hasattr(self, 'txtStatus'):
                 self.txtStatus.Text = u"Finished loading {}/{} families into project.".format(success_count, total)
@@ -698,10 +695,9 @@ class FamilyCloudWindow(forms.WPFWindow):
             show_success(summary, title="Batch Load Complete")
 
         except Exception as ex:
+            self.rmm.finish(u"Error", str(ex), auto_restore_delay_ms=2000)
             show_error(u"Unexpected error during batch load:\n{}".format(safe_unicode(ex)), title="Batch Load Error")
         finally:
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Visibility = System.Windows.Visibility.Collapsed
             self._update_batch_buttons()
 
     def OnBatchDeleteClick(self, sender, args):
@@ -721,11 +717,7 @@ class FamilyCloudWindow(forms.WPFWindow):
         if not show_confirm(confirm_msg, title="Confirm Batch Delete"):
             return
 
-        if hasattr(self, 'btnBatchLoad'): self.btnBatchLoad.IsEnabled = False
-        if hasattr(self, 'btnBatchDelete'): self.btnBatchDelete.IsEnabled = False
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = System.Windows.Visibility.Visible
-            self.progressBar.Value = 0
+        self.rmm.start(u"Batch Deleting Families…", u"Preparing to delete {} families…".format(len(selected)))
 
         total = len(selected)
         deleted_count = 0
@@ -733,11 +725,10 @@ class FamilyCloudWindow(forms.WPFWindow):
 
         try:
             for idx, item in enumerate(selected):
+                if self.rmm.is_cancelled:
+                    break
                 pct = int((float(idx) / total) * 100.0)
-                if hasattr(self, 'progressBar'): self.progressBar.Value = pct
-                if hasattr(self, 'txtStatus'):
-                    self.txtStatus.Text = u"Deleting ({}/{}): {}...".format(idx + 1, total, item.Name)
-                do_events()
+                self.rmm.update(pct, u"Deleting ({}/{}): {}…".format(idx + 1, total, item.Name))
 
                 success, msg = delete_family_from_cloud(item.Name, item.Category)
                 if success:
@@ -751,9 +742,11 @@ class FamilyCloudWindow(forms.WPFWindow):
                 else:
                     failed_items.append(u"{}: {}".format(item.Name, msg))
 
-                pct_done = int((float(idx + 1) / total) * 100.0)
-                if hasattr(self, 'progressBar'): self.progressBar.Value = pct_done
-                do_events()
+            self.rmm.finish(
+                u"Batch Delete Complete" if not self.rmm.is_cancelled else u"Batch Delete Cancelled",
+                u"Deleted: {}/{}".format(deleted_count, total),
+                auto_restore_delay_ms=2000
+            )
 
             if hasattr(self, 'txtStatus'):
                 self.txtStatus.Text = u"Successfully deleted {}/{} families from cloud.".format(deleted_count, total)
@@ -766,10 +759,9 @@ class FamilyCloudWindow(forms.WPFWindow):
             self.ReloadLibrary(force_online=True)
 
         except Exception as ex:
+            self.rmm.finish(u"Error", str(ex), auto_restore_delay_ms=2000)
             show_error(u"Unexpected error during batch delete:\n{}".format(safe_unicode(ex)), title="Batch Delete Error")
         finally:
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Visibility = System.Windows.Visibility.Collapsed
             self._update_batch_buttons()
 
     def _download_missing_thumbnails_async(self):
@@ -978,9 +970,8 @@ class FamilyCloudWindow(forms.WPFWindow):
         if hasattr(self, 'btnExecuteUpload'):
             self.btnExecuteUpload.IsEnabled = False
             self.btnExecuteUpload.Content = u"☁️ Uploading to Cloud..."
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = System.Windows.Visibility.Visible
-            self.progressBar.IsIndeterminate = True
+
+        self.rmm.start(u"Uploading Family to Cloud Library…", u"Uploading {}…".format(os.path.basename(src_path)))
         if hasattr(self, 'txtStatus'):
             self.txtStatus.Text = u"Uploading {} to Cloud Library...".format(os.path.basename(src_path))
 
@@ -991,10 +982,8 @@ class FamilyCloudWindow(forms.WPFWindow):
                     if hasattr(self, 'btnExecuteUpload'):
                         self.btnExecuteUpload.IsEnabled = True
                         self.btnExecuteUpload.Content = orig_content
-                    if hasattr(self, 'progressBar'):
-                        self.progressBar.Visibility = System.Windows.Visibility.Collapsed
-                        self.progressBar.IsIndeterminate = False
                     if success:
+                        self.rmm.finish(u"Upload Complete", u"Uploaded successfully", auto_restore_delay_ms=1500)
                         if hasattr(self, 'txtStatus'):
                             self.txtStatus.Text = u"Successfully uploaded to Cloud Library."
                         show_success(msg, "Upload Complete")
@@ -1006,6 +995,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                             self.rbTabBrowse.IsChecked = True
                         self.ReloadLibrary(force_online=True)
                     else:
+                        self.rmm.finish(u"Upload Failed", msg, auto_restore_delay_ms=2000)
                         if hasattr(self, 'txtStatus'):
                             self.txtStatus.Text = u"Failed to upload family to Cloud Library."
                         show_error(msg, "Upload Failed")
@@ -1016,9 +1006,7 @@ class FamilyCloudWindow(forms.WPFWindow):
                     if hasattr(self, 'btnExecuteUpload'):
                         self.btnExecuteUpload.IsEnabled = True
                         self.btnExecuteUpload.Content = orig_content
-                    if hasattr(self, 'progressBar'):
-                        self.progressBar.Visibility = System.Windows.Visibility.Collapsed
-                        self.progressBar.IsIndeterminate = False
+                    self.rmm.finish(u"Upload Error", str(ex), auto_restore_delay_ms=2000)
                     if hasattr(self, 'txtStatus'):
                         self.txtStatus.Text = u"Upload error: {}".format(safe_unicode(ex))
                     show_error(safe_unicode(ex), "Upload Error")
