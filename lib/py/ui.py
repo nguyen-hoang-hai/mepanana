@@ -12,11 +12,14 @@ try:
     clr.AddReference("PresentationCore")
     clr.AddReference("PresentationFramework")
     clr.AddReference("WindowsBase")
-    from System.Windows import ResourceDictionary, Visibility
+    import System
     from System import Uri, UriKind
+    from System.Windows import ResourceDictionary, Visibility, UIElement
     from System.Windows.Interop import WindowInteropHelper
     from System.Windows.Input import Key
     from System.Windows.Media import SolidColorBrush, Color
+    from System.Windows.Media.Animation import DoubleAnimation
+    from System.Windows.Media.Effects import BlurEffect
 except Exception:
     pass
 
@@ -194,7 +197,141 @@ def yield_dispatcher_every(counter, batch_size=25):
     Yields WPF dispatcher every N iterations to keep UI responsive & smooth (60 FPS)
     without incurring per-iteration dispatching context-switch overhead.
     """
-    if counter % batch_size == 0:
+# ── Universal Modern Running Mode & Floating Capsule Manager ─────────────────
+
+class RunningModeManager(object):
+    """
+    Universal Running Mode & Floating Capsule Manager for MEPANANA Windows.
+    Provides the benchmark UI Sample running experience:
+    - Seamless cross-fade between pnlForm and pnlRunning (Modern Floating Capsule).
+    - Watermark vibrancy transition (subtle watermark -> full clarity during run -> back to subtle).
+    - Progress updates: progressBarRunning (0-100%), txtRunningPercent, txtRunningTitle, txtRunningDetail.
+    - Cancel handling: btnStopRunning sets is_cancelled = True.
+    - Non-blocking WPF message pumping (do_events).
+    - Auto-return delay or manual return back to pnlForm.
+    """
+    def __init__(self, window, dark_mode=False, on_cancel=None):
+        self.win = window
+        self.dark_mode = getattr(window, 'dark_mode', dark_mode)
+        self.on_cancel = on_cancel
+        self.is_cancelled = False
+        self._wire_events()
+
+    def _wire_events(self):
+        if hasattr(self.win, 'btnStopRunning') and self.win.btnStopRunning is not None:
+            self.win.btnStopRunning.Click += self._on_stop_click
+
+    def _on_stop_click(self, sender, e):
+        self.is_cancelled = True
+        if hasattr(self.win, 'txtRunningDetail') and self.win.txtRunningDetail:
+            self.win.txtRunningDetail.Text = u"Cancelling operation\u2026"
+        if callable(self.on_cancel):
+            try:
+                self.on_cancel()
+            except Exception:
+                pass
+        do_events()
+
+    def start(self, title=u"Processing Elements\u2026", detail=u"Initializing engine\u2026"):
+        self.is_cancelled = False
+        base_opacity = 0.25 if self.dark_mode else 0.22
+
+        if hasattr(self.win, 'progressBarRunning') and self.win.progressBarRunning:
+            self.win.progressBarRunning.Value = 0
+        if hasattr(self.win, 'txtRunningPercent') and self.win.txtRunningPercent:
+            self.win.txtRunningPercent.Text = u"0%"
+        if hasattr(self.win, 'txtRunningTitle') and self.win.txtRunningTitle:
+            self.win.txtRunningTitle.Text = title
+        if hasattr(self.win, 'txtRunningDetail') and self.win.txtRunningDetail:
+            self.win.txtRunningDetail.Text = detail
+        if hasattr(self.win, 'btnStopRunning') and self.win.btnStopRunning:
+            self.win.btnStopRunning.Content = u"Cancel"
+            self.win.btnStopRunning.IsEnabled = True
+
+        try:
+            if hasattr(self.win, 'watermarkImage') and self.win.watermarkImage:
+                anim_wm = DoubleAnimation(base_opacity, 1.0, System.TimeSpan.FromMilliseconds(250))
+                self.win.watermarkImage.BeginAnimation(UIElement.OpacityProperty, anim_wm)
+                if self.win.watermarkImage.Effect:
+                    anim_blur = DoubleAnimation(4.0, 0.0, System.TimeSpan.FromMilliseconds(250))
+                    self.win.watermarkImage.Effect.BeginAnimation(BlurEffect.RadiusProperty, anim_blur)
+        except Exception:
+            pass
+
+        if hasattr(self.win, 'pnlForm') and self.win.pnlForm:
+            self.win.pnlForm.Visibility = Visibility.Collapsed
+        if hasattr(self.win, 'pnlRunning') and self.win.pnlRunning:
+            self.win.pnlRunning.Opacity = 1.0
+            self.win.pnlRunning.Visibility = Visibility.Visible
+
+        do_events()
+
+    def update(self, percent, detail=None, title=None):
+        if self.is_cancelled:
+            return False
+
+        if hasattr(self.win, 'progressBarRunning') and self.win.progressBarRunning:
+            self.win.progressBarRunning.Value = max(0, min(100, percent))
+        if hasattr(self.win, 'txtRunningPercent') and self.win.txtRunningPercent:
+            self.win.txtRunningPercent.Text = u"{}%".format(int(percent))
+        if detail and hasattr(self.win, 'txtRunningDetail') and self.win.txtRunningDetail:
+            self.win.txtRunningDetail.Text = detail
+        if title and hasattr(self.win, 'txtRunningTitle') and self.win.txtRunningTitle:
+            self.win.txtRunningTitle.Text = title
+
+        do_events()
+        return not self.is_cancelled
+
+    def finish(self, title=u"\u2713 Completed Successfully!", detail=u"Operation completed.", auto_return_delay_ms=900, status_text=None):
+        if hasattr(self.win, 'progressBarRunning') and self.win.progressBarRunning:
+            self.win.progressBarRunning.Value = 100
+        if hasattr(self.win, 'txtRunningPercent') and self.win.txtRunningPercent:
+            self.win.txtRunningPercent.Text = u"100%"
+        if hasattr(self.win, 'txtRunningTitle') and self.win.txtRunningTitle:
+            self.win.txtRunningTitle.Text = title
+        if hasattr(self.win, 'txtRunningDetail') and self.win.txtRunningDetail:
+            self.win.txtRunningDetail.Text = detail
+        if hasattr(self.win, 'btnStopRunning') and self.win.btnStopRunning:
+            self.win.btnStopRunning.Content = u"Done"
+
+        do_events()
+
+        if auto_return_delay_ms > 0:
+            import time
+            elapsed = 0
+            while elapsed < auto_return_delay_ms:
+                if self.is_cancelled:
+                    break
+                time.sleep(0.05)
+                elapsed += 50
+                do_events()
+            self.restore_form(status_text=status_text or title)
+
+    def restore_form(self, status_text=None):
+        base_opacity = 0.25 if self.dark_mode else 0.22
+
+        try:
+            if hasattr(self.win, 'watermarkImage') and self.win.watermarkImage:
+                anim_wm = DoubleAnimation(1.0, base_opacity, System.TimeSpan.FromMilliseconds(200))
+                self.win.watermarkImage.BeginAnimation(UIElement.OpacityProperty, anim_wm)
+                if self.win.watermarkImage.Effect:
+                    anim_blur = DoubleAnimation(0.0, 4.0, System.TimeSpan.FromMilliseconds(200))
+                    self.win.watermarkImage.Effect.BeginAnimation(BlurEffect.RadiusProperty, anim_blur)
+        except Exception:
+            pass
+
+        if hasattr(self.win, 'pnlRunning') and self.win.pnlRunning:
+            self.win.pnlRunning.Visibility = Visibility.Collapsed
+        if hasattr(self.win, 'pnlForm') and self.win.pnlForm:
+            self.win.pnlForm.Opacity = 1.0
+            self.win.pnlForm.Visibility = Visibility.Visible
+
+        if hasattr(self.win, 'btnStopRunning') and self.win.btnStopRunning:
+            self.win.btnStopRunning.Content = u"Cancel"
+
+        if status_text and hasattr(self.win, 'txtStatus') and self.win.txtStatus:
+            self.win.txtStatus.Text = status_text
+
         do_events()
 
 

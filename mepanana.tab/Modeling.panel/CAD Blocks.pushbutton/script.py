@@ -28,7 +28,7 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.DB.Structure import StructuralType
 from py.core import get_doc, get_uidoc, SafeTransaction, get_element_name, mm_to_ft, get_id_value, safe_unicode
-from py.ui   import show_error, show_warning, setup_modern_window, is_dark_theme, do_events, yield_dispatcher_every
+from py.ui   import show_error, show_warning, setup_modern_window, is_dark_theme, do_events, yield_dispatcher_every, RunningModeManager
 from py.cad  import extract_cad_blocks
 
 
@@ -80,6 +80,7 @@ class CadBlockPlacerWindow(forms.WPFWindow):
         xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
         forms.WPFWindow.__init__(self, xaml_path)
         setup_modern_window(self, dark_mode=dark_mode)
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         self.rules                = saved_rules
         self.current_rule         = None
@@ -540,10 +541,7 @@ class CadBlockPlacerWindow(forms.WPFWindow):
 
         self.btnPlace.IsEnabled = False
         self.btnClose.IsEnabled = False
-        self.progressBar.Visibility = Visibility.Visible
-        self.progressBar.Value = 0
-        self.txtStatus.Text = "Initializing CAD Block placement..."
-        do_events()
+        self.rmm.start(title=u"Placing CAD Elements\u2026", detail=u"Initializing CAD Block placement\u2026")
 
         placed_count = 0
         failed_count = 0
@@ -553,12 +551,16 @@ class CadBlockPlacerWindow(forms.WPFWindow):
             # Transaction 1: Activate + Place
             with SafeTransaction(doc, "CBP Place Families"):
                 for rule in valid:
+                    if self.rmm.is_cancelled:
+                        break
                     if not rule.FamilyType.IsActive:
                         rule.FamilyType.Activate()
                 doc.Regenerate()
 
                 current = 0
                 for rule in valid:
+                    if self.rmm.is_cancelled:
+                        break
                     blocks = [b for b in all_blocks if b.Layer == rule.Layer]
                     if not blocks: continue
 
@@ -569,6 +571,8 @@ class CadBlockPlacerWindow(forms.WPFWindow):
                     except: rot_deg = 0.0
 
                     for blk in blocks:
+                        if self.rmm.is_cancelled:
+                            break
                         try:
                             inst = self._place_element(blk, symbol, level, offset_ft, rot_deg)
                             if inst:
@@ -578,19 +582,20 @@ class CadBlockPlacerWindow(forms.WPFWindow):
                             failed_count += 1
                         current += 1
                         pct = int((float(current) / total_blocks) * 100)
-                        self.progressBar.Value = pct
-                        self.txtStatus.Text = "Placing {} ({}/{} elements)...".format(rule.Layer, current, total_blocks)
-                        yield_dispatcher_every(current, batch_size=20)
+                        self.rmm.update(pct, detail="Placing {} ({}/{} elements)...".format(rule.Layer, current, total_blocks))
 
-            self.progressBar.Value = 100
-            self.txtStatus.Text = "Completed: {} placed, {} failed.".format(placed_count, failed_count)
-            do_events()
-
+            detail_msg = "Completed: {} placed, {} failed.".format(placed_count, failed_count)
+            self.rmm.finish(
+                title=u"\u2713 Placement Complete!",
+                detail=detail_msg,
+                auto_return_delay_ms=800,
+                status_text=detail_msg
+            )
         except Exception as e:
+            self.rmm.restore_form(status_text=u"Placement aborted")
             show_error("Placement failed: " + str(e), title="Placement Error")
             return
         finally:
-            self.progressBar.Visibility = Visibility.Collapsed
             self.btnPlace.IsEnabled = True
             self.btnClose.IsEnabled = True
 

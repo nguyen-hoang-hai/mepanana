@@ -456,11 +456,13 @@
 
                     <!-- Row 2: Content Area -->
                     <Grid Grid.Row="2" Margin="14,12,14,12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>  <!-- 0: Scope Selector Card -->
-                            <RowDefinition Height="*"/>     <!-- 1: Symmetrical Two-Column Content -->
-                            <RowDefinition Height="Auto"/>  <!-- 2: Footer Action Bar -->
-                        </Grid.RowDefinitions>
+                        <!-- PNL_FORM: Cards & Controls -->
+                        <Grid Name="pnlForm">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>  <!-- 0: Scope Selector Card -->
+                                <RowDefinition Height="*"/>     <!-- 1: Symmetrical Two-Column Content -->
+                                <RowDefinition Height="Auto"/>  <!-- 2: Footer Action Bar -->
+                            </Grid.RowDefinitions>
 
                         <!-- ── Top Card 0: Scope, Extent, Options & Legend Bar ────────────── -->
                         <Border Grid.Row="0" Background="#E6FFFFFF" CornerRadius="8" BorderBrush="#CBD5E1" BorderThickness="1"
@@ -706,9 +708,58 @@
                                 </Grid>
                             </Grid>
                         </Border>
+                        </Grid>
+
+                        <!-- ── PNL_RUNNING: Modern Floating Capsule Dock ── -->
+                        <Grid Name="pnlRunning" Visibility="Collapsed" VerticalAlignment="Stretch">
+                            <Border VerticalAlignment="Bottom" Margin="16,0,16,16"
+                                    Background="#F0FFFFFF" CornerRadius="10"
+                                    BorderBrush="#CBD5E1" BorderThickness="1" Padding="16,12">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270"
+                                                      Color="#0F172A" Opacity="0.08"/>
+                                </Border.Effect>
+
+                                <StackPanel>
+                                    <!-- Top row: Status title & Percentage -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Name="txtRunningTitle" Text="Analyzing Clashes…"
+                                                   FontSize="13" Foreground="#0F172A" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Name="txtRunningPercent" Grid.Column="1" Text="0%"
+                                                   FontSize="13" Foreground="#10B981" VerticalAlignment="Center"/>
+                                    </Grid>
+
+                                    <!-- Modern Capsule Progress Bar -->
+                                    <Border Height="6" CornerRadius="3" Background="#E2E8F0" Margin="0,0,0,10" ClipToBounds="True">
+                                        <ProgressBar Name="progressBarRunning" Height="6" BorderThickness="0"
+                                                     Minimum="0" Maximum="100" Value="0"
+                                                     Background="Transparent" Foreground="#10B981"/>
+                                    </Border>
+
+                                    <!-- Bottom row: Step detail & Cancel button -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Name="txtRunningDetail" Grid.Column="0" Text="Initializing clash engine…"
+                                                   FontSize="11.5" Foreground="#64748B" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Button Grid.Column="1" Name="btnStopRunning" Content="Cancel"
+                                                Style="{StaticResource GhostBtn}" Height="30" Padding="12,0"
+                                                FontSize="11" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
                     </Grid>
                 </Grid>
             </Grid>
-        </Border>
-    </Grid>
+        </Grid>
+    </Border>
+</Grid>
 </Window>

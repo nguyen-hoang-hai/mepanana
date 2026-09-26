@@ -467,8 +467,9 @@
                         </Rectangle.Fill>
                     </Rectangle>
 
-                    <!-- Row 2: Form Content -->
-                    <StackPanel Grid.Row="2" Name="pnlForm">
+                    <!-- Row 2: Content Area (Form or Running Mode) -->
+                    <Grid Grid.Row="2">
+                        <StackPanel Name="pnlForm">
                         <!-- Window Header -->
                         <Grid Margin="18,14,18,10">
                             <Grid.RowDefinitions>
@@ -731,8 +732,51 @@
                             </Grid>
                         </Border>
                     </StackPanel>
+
+                    <!-- RUNNING MODE: Modern Floating Capsule Dock -->
+                    <Grid Name="pnlRunning" Visibility="Collapsed" VerticalAlignment="Stretch">
+                        <Border VerticalAlignment="Bottom" Margin="14,0,14,14"
+                                Background="#1E293B" BorderBrush="#334155" BorderThickness="1"
+                                CornerRadius="10" Padding="14,10,14,10">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270"
+                                                  Color="#000000" Opacity="0.35"/>
+                            </Border.Effect>
+                            <StackPanel>
+                                <!-- Top row: Status title & Percentage -->
+                                <Grid Margin="0,0,0,8">
+                                    <TextBlock Name="txtRunningTitle" Text="Placing Elements…"
+                                               FontSize="12" Foreground="#F1F5F9" VerticalAlignment="Center"/>
+                                    <TextBlock Name="txtRunningPercent" Text="0%"
+                                               FontSize="12" Foreground="#10B981" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Middle row: Capsule Progress Bar -->
+                                <Border Height="6" CornerRadius="3" Background="#0F172A" Margin="0,0,0,8" ClipToBounds="True">
+                                    <ProgressBar Name="progressBarRunning" Height="6" BorderThickness="0"
+                                                 Minimum="0" Maximum="100" Value="0"
+                                                 Background="Transparent" Foreground="#10B981"/>
+                                </Border>
+
+                                <!-- Bottom row: Step detail & Cancel button -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Name="txtRunningDetail" Grid.Column="0" Text="Initializing CAD placement engine…"
+                                               FontSize="11.5" Foreground="#94A3B8" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="1" Name="btnStopRunning" Content="Cancel"
+                                            Style="{StaticResource GhostBtn}" Height="30" Padding="12,0"
+                                            FontSize="11" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
             </Grid>
-        </Border>
-    </Grid>
+        </Grid>
+    </Border>
+</Grid>
 </Window>

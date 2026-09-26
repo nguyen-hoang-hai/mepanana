@@ -63,7 +63,7 @@ try:
 
     from pyrevit import forms
     from py.core import get_doc, get_uidoc, get_id_value, safe_unicode
-    from py.ui import setup_modern_window, is_dark_theme, do_events
+    from py.ui import setup_modern_window, is_dark_theme, do_events, RunningModeManager
     from py.clash_analysis_engine import (
         scan_clashes, recheck_single_clash, focus_clash_3d, focus_element_3d, check_element_exists,
         export_clash_report, import_clash_report
@@ -322,6 +322,7 @@ try:
 
             # Apply modern window setup (watermark, titlebar drag, ESC, etc.)
             setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
             self.doc = doc
             self.uidoc = uidoc
@@ -608,54 +609,39 @@ try:
         # 1. Scan Clashes
         # ---------------------------------------------------------------------
         def _on_scan_clicked(self, sender, e):
-            self.btnScan.IsEnabled = False
-            self.progressBar.Visibility = Visibility.Visible
-            self.progressBar.Value = 0
-            self.progressBar.IsIndeterminate = False
-            self.txtStatus.Text = "Starting clash scan..."
-            do_events()
-
-            try:
-                self._do_scan(self.doc, self.uidoc)
-            finally:
-                self.progressBar.IsIndeterminate = False
-                self.progressBar.Visibility = Visibility.Collapsed
-                self.btnScan.IsEnabled = True
-
-        def _do_scan(self, doc, uidoc):
-            try:
-                selected_ids = []
-                if self.cmbScope.SelectedIndex == 1:
-                    sel = uidoc.Selection.GetElementIds()
-                    if not sel or len(sel) == 0:
-                        self.txtStatus.Text = "\u26a0\ufe0f No elements selected. Please select elements in Revit first."
-                        self._show_dialog("No elements selected. Please select elements in Revit or switch to 'Active View'.", title="Empty Selection", dialog_type="WARNING")
-                        return
-                    selected_ids = list(sel)
-
-                cats = self._get_active_category_ids()
-                if not cats:
-                    self.txtStatus.Text = u"\u26a0\ufe0f No categories selected. Please go to 'Categories' tab and select at least one."
-                    self._show_dialog(
-                        u"No categories selected for clash check!\n\n"
-                        u"Please click the '\U0001f4cb Categories' tab and check the categories you want to inspect.",
-                        title="No Categories Selected",
-                        dialog_type="WARNING"
-                    )
+            selected_ids = []
+            if self.cmbScope.SelectedIndex == 1:
+                sel = self.uidoc.Selection.GetElementIds()
+                if not sel or len(sel) == 0:
+                    self.txtStatus.Text = "\u26a0\ufe0f No elements selected. Please select elements in Revit first."
+                    self._show_dialog("No elements selected. Please select elements in Revit or switch to 'Active View'.", title="Empty Selection", dialog_type="WARNING")
                     return
+                selected_ids = list(sel)
 
+            cats = self._get_active_category_ids()
+            if not cats:
+                self.txtStatus.Text = u"\u26a0\ufe0f No categories selected. Please go to 'Categories' tab and select at least one."
+                self._show_dialog(
+                    u"No categories selected for clash check!\n\n"
+                    u"Please click the '\U0001f4cb Categories' tab and check the categories you want to inspect.",
+                    title="No Categories Selected",
+                    dialog_type="WARNING"
+                )
+                return
+
+            self.btnScan.IsEnabled = False
+            self.rmm.start(title=u"Scanning Clashes\u2026", detail=u"Collecting elements across active categories\u2026")
+
+            try:
                 def update_prog(pct, msg):
-                    try:
-                        self.progressBar.Value = pct
-                        self.txtStatus.Text = msg
-                        do_events()
-                    except Exception:
-                        pass
+                    if self.rmm.is_cancelled:
+                        raise Exception("Clash scan cancelled by user.")
+                    self.rmm.update(pct, detail=msg)
 
                 check_same = bool(self.chkIncludeHost.IsChecked) if hasattr(self, 'chkIncludeHost') else True
 
                 clashes = scan_clashes(
-                    doc, uidoc.ActiveView,
+                    self.doc, self.uidoc.ActiveView,
                     categories=cats,
                     selected_ids=selected_ids,
                     check_same_model=check_same,
@@ -678,22 +664,34 @@ try:
                 if hasattr(self, 'tabMain'):
                     self.tabMain.SelectedIndex = 0
 
+                count = len(clashes)
+                mode_str = "" if check_same else " (Host vs Link only)"
+                status_msg = "Found {} hard clashes{}.".format(count, mode_str) if count else "Zero hard clashes detected."
+
+                self.rmm.finish(
+                    title=u"\u2713 Scan Complete!",
+                    detail=status_msg,
+                    auto_return_delay_ms=800,
+                    status_text=status_msg
+                )
+
                 if clashes:
                     self.dgClashes.SelectedIndex = 0
-                    mode_str = "" if check_same else " (Host vs Link only)"
-                    self.txtStatus.Text = "Found {} hard clashes{}. Double-click row to inspect in 3D.".format(len(clashes), mode_str)
                 else:
                     if not check_same:
                         msg = "Zero hard clashes detected between Host and Linked models in active view!"
                     else:
                         msg = "Zero hard clashes detected in active view! Everything is clear."
-                    self.txtStatus.Text = msg
                     self._show_dialog(msg, title="No Clashes", dialog_type="INFO")
 
             except Exception as ex:
+                self.rmm.restore_form(status_text=u"Scan aborted")
                 err_msg = safe_unicode(ex)
-                self.txtStatus.Text = u"\u274c Clash scan failed: {}".format(err_msg)
-                self._show_dialog(u"Clash scan failed:\n\n{}".format(err_msg), title="Scan Error", dialog_type="ERROR")
+                if u"cancelled" not in err_msg.lower():
+                    self.txtStatus.Text = u"\u274c Clash scan failed: {}".format(err_msg)
+                    self._show_dialog(u"Clash scan failed:\n\n{}".format(err_msg), title="Scan Error", dialog_type="ERROR")
+            finally:
+                self.btnScan.IsEnabled = True
 
         # ---------------------------------------------------------------------
         # 2. Focus 3D

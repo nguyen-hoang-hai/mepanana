@@ -66,7 +66,7 @@ try:
     from Autodesk.Revit.DB.Analysis import SpatialFieldManager
     from pyrevit import forms, revit
     from py.core import get_doc, get_uidoc, SafeTransaction, get_id_value, safe_unicode
-    from py.ui   import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, show_success, do_events
+    from py.ui   import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, show_success, do_events, RunningModeManager
 
     from py.clash_analysis_engine import (
         scan_clashes, render_clashes_avf, clear_clash_analysis, ClashItem
@@ -340,6 +340,7 @@ try:
             xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
             setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
             
             self.doc = doc
             self.uidoc = uidoc
@@ -553,18 +554,12 @@ try:
 
             self.btnAnalyze.IsEnabled = False
             self.btnClear.IsEnabled = False
-            self.progressBar.Visibility = Visibility.Visible
-            self.progressBar.Value = 0
-            self.txtStatus.Text = "Initializing 3D Solid Clash Analysis Engine..."
-            do_events()
+            self.rmm.start(title=u"Analyzing 3D Solid Clashes…", detail=u"Initializing clash analysis engine…")
 
             def update_prog(pct, msg):
-                try:
-                    self.progressBar.Value = pct
-                    self.txtStatus.Text = msg
-                    do_events()
-                except Exception:
-                    pass
+                self.rmm.update(pct, detail=msg)
+                if self.rmm.is_cancelled:
+                    raise Exception("Analysis cancelled by user.")
 
             try:
                 # 1. Compute hard clashes with Native 3D Boolean Engine + Progress Callback
@@ -578,7 +573,7 @@ try:
                 )
 
                 # 2. Render native Revit Analysis Results (1) on view (AVF)
-                update_prog(95, "Rendering visual clash markers on active view...")
+                update_prog(95, u"Rendering visual clash markers on active view…")
                 with SafeTransaction(self.doc, "MEPANANA Visual Clash Analysis"):
                     primitives_count = render_clashes_avf(self.doc, self.active_view, clashes, extent_mm=extent_val)
 
@@ -594,29 +589,28 @@ try:
                     self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
                         len(clashes), host_count, link_count
                     )
+                    status_msg = u"Analysis complete: {} clashes — 🔴 Red=Host1, 🟠 Orange=Host2, 🟢 Green=Link".format(len(clashes))
                 else:
                     self.txtClashCount.Text = "{} Total (🟢 {} Link | Host vs Link only)".format(
                         len(clashes), link_count
                     )
+                    status_msg = u"Analysis complete: {} clashes — 🟢 Green=Link (Host vs Link only)".format(len(clashes))
 
-                self.txtStatus.Text = "Analysis complete: {} clash elements highlighted in view{}.".format(
-                    len(clashes), "" if check_same else " (Host vs Link only)"
+                if len(clashes) == 0:
+                    status_msg = u"Zero hard clashes detected. Everything is clear."
+
+                self.rmm.finish(
+                    title=u"✓ Found {} Clashes!".format(len(clashes)) if len(clashes) > 0 else u"✓ Clean Model!",
+                    detail=u"Rendered {} visual markers on view.".format(primitives_count) if len(clashes) > 0 else u"Zero collisions detected.",
+                    auto_return_delay_ms=900,
+                    status_text=status_msg
                 )
-                self.progressBar.Value = 100
-                do_events()
-
-                if len(clashes) > 0:
-                    if check_same:
-                        self.txtStatus.Text = u"Analysis complete: {} clashes — 🔴 Red=Host1, 🟠 Orange=Host2, 🟢 Green=Link — rendered in active view.".format(len(clashes))
-                    else:
-                        self.txtStatus.Text = u"Analysis complete: {} clashes — 🟢 Green=Link (Host vs Link only) — rendered in active view.".format(len(clashes))
-                else:
-                    self.txtStatus.Text = u"Analysis complete: Zero hard clashes detected in active view. Everything is clear."
 
             except Exception as ex:
-                show_error(u"Clash Analysis Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()), "Analysis Error")
+                self.rmm.restore_form(status_text=u"Ready")
+                if "cancelled by user" not in str(ex).lower():
+                    show_error(u"Clash Analysis Error:\n{}\n\n{}".format(safe_unicode(ex), traceback.format_exc()), "Analysis Error")
             finally:
-                self.progressBar.Visibility = Visibility.Collapsed
                 self.btnAnalyze.IsEnabled = True
                 self.btnClear.IsEnabled = True
 

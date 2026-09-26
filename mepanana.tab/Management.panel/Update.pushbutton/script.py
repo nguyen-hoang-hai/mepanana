@@ -29,7 +29,7 @@ from System.Threading import ThreadPool, WaitCallback
 
 from pyrevit import forms, script
 from py.core import safe_unicode
-from py.ui import setup_modern_window, is_dark_theme, show_info, show_success, show_warning, show_error, show_confirm, do_events
+from py.ui import setup_modern_window, is_dark_theme, show_info, show_success, show_warning, show_error, show_confirm, do_events, RunningModeManager
 
 import py.updater_engine
 try:
@@ -46,6 +46,7 @@ class MepananaUpdateWindow(forms.WPFWindow):
         xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
         forms.WPFWindow.__init__(self, xaml_path)
         setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         self.local_info = get_local_version()
         self.cloud_info = None
@@ -181,30 +182,20 @@ class MepananaUpdateWindow(forms.WPFWindow):
         if not show_confirm(confirm_text, title="Confirm MEPANANA Update"):
             return
 
-        # Setup Progress Bar
-        if hasattr(self, 'progressBar'):
-            self.progressBar.Visibility = Visibility.Visible
-            self.progressBar.IsIndeterminate = False
-            self.progressBar.Minimum = 0
-            self.progressBar.Maximum = 100
-            self.progressBar.Value = 0
-
-        if hasattr(self, 'btnUpdate'):
-            self.btnUpdate.IsEnabled = False
-        if hasattr(self, 'btnCheck'):
-            self.btnCheck.IsEnabled = False
-
         self._is_updating = True
+        self.rmm.start(title=u"Updating MEPANANA\u2026", detail=u"Downloading release archive from GitHub\u2026")
 
         def update_progress(percent, message):
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Value = percent
-            if hasattr(self, 'txtStatus'):
-                self.txtStatus.Text = message
-            do_events()
+            self.rmm.update(percent, detail=message)
 
         try:
             download_and_install_update(progress_callback=update_progress)
+
+            self.rmm.finish(
+                title=u"\u2713 Update Complete!",
+                detail=u"Updated to commit {}. Reloading pyRevit\u2026".format(sha),
+                auto_return_delay_ms=1200
+            )
 
             show_success(
                 u"🎉 MEPANANA has been updated successfully to latest release (Commit: {})!\n\nRevit will now reload the pyRevit ribbon.".format(sha),
@@ -221,13 +212,12 @@ class MepananaUpdateWindow(forms.WPFWindow):
                 pass
 
         except Exception as ex:
+            self.rmm.restore_form(status_text=u"Update failed")
             show_error(u"Failed to update MEPANANA:\n{}".format(safe_unicode(ex)), title="Update Error")
             if hasattr(self, 'txtStatus'):
                 self.txtStatus.Text = u"❌ Update failed: {}".format(safe_unicode(ex))
         finally:
             self._is_updating = False
-            if hasattr(self, 'progressBar'):
-                self.progressBar.Visibility = Visibility.Collapsed
             if hasattr(self, 'btnUpdate'):
                 self.btnUpdate.IsEnabled = True
             if hasattr(self, 'btnCheck'):

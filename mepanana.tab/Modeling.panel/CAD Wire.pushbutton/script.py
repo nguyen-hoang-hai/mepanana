@@ -67,7 +67,7 @@ try:
     from pyrevit import forms, revit, script
 
     from py.core import get_doc, get_uidoc, SafeTransaction, SafeTransactionGroup, mm_to_ft, safe_unicode
-    from py.ui   import setup_modern_window, is_dark_theme, show_warning, show_error, yield_dispatcher_every
+    from py.ui   import setup_modern_window, is_dark_theme, show_warning, show_error, yield_dispatcher_every, RunningModeManager
     from py.cad_wire_engine import (
         get_cad_links_in_view, get_wire_types, get_electrical_panels,
         extract_curves_from_cad, stitch_curves_to_paths,
@@ -95,6 +95,7 @@ try:
             xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
             setup_modern_window(self, dark_mode=dark_mode)
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
             self.action = "CANCEL"
             self.active_view = doc.ActiveView
@@ -189,39 +190,35 @@ try:
             panel_name = self.cmbPanel.SelectedItem
             selected_panel = self.panel_map.get(panel_name) if panel_name else None
 
-            self.progressBar.Visibility = Visibility.Visible
-            self.progressBar.Value = 10
-            self.txtStatus.Text = "Extracting CAD curves..."
             self.btnRun.IsEnabled = False
+            self.rmm.start(title=u"Converting Wires\u2026", detail=u"Extracting CAD curves\u2026")
 
             try:
                 view_elev = self.active_view.GenLevel.Elevation if (hasattr(self.active_view, 'GenLevel') and self.active_view.GenLevel) else None
                 raw_curves = extract_curves_from_cad(selected_cad, view_elevation=view_elev)
                 
                 if not raw_curves:
-                    self.progressBar.Visibility = Visibility.Collapsed
+                    self.rmm.restore_form(status_text=u"No curves found")
                     self.btnRun.IsEnabled = True
                     show_warning("No valid wiring curves found in selected CAD link.", "No Curves Found")
                     return
 
-                self.progressBar.Value = 30
-                self.txtStatus.Text = "Stitching {} curve segments...".format(len(raw_curves))
+                self.rmm.update(30, detail="Stitching {} curve segments...".format(len(raw_curves)))
 
                 stitched_paths = stitch_curves_to_paths(raw_curves)
                 if not stitched_paths:
-                    self.progressBar.Visibility = Visibility.Collapsed
+                    self.rmm.restore_form(status_text=u"Empty paths")
                     self.btnRun.IsEnabled = True
                     show_warning("Could not form continuous wiring paths from the CAD curves.", "Empty Paths")
                     return
 
-                self.progressBar.Value = 50
-                self.txtStatus.Text = "Sub-dividing paths at active view devices..."
+                self.rmm.update(50, detail="Sub-dividing paths at active view devices...")
 
                 # Retrieve all active view devices
                 all_devices, _ = get_electrical_devices_in_view(doc, self.active_view)
 
                 if not all_devices:
-                    self.progressBar.Visibility = Visibility.Collapsed
+                    self.rmm.restore_form(status_text=u"No devices found")
                     self.btnRun.IsEnabled = True
                     show_warning("No electrical devices found in active view.", "No Devices Found")
                     return
@@ -229,15 +226,14 @@ try:
                 # Sub-divide continuous lines whenever devices lie on the path
                 split_paths = split_paths_by_devices(stitched_paths, all_devices, snap_radius_ft=snap_radius_ft)
 
-                self.progressBar.Value = 70
-                self.txtStatus.Text = "Creating Circuits & Wires in database..."
+                self.rmm.update(70, detail="Creating Circuits & Wires in database...")
 
                 def update_prog(cur, tot):
+                    if self.rmm.is_cancelled:
+                        raise Exception("Wire conversion cancelled by user.")
                     if tot > 0:
-                        pct = 70 + int((float(cur) / tot) * 25)
-                        self.progressBar.Value = min(98, pct)
-                        self.txtStatus.Text = "Creating wire {}/{}...".format(cur, tot)
-                        yield_dispatcher_every(cur, batch_size=15)
+                        pct = 70 + int((float(cur) / tot) * 28)
+                        self.rmm.update(min(98, pct), detail="Creating wire {}/{}...".format(cur, tot))
 
                 with SafeTransactionGroup(doc, "CAD Wire Conversion"):
                     with SafeTransaction(doc, "CAD Wire & Circuit"):
@@ -250,33 +246,35 @@ try:
                             progress_callback=update_prog
                         )
 
-                self.progressBar.Value = 100
-                self.progressBar.Visibility = Visibility.Collapsed
-                self.btnRun.IsEnabled = True
-
                 if result["success"]:
-                    self.txtStatus.Text = "Completed: {} wires, {} circuits.".format(
-                        result["wires_created"], result["circuits_created"]
-                    )
                     panel_label = panel_name if selected_panel else "None"
-                    self.txtStatus.Text = u"Complete — {} wires, {} devices, {} circuits. Panel: {}.".format(
+                    detail_str = u"{} wires, {} devices, {} circuits. Panel: {}.".format(
                         result["wires_created"],
                         result["devices_connected"],
                         result["circuits_created"],
                         panel_label
                     )
+                    self.rmm.finish(
+                        title=u"\u2713 Conversion Complete!",
+                        detail=detail_str,
+                        auto_return_delay_ms=900,
+                        status_text=u"Complete — " + detail_str
+                    )
                     self.action = "SUCCESS"
                     self.Close()
                 else:
+                    self.rmm.restore_form(status_text=u"Failed to create wires")
                     err_text = "\n".join([safe_unicode(e) for e in result["errors"][:3]]) if result["errors"] else u"Unknown error."
                     show_error(u"Failed to create wires:\n{}".format(err_text), "Creation Failed")
                     self.txtStatus.Text = "Failed to create wires."
 
             except Exception as ex:
-                self.progressBar.Visibility = Visibility.Collapsed
+                self.rmm.restore_form(status_text=u"Error occurred")
+                err_msg = safe_unicode(ex)
+                if u"cancelled" not in err_msg.lower():
+                    show_error(u"An error occurred during wire conversion:\n{}".format(err_msg), "Execution Error")
+            finally:
                 self.btnRun.IsEnabled = True
-                show_error(u"An error occurred during wire conversion:\n{}".format(safe_unicode(ex)), "Execution Error")
-                self.txtStatus.Text = "Error occurred."
 
     # Launch Window
     current_dark = is_dark_theme()

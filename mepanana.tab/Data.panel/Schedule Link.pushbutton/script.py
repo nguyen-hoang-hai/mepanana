@@ -25,7 +25,7 @@ try:
     from pyrevit import forms
     from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, safe_unicode
-    from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme
+    from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme, RunningModeManager
     from py.schedule_io import get_all_schedules, extract_schedule_data, preview_schedule_diff, apply_schedule_import
     from py.excel_io import export_schedules_to_excel, read_excel_workbook
 
@@ -64,6 +64,7 @@ try:
             xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
             setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
             if hasattr(self, 'btnClose') and self.btnClose:
                 self.btnClose.Click += lambda s, e: self.Close()
@@ -186,10 +187,14 @@ try:
                 return
 
             visible_only = bool(self.chkVisibleOnly.IsChecked)
+            total_items = len(selected)
+            self.rmm.start(title=u"Exporting Schedules\u2026", detail=u"Writing Excel files\u2026")
 
             try:
                 exported_files = []
-                for item in selected:
+                for idx, item in enumerate(selected):
+                    if self.rmm.is_cancelled:
+                        break
                     sched_name = item["name"]
                     # Clean filename
                     clean_name = sched_name
@@ -206,10 +211,14 @@ try:
                     export_schedules_to_excel(file_path, [data])
                     exported_files.append(file_path)
 
-                msg = u"Successfully exported {} schedule(s) to folder:\n\n📁 Folder:\n{}".format(
-                    len(exported_files), export_folder
+                    pct = int((float(idx + 1) / total_items) * 100)
+                    self.rmm.update(pct, detail="Exported {} ({}/{} schedules)...".format(sched_name, idx + 1, total_items))
+
+                self.rmm.finish(
+                    title=u"\u2713 Export Complete!",
+                    detail="Successfully exported {} schedule(s).".format(len(exported_files)),
+                    auto_return_delay_ms=900
                 )
-                show_info(msg, "Success")
 
                 if self.chkOpenAfter.IsChecked:
                     try:
@@ -235,7 +244,10 @@ try:
                             pass
 
             except Exception as ex:
-                show_error(u"Error exporting Excel files:\n{}".format(safe_unicode(ex)), "Error")
+                self.rmm.restore_form()
+                err_msg = safe_unicode(ex)
+                if u"cancelled" not in err_msg.lower():
+                    show_error(u"Error exporting Excel files:\n{}".format(err_msg), "Error")
 
         def on_browse_import(self, sender, args):
             dlg = OpenFileDialog()
@@ -285,21 +297,23 @@ try:
             if not self.current_excel_data:
                 return
 
+            self.rmm.start(title=u"Applying Import to Revit\u2026", detail=u"Updating parameter values in Revit\u2026")
             try:
                 res = apply_schedule_import(doc, self.current_excel_data)
                 updated = res["updated_count"]
                 readonly = res["readonly_count"]
                 errors = res["error_count"]
 
-                msg = u"Import completed successfully!\n\n" \
-                      u"✓ Updated: {} parameter(s)\n" \
-                      u"🔒 Skipped (Read-Only): {}\n" \
-                      u"⚠ Errors: {}".format(updated, readonly, errors)
-
-                show_info(msg, "Complete")
+                detail_msg = u"✓ Updated: {} parameters | 🔒 Skipped: {} | ⚠ Errors: {}".format(updated, readonly, errors)
+                self.rmm.finish(
+                    title=u"\u2713 Import Complete!",
+                    detail=detail_msg,
+                    auto_return_delay_ms=1000
+                )
                 self.on_preview_diff(None, None)
 
             except Exception as ex:
+                self.rmm.restore_form()
                 show_error(u"Error updating parameters in Revit:\n{}".format(safe_unicode(ex)), "Error")
 
     current_dark = is_dark_theme()
