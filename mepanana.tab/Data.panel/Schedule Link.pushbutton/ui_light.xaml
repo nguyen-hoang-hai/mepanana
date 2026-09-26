@@ -545,7 +545,7 @@
                                     </Grid.RowDefinitions>
                                     
                                     <!-- Progress Bar -->
-                                    <ProgressBar Name="progressExport" Grid.Row="0" Height="3" Margin="0,0,0,8"
+                                    <ProgressBar Name="progressExport" Grid.Row="0" Height="4" Margin="0,0,0,8"
                                                  Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
                                     <Grid Grid.Row="1">
@@ -694,7 +694,7 @@
                                     </Grid.RowDefinitions>
                                     
                                     <!-- Progress Bar -->
-                                    <ProgressBar Name="progressImport" Grid.Row="0" Height="3" Margin="0,0,0,8"
+                                    <ProgressBar Name="progressImport" Grid.Row="0" Height="4" Margin="0,0,0,8"
                                                  Visibility="Collapsed" IsIndeterminate="False" Minimum="0" Maximum="100"/>
 
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

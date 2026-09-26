@@ -68,6 +68,63 @@ def load_watermark(window, custom_path=None):
         pass
 
 
+def apply_modern_progressbar_style(window, dark_mode=False):
+    """
+    Injects the modern rounded capsule ProgressBar style into window resources.
+    Matches UI Sample template: 4px height, rounded capsule (CornerRadius=2),
+    flat #10B981 emerald indicator, and theme-adaptive track background.
+    """
+    try:
+        from System.Windows.Markup import XamlReader
+        track_bg = "#334155" if dark_mode else "#E2E8F0"
+        xaml_pb = (
+            '<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" '
+            'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">'
+            '<Style TargetType="{x:Type ProgressBar}">'
+            '<Setter Property="Height" Value="4"/>'
+            '<Setter Property="Background" Value="' + track_bg + '"/>'
+            '<Setter Property="Foreground" Value="#10B981"/>'
+            '<Setter Property="BorderThickness" Value="0"/>'
+            '<Setter Property="Template">'
+            '<Setter.Value>'
+            '<ControlTemplate TargetType="{x:Type ProgressBar}">'
+            '<Border Background="{TemplateBinding Background}" CornerRadius="2" ClipToBounds="True">'
+            '<Grid Name="TemplateRoot">'
+            '<Border Name="PART_Track" Background="Transparent"/>'
+            '<Border Name="PART_Indicator" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" CornerRadius="2"/>'
+            '</Grid>'
+            '</Border>'
+            '<ControlTemplate.Triggers>'
+            '<Trigger Property="IsIndeterminate" Value="True">'
+            '<Trigger.EnterActions>'
+            '<BeginStoryboard>'
+            '<Storyboard RepeatBehavior="Forever">'
+            '<DoubleAnimation Storyboard.TargetName="PART_Indicator" '
+            'Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" '
+            'From="-120" To="500" Duration="0:0:1.4"/>'
+            '</Storyboard>'
+            '</BeginStoryboard>'
+            '</Trigger.EnterActions>'
+            '<Setter TargetName="PART_Indicator" Property="Width" Value="120"/>'
+            '<Setter TargetName="PART_Indicator" Property="RenderTransform">'
+            '<Setter.Value>'
+            '<TranslateTransform/>'
+            '</Setter.Value>'
+            '</Setter>'
+            '</Trigger>'
+            '</ControlTemplate.Triggers>'
+            '</ControlTemplate>'
+            '</Setter.Value>'
+            '</Setter>'
+            '</Style>'
+            '</ResourceDictionary>'
+        )
+        rd = XamlReader.Parse(xaml_pb)
+        window.Resources.MergedDictionaries.Add(rd)
+    except Exception:
+        pass
+
+
 def setup_modern_window(window, dark_mode=False, set_revit_owner=True):
     """
     Standard initialization for modern MEPANANA Adaptive Glassmorphism windows:
@@ -90,6 +147,7 @@ def setup_modern_window(window, dark_mode=False, set_revit_owner=True):
             pass
 
     load_watermark(window)
+    apply_modern_progressbar_style(window, dark_mode=dark_mode)
 
     if hasattr(window, 'titleBar') and window.titleBar is not None:
         def on_drag(sender, e):

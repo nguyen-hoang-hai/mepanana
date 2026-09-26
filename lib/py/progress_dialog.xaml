@@ -48,12 +48,12 @@
                                    Foreground="#334155" TextTrimming="CharacterEllipsis" MaxWidth="320" VerticalAlignment="Center" />
 
                         <TextBlock Grid.Column="1" Name="txtPercent" Text="0%" FontSize="13"
-                                   Foreground="#2563EB" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                   Foreground="#10B981" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </Grid>
 
                     <!-- Smooth Animated Progress Bar -->
                     <ProgressBar Grid.Row="1" Name="progressBar" Height="6" Minimum="0" Maximum="100" Value="0"
-                                 IsIndeterminate="False" Background="#E2E8F0" Foreground="#2563EB">
+                                 IsIndeterminate="False" Background="#E2E8F0" Foreground="#10B981">
                         <ProgressBar.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="3" />

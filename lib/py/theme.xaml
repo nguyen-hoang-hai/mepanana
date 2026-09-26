@@ -288,7 +288,7 @@
 
     <!-- ── Modern Rounded Capsule ProgressBar ──────────────────────────────── -->
     <Style TargetType="ProgressBar">
-        <Setter Property="Height"          Value="6"/>
+        <Setter Property="Height"          Value="4"/>
         <Setter Property="Foreground"      Value="{StaticResource AccentBrush}"/>
         <Setter Property="Background"      Value="#E2E8F0"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -296,16 +296,35 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Border Background="{TemplateBinding Background}"
-                            CornerRadius="3"
+                            CornerRadius="2"
                             ClipToBounds="True">
                         <Grid Name="TemplateRoot">
-                            <Border Name="PART_Track" CornerRadius="3" Background="Transparent"/>
+                            <Border Name="PART_Track" CornerRadius="2" Background="Transparent"/>
                             <Border Name="PART_Indicator"
                                     Background="{TemplateBinding Foreground}"
                                     HorizontalAlignment="Left"
-                                    CornerRadius="3"/>
+                                    CornerRadius="2"/>
                         </Grid>
                     </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsIndeterminate" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="PART_Indicator"
+                                                         Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                         From="-120" To="500" Duration="0:0:1.4"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Setter TargetName="PART_Indicator" Property="Width" Value="120"/>
+                            <Setter TargetName="PART_Indicator" Property="RenderTransform">
+                                <Setter.Value>
+                                    <TranslateTransform/>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
