@@ -52,7 +52,7 @@ def format_vietnam_time(iso_str):
             return str(iso_str)
 
         dt_vn = dt_utc + datetime.timedelta(hours=7)
-        return dt_vn.strftime("%Y-%m-%d · %H:%M")
+        return u"{} \u00b7 {}".format(dt_vn.strftime("%Y-%m-%d"), dt_vn.strftime("%H:%M"))
     except Exception:
         return str(iso_str)
 
@@ -202,7 +202,7 @@ def check_cloud_version():
             return {
                 "sha": commit_sha[:7] if commit_sha else "latest",
                 "full_sha": commit_sha,
-                "message": v_data.get("description", "Bản phát hành MEPANANA"),
+                "message": v_data.get("description", u"Bản phát hành MEPANANA"),
                 "date": format_vietnam_time(raw_d),
                 "raw_date": raw_d,
                 "author": "MEPANANA Team",

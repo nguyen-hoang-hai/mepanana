@@ -43,7 +43,7 @@ from System.Windows.Media import Brushes, SolidColorBrush, Color, PointCollectio
 from Autodesk.Revit.DB.Plumbing import PipeType, FlexPipeType
 from pyrevit import revit, DB, UI, forms
 from py.core import get_id_value, safe_unicode, mm_to_ft, ft_to_mm, SafeTransactionGroup
-from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events
+from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events, RunningModeManager
 from py.sprinkler_engine import (
     create_sidewall_connection,
     SIZING_STANDARDS
@@ -51,6 +51,9 @@ from py.sprinkler_engine import (
 
 doc   = revit.doc
 uidoc = revit.uidoc
+if not doc:
+    show_warning(u"Please open a Revit project before using Sprinkler Studio.", "Warning")
+    sys.exit()
 
 
 # ── Selection Filters ─────────────────────────────────────────────────────────
@@ -94,6 +97,7 @@ class SidewallSprinklerWindow(forms.WPFWindow):
         self.action = None
         self.main_pipe = main_pipe
         self.selected_sprinklers = selected_sprinklers or []
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         # Wire UI event handlers
         if hasattr(self, 'btnPickMain'):
@@ -247,7 +251,7 @@ class SidewallSprinklerWindow(forms.WPFWindow):
         add_circle(304, 40, 5, fitting_brush, pipe_brush, 1.5)
         add_line(304, 40, 304, 80, pipe_brush, 4)
         add_circle(304, 80, 5, fitting_brush, pipe_brush, 1.5)
-        add_badge("90° Wall Elbow (" + drop_str + ")", 115, 48, badge_gray_bg, badge_gray_border, pipe_brush)
+        add_badge(u"90° Wall Elbow (" + drop_str + u")", 115, 48, badge_gray_bg, badge_gray_border, pipe_brush)
 
     def OnShowStandards(self, sender, args):
         from py.sprinkler_standards import show_standards_dialog

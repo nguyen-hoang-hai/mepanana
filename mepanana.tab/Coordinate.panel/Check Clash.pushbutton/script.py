@@ -433,7 +433,7 @@ try:
             disc_filter = "All"
             try:
                 if self.cmbCatDiscipline.SelectedItem:
-                    disc_filter = str(self.cmbCatDiscipline.SelectedItem.Content).strip()
+                    disc_filter = safe_unicode(self.cmbCatDiscipline.SelectedItem.Content).strip()
             except Exception:
                 pass
 
@@ -909,7 +909,7 @@ try:
                 selected.OverlapDisplay = "0 mm (1 Deleted)"
                 self._apply_filter()
                 surv_info = "{} [{}]".format(cat1, id1) if exists1 else "{} [{}]".format(cat2, id2)
-                self.txtStatus.Text = "\u2705 Other element was deleted ({} still exists). Marked as Resolved.".format(surv_info)
+                self.txtStatus.Text = u"\u2705 Other element was deleted ({} still exists). Marked as Resolved.".format(surv_info)
                 self._auto_advance(doc, uidoc)
                 return
 
@@ -936,9 +936,9 @@ try:
             total = self.dgClashes.Items.Count
             if total == 0:
                 if self._current_tab == "ACTIVE":
-                    self.txtStatus.Text = "\U0001f389 All active clashes resolved! Check Resolved tab to review."
+                    self.txtStatus.Text = u"\U0001f389 All active clashes resolved! Check Resolved tab to review."
                 else:
-                    self.txtStatus.Text = "\U0001f389 All displayed clashes have been resolved! Excellent work!"
+                    self.txtStatus.Text = u"\U0001f389 All displayed clashes have been resolved! Excellent work!"
                 return
 
             cur_idx = min(self.dgClashes.SelectedIndex, total - 1)

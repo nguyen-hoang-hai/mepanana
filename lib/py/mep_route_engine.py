@@ -377,7 +377,7 @@ def route_mep_elements(doc, elem1, elem2, angle_degrees):
                     "Detail: {}".format(safe_unicode(ex_elb2))
                 )
 
-        return (True, "Route created successfully with {}° elbows.".format(angle_degrees))
+        return (True, u"Route created successfully with {}° elbows.".format(angle_degrees))
 
     except Exception as ex:
         return (False, "Routing failed:\n{}".format(safe_unicode(ex)))

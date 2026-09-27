@@ -63,7 +63,7 @@ try:
 
     from pyrevit import forms, revit, script, EXEC_PARAMS
     from py.core import get_doc, get_uidoc, SafeTransaction, safe_unicode
-    from py.ui   import setup_modern_window, is_dark_theme, show_warning, show_error, show_info
+    from py.ui   import setup_modern_window, is_dark_theme, show_warning, show_error, show_info, RunningModeManager
     from py.connect_to_engine import (
         ConnectToConfig,
         MEPConnectSelectionFilter,
@@ -87,6 +87,7 @@ try:
             xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, xaml_path)
             setup_modern_window(self, dark_mode=dark_mode)
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
             self.config = config
 
             # Populate controls from stored config

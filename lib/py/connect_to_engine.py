@@ -703,13 +703,13 @@ def connect_elements(doc, el1, pt1, el2, pt2, config=None):
                         try:
                             elbow = doc.Create.NewElbowFitting(c1_int, c2_int)
                             if elbow:
-                                return True, "Connected with an elbow fitting ({:.1f}°).".format(angle_deg)
+                                return True, u"Connected with an elbow fitting ({:.1f}°).".format(angle_deg)
                         except Exception:
                             pass
                         try:
                             elbow = doc.Create.NewElbowFitting(c2_int, c1_int)
                             if elbow:
-                                return True, "Connected with an elbow fitting ({:.1f}°).".format(angle_deg)
+                                return True, u"Connected with an elbow fitting ({:.1f}°).".format(angle_deg)
                         except Exception:
                             pass
 

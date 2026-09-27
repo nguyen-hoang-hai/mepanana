@@ -43,7 +43,7 @@ from System.Windows.Media import Brushes, SolidColorBrush, Color, PointCollectio
 from Autodesk.Revit.DB.Plumbing import FlexPipeType, PipeType
 from pyrevit import revit, DB, UI, forms
 from py.core import get_id_value, safe_unicode, mm_to_ft, ft_to_mm
-from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events
+from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events, RunningModeManager
 from py.sprinkler_engine import (
     cluster_sprinklers_by_main_pipe,
     generate_sprinkler_network,
@@ -54,6 +54,9 @@ from py.sprinkler_engine import (
 
 doc   = revit.doc
 uidoc = revit.uidoc
+if not doc:
+    show_warning(u"Please open a Revit project before using Sprinkler Studio.", "Warning")
+    sys.exit()
 
 
 # ── Selection Filters ─────────────────────────────────────────────────────────
@@ -97,6 +100,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
         self.action = None
         self.main_pipe = main_pipe
         self.selected_sprinklers = selected_sprinklers or []
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         # Wire UI event handlers
         if hasattr(self, 'btnPickMain'):
@@ -223,7 +227,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
         # Parse drop size
         drop_str = "DN25"
         if hasattr(self, 'cmbDropSize') and self.cmbDropSize.SelectedItem:
-            txt = str(self.cmbDropSize.SelectedItem.Content)
+            txt = safe_unicode(self.cmbDropSize.SelectedItem.Content)
             if "32" in txt:
                 drop_str = "DN32"
 
@@ -289,9 +293,9 @@ class PendentSprinklerWindow(forms.WPFWindow):
             steel_bracket = SolidColorBrush(Color.FromRgb(148, 163, 184))  # Bracket Slate #94A3B8
 
             # 1. Top Banner Badges (Pristine non-overlapping top row)
-            add_badge("Supply Branch", 15, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_badge("90° Takeoff", 105, 6, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_badge("🌀 G-FLEX Hose (" + drop_str + ")", 195, 6, badge_red_bg, badge_red_border, badge_red_fg)
+            add_badge(u"Supply Branch", 15, 6, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge(u"90° Takeoff", 105, 6, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge(u"🌀 G-FLEX Hose (" + drop_str + u")", 195, 6, badge_red_bg, badge_red_border, badge_red_fg)
 
             # 2. Branchline Supply (Horizontal Red Pipe at Y=36)
             add_line(15, 36, 95, 36, pipe_brush, 10)
@@ -359,9 +363,9 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_sprinkler_head(255, 112)
 
             # 7. Lower Annotations (Strictly separated non-overlapping zones)
-            add_badge("NFPA 13: R ≥ 250mm", 20, 78, badge_gray_bg, badge_gray_border, badge_gray_fg)
-            add_badge("90° Vertical Drop", 270, 70, badge_blue_bg, badge_blue_border, badge_blue_fg)
-            add_badge("Ceiling Grid", 275, 118, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
+            add_badge(u"NFPA 13: R ≥ 250mm", 20, 78, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge(u"90° Vertical Drop", 270, 70, badge_blue_bg, badge_blue_border, badge_blue_fg)
+            add_badge(u"Ceiling Grid", 275, 118, badge_gray_bg, badge_gray_border, badge_gray_fg, font_size=8.5)
 
         else:
             # ── MODE 2: RIGID STEEL PIPE DROP (RISER NIPPLE) ──────────────────
@@ -402,7 +406,7 @@ class PendentSprinklerWindow(forms.WPFWindow):
             add_circle(350, 42, 5, fitting_brush, rigid_blue, 1)
             add_line(350, 47, 350, 94, rigid_blue, drop_w)
             add_sprinkler_head(350, 95)
-            add_badge("End 90° Elbow", 265, 16, badge_gray_bg, badge_gray_border, badge_gray_fg)
+            add_badge(u"End 90° Elbow", 265, 16, badge_gray_bg, badge_gray_border, badge_gray_fg)
 
     def OnShowStandards(self, sender, args):
         from py.sprinkler_standards import show_standards_dialog

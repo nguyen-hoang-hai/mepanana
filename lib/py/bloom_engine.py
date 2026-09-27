@@ -719,9 +719,9 @@ def _get_default_duct_type_id(doc, shape):
         try:
             name_p = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
             dt_name = (name_p.AsString() if name_p else "").lower()
-            if shape == ConnectorProfileType.Round and ("round" in dt_name or "tròn" in dt_name):
+            if shape == ConnectorProfileType.Round and ("round" in dt_name or u"tròn" in dt_name):
                 return dt.Id
-            elif shape == ConnectorProfileType.Rectangular and ("rect" in dt_name or "vuông" in dt_name or "chữ nhật" in dt_name or "mitered" in dt_name or "radius" in dt_name):
+            elif shape == ConnectorProfileType.Rectangular and ("rect" in dt_name or u"vuông" in dt_name or u"chữ nhật" in dt_name or "mitered" in dt_name or "radius" in dt_name):
                 return dt.Id
             elif shape == ConnectorProfileType.Oval and "oval" in dt_name:
                 return dt.Id
@@ -735,7 +735,7 @@ def _get_default_duct_type_id(doc, shape):
                 fam_name = (getattr(dt, "FamilyName", "") or "").lower()
                 name_p = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
                 dt_name = (name_p.AsString() if name_p else "").lower()
-                if "round" not in fam_name and "round" not in dt_name and "tròn" not in dt_name:
+                if "round" not in fam_name and "round" not in dt_name and u"tròn" not in dt_name:
                     return dt.Id
             except Exception:
                 pass

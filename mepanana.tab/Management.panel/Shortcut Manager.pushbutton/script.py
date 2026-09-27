@@ -25,9 +25,14 @@ try:
     from System import Uri, UriKind
 
     from pyrevit import forms, HOST_APP
+
+    _lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+    if _lib_path not in sys.path:
+        sys.path.insert(0, _lib_path)
+
     from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, get_app, safe_unicode
-    from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme
+    from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme, RunningModeManager
     from py.shortcut_io import ShortcutDatabase, scan_mepanana_tools
 
     # ── Authentication Gatekeeper ─────────────────────────────────────────────────
@@ -327,6 +332,7 @@ try:
             xaml_path = os.path.join(os.path.dirname(__file__), xaml_file)
             forms.WPFWindow.__init__(self, xaml_path)
             setup_modern_window(self, dark_mode=dark_mode, set_revit_owner=True)
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
             # Detect Revit Version
             version_str = None

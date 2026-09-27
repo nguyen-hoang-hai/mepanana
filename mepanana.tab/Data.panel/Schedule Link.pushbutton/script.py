@@ -23,6 +23,11 @@ try:
     from System.Windows.Forms import FolderBrowserDialog, DialogResult
 
     from pyrevit import forms
+
+    _lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+    if _lib_path not in sys.path:
+        sys.path.insert(0, _lib_path)
+
     from py.auth import require_auth, update_ribbon_state, is_authenticated
     from py.core import get_doc, safe_unicode
     from py.ui   import show_info, show_warning, show_error, setup_modern_window, is_dark_theme, RunningModeManager

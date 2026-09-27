@@ -62,7 +62,7 @@ class MappingRule(object):
     def DisplayName(self):
         """Short label for the ListBox: 'LAYER_NAME (N blocks)'"""
         if not self.Layer:
-            lyr = "— unassigned —"
+            lyr = u"— unassigned —"
         else:
             lyr = self.Layer if len(self.Layer) <= 22 else self.Layer[:20] + "..."
         cnt = " ({})".format(self._block_count) if self._block_count else ""
@@ -121,8 +121,6 @@ class CadBlockPlacerWindow(forms.WPFWindow):
         # ── Load CAD Links & Imports ───────────────────────────────────────
         all_imports = FilteredElementCollector(doc).OfClass(ImportInstance).ToElements()
         imports = list(all_imports)
-        if not imports:
-            show_error("No CAD Drawings (Linked or Imported) found in the document.", title="CAD Blocks", exitscript=True)
 
         cad_names = []
         for cad in imports:
@@ -138,8 +136,15 @@ class CadBlockPlacerWindow(forms.WPFWindow):
                 self.cad_map[full_name] = cad
                 cad_names.append(full_name)
 
-        self.cmbCadLink.ItemsSource   = cad_names
-        self.cmbCadLink.SelectedIndex = 0
+        if not cad_names:
+            cad_names = ["[No CAD Drawings in Project]"]
+            self.cmbCadLink.ItemsSource = cad_names
+            self.cmbCadLink.SelectedIndex = 0
+            if hasattr(self, 'btnPlace') and self.btnPlace:
+                self.btnPlace.IsEnabled = False
+        else:
+            self.cmbCadLink.ItemsSource   = cad_names
+            self.cmbCadLink.SelectedIndex = 0
 
         # ── Load Levels ────────────────────────────────────────────────────
         self._all_levels = sorted(

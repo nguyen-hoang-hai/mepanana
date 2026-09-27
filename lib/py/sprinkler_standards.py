@@ -69,7 +69,7 @@ STANDARDS_DB = {
                         "Max unsupported length shall not exceed 6 ft (1.8 m); otherwise independent structural hanger is required."
                     ),
                 ],
-                "tcvn_edition": "TCVN 7336:2021 Điều 5.3 & 6.7",
+                "tcvn_edition": u"TCVN 7336:2021 Điều 5.3 & 6.7",
                 "tcvn_rules": [
                     (
                         u"Khoảng cách đầu phun đến trần (Điều 5.3.1.2)",
@@ -92,7 +92,7 @@ STANDARDS_DB = {
                 ],
                 "specs": [
                     (u"Bán kính uốn tối thiểu", "Minimum bend radius (R_min)", u"R ≥ 250 mm (10 in.)"),
-                    (u"Độ chênh cao khuyến nghị", "Recommended height offset (ΔZ)", u"ΔZ ≥ 150 mm (Anti-kink S-Curve)"),
+                    (u"Độ chênh cao khuyến nghị", u"Recommended height offset (ΔZ)", u"ΔZ ≥ 150 mm (Anti-kink S-Curve)"),
                     (u"Kích thước ống danh nghĩa", "Nominal pipe size", u"DN25 (1 in.) / K-Factor 5.6"),
                     (u"Áp suất làm việc danh định", "Working test pressure", u"P = 12 bar – 16 bar (175 – 200 psi)"),
                 ]
@@ -121,7 +121,7 @@ STANDARDS_DB = {
                         "Branch line sizing: 1 sprinkler = DN25 (1 in.); 2 sprinklers = DN32 (1-1/4 in.); 3 sprinklers = DN40 (1-1/2 in.)."
                     ),
                 ],
-                "tcvn_edition": "TCVN 7336:2021 Điều 6.7 & Bảng 11",
+                "tcvn_edition": u"TCVN 7336:2021 Điều 6.7 & Bảng 11",
                 "tcvn_rules": [
                     (
                         u"Trích nhánh chống cặn bẩn (Điều 6.7.8 - 6.7.10)",
@@ -173,7 +173,7 @@ STANDARDS_DB = {
                         "Upright sprinklers are permitted to be installed directly on top of branch lines via short riser nipples or welded olets."
                     ),
                 ],
-                "tcvn_edition": "TCVN 7336:2021 Điều 5.3 & 6.7",
+                "tcvn_edition": u"TCVN 7336:2021 Điều 5.3 & 6.7",
                 "tcvn_rules": [
                     (
                         u"Khoảng cách đến mặt trần/mái (Điều 5.3.1.2)",
@@ -225,7 +225,7 @@ STANDARDS_DB = {
                         "Deflectors of sidewall sprinklers shall be aligned parallel to the ceiling or roof deck."
                     ),
                 ],
-                "tcvn_edition": "TCVN 7336:2021 Điều 5.3.2 & 6.7.5",
+                "tcvn_edition": u"TCVN 7336:2021 Điều 5.3.2 & 6.7.5",
                 "tcvn_rules": [
                     (
                         u"Cao độ đầu phun gắn tường (Điều 5.3.2)",

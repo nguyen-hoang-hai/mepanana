@@ -43,7 +43,7 @@ from System.Windows.Media import Brushes, SolidColorBrush, Color, PointCollectio
 from Autodesk.Revit.DB.Plumbing import PipeType
 from pyrevit import revit, DB, UI, forms
 from py.core import get_id_value, safe_unicode, mm_to_ft, ft_to_mm, SafeTransactionGroup
-from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events
+from py.ui import setup_modern_window, is_dark_theme, show_info, show_warning, show_error, do_events, RunningModeManager
 from py.sprinkler_engine import (
     cluster_sprinklers_by_main_pipe,
     generate_upright_network,
@@ -53,6 +53,9 @@ from py.sprinkler_engine import (
 
 doc   = revit.doc
 uidoc = revit.uidoc
+if not doc:
+    show_warning(u"Please open a Revit project before using Sprinkler Studio.", "Warning")
+    sys.exit()
 
 
 # ── Selection Filters ─────────────────────────────────────────────────────────
@@ -96,6 +99,7 @@ class UprightSprinklerWindow(forms.WPFWindow):
         self.action = None
         self.main_pipe = main_pipe
         self.selected_sprinklers = selected_sprinklers or []
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         # Wire UI event handlers
         if hasattr(self, 'btnPickMain'):

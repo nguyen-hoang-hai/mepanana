@@ -413,7 +413,7 @@ try:
             if hasattr(self, 'badgeHost2'):
                 self.badgeHost2.Visibility = Visibility.Visible if is_same else Visibility.Collapsed
             if hasattr(self, 'txtBadgeHost1'):
-                self.txtBadgeHost1.Text = "🔴 Host 1 (Red)" if is_same else "🔴 Host (Red)"
+                self.txtBadgeHost1.Text = u"🔴 Host 1 (Red)" if is_same else u"🔴 Host (Red)"
 
         def _restore_active_results(self):
             try:
@@ -425,10 +425,10 @@ try:
                         self.lstClashes.ItemsSource = cached_items
                         link_count = sum(1 for c in cached_items if c.IsLink)
                         host_count = len(cached_items) - link_count
-                        self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
+                        self.txtClashCount.Text = u"{} Total (🔴 {} Host | 🟢 {} Link)".format(
                             len(cached_items), host_count, link_count
                         )
-                        self.txtStatus.Text = "Active analysis: {} clash elements highlighted in view.".format(len(cached_items))
+                        self.txtStatus.Text = u"Active analysis: {} clash elements highlighted in view.".format(len(cached_items))
                         return
             except Exception:
                 pass
@@ -586,12 +586,12 @@ try:
                 host_count = len(clashes) - link_count
                 
                 if check_same:
-                    self.txtClashCount.Text = "{} Total (🔴 {} Host | 🟢 {} Link)".format(
+                    self.txtClashCount.Text = u"{} Total (🔴 {} Host | 🟢 {} Link)".format(
                         len(clashes), host_count, link_count
                     )
                     status_msg = u"Analysis complete: {} clashes — 🔴 Red=Host1, 🟠 Orange=Host2, 🟢 Green=Link".format(len(clashes))
                 else:
-                    self.txtClashCount.Text = "{} Total (🟢 {} Link | Host vs Link only)".format(
+                    self.txtClashCount.Text = u"{} Total (🟢 {} Link | Host vs Link only)".format(
                         len(clashes), link_count
                     )
                     status_msg = u"Analysis complete: {} clashes — 🟢 Green=Link (Host vs Link only)".format(len(clashes))

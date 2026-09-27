@@ -26,7 +26,7 @@ if not is_authenticated():
     if not require_auth():
         sys.exit()
 
-from py.ui import is_dark_theme, show_success, load_watermark
+from py.ui import is_dark_theme, show_success, load_watermark, RunningModeManager
 from py.tool_visibility_engine import (
     get_hidden_tools,
     save_hidden_tools,
@@ -76,6 +76,7 @@ try:
             ui_path = os.path.join(os.path.dirname(__file__), xaml_name)
             forms.WPFWindow.__init__(self, ui_path)
 
+            self.rmm = RunningModeManager(self, dark_mode=dark_mode)
             self.switch_requested = False
             self._load_watermark()
             self._setup_events()

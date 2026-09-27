@@ -78,7 +78,10 @@ def generate_mepanana_icon(text, output_path, is_stack=False, squeeze_factor=0.8
     font     = ImageFont.truetype(fp, FONT_PT)
     gradient = _build_gradient(SIZE)
 
-    glyphs = [(ch, *_measure(ch, font)) for ch in text]
+    glyphs = []
+    for ch in text:
+        m = _measure(ch, font)
+        glyphs.append((ch, m[0], m[1], m[2], m[3]))
     tot_w  = sum(g[1] for g in glyphs) + GAP * (len(text) - 1)
 
     PAD = 60
@@ -113,10 +116,11 @@ def generate_mepanana_icon(text, output_path, is_stack=False, squeeze_factor=0.8
     final_bb = out.getbbox()
     if final_bb:
         print(
-            f"[make_icon] '{text}' -> "
-            f"BBox({final_bb[0]},{final_bb[1]},{final_bb[2]},{final_bb[3]}) "
-            f"W={final_bb[2]-final_bb[0]}px H={final_bb[3]-final_bb[1]}px "
-            f"(slim factor={squeeze_factor:.2f}) -> {os.path.basename(output_path)}"
+            "[make_icon] '{}' -> BBox({},{},{},{}) W={}px H={}px (slim factor={:.2f}) -> {}".format(
+                text, final_bb[0], final_bb[1], final_bb[2], final_bb[3],
+                final_bb[2] - final_bb[0], final_bb[3] - final_bb[1],
+                squeeze_factor, os.path.basename(output_path)
+            )
         )
     return out
 

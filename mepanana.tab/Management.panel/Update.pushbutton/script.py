@@ -7,11 +7,17 @@ __title__ = "Update"
 __doc__   = "Check for updates and synchronize MEPANANA with the latest GitHub release."
 
 # ── 6-LINE GATEKEEPER BOILERPLATE (MANDATORY) ─────────────────────────────
+import os
+import sys
+
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
 from py.auth import require_auth, update_ribbon_state, is_authenticated
 if not is_authenticated():
     update_ribbon_state(False)
     if not require_auth():
-        import sys
         sys.exit()
 # ──────────────────────────────────────────────────────────────────────────
 

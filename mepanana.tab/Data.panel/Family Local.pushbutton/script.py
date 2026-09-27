@@ -13,15 +13,19 @@ __title__ = "Family Local"
 __doc__   = "Browse, preview, and batch load Revit families from your local or network library directory."
 
 # ── 6-Line Security Gatekeeper Boilerplate ───────────────────────────────────
+import os
+import sys
+
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
 from py.auth import require_auth, update_ribbon_state, is_authenticated
 if not is_authenticated():
     update_ribbon_state(False)
     if not require_auth():
-        import sys
         sys.exit()
 
-import os
-import sys
 import re
 import json
 import time

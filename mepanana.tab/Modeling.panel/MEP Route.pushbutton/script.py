@@ -7,7 +7,13 @@ Part of mepanana.extension.
 Author: Hai Nguyen
 """
 # ── GATEKEEPER BOILERPLATE (MANDATORY) ───────────────────────────────────────
+import os
 import sys
+
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+if _lib_path not in sys.path:
+    sys.path.insert(0, _lib_path)
+
 from py.auth import require_auth, update_ribbon_state, is_authenticated
 if not is_authenticated():
     update_ribbon_state(False)
@@ -23,7 +29,7 @@ from Autodesk.Revit.Exceptions import OperationCanceledException
 
 from pyrevit import script, forms
 from py.core import get_doc, get_uidoc, safe_unicode
-from py.ui import setup_modern_window, is_dark_theme, show_warning, show_error, show_info
+from py.ui import setup_modern_window, is_dark_theme, show_warning, show_error, show_info, RunningModeManager
 from py.mep_route_engine import MEPElementFilter, route_mep_elements
 
 doc = get_doc()
@@ -44,6 +50,7 @@ class RouteWindow(forms.WPFWindow):
         setup_modern_window(self, dark_mode=dark_mode)
 
         self.angle_value = None
+        self.rmm = RunningModeManager(self, dark_mode=dark_mode)
 
         # Wire event handlers dynamically (Zero inline events in XAML rule)
         self.btnCancel.Click += self.OnCancel
@@ -59,7 +66,7 @@ class RouteWindow(forms.WPFWindow):
     def OnAngleChanged(self, sender, args):
         """Enables the custom angle textbox when 'Custom' is selected."""
         if self.cmbAngle.SelectedItem:
-            content = str(self.cmbAngle.SelectedItem.Content)
+            content = safe_unicode(self.cmbAngle.SelectedItem.Content)
             if "Custom" in content:
                 self.txtCustom.IsEnabled = True
                 try:
@@ -98,7 +105,7 @@ class RouteWindow(forms.WPFWindow):
         if not self.cmbAngle.SelectedItem:
             return 45.0
 
-        content = str(self.cmbAngle.SelectedItem.Content)
+        content = safe_unicode(self.cmbAngle.SelectedItem.Content)
         if "Custom" in content:
             raw = self.txtCustom.Text.strip()
             if not raw or raw == ".":
@@ -107,14 +114,14 @@ class RouteWindow(forms.WPFWindow):
             try:
                 val = float(raw)
                 if val < 2.0 or val > 95.0:
-                    show_warning("Elbow routing angle must be between 2.0° and 95.0°.")
+                    show_warning(u"Elbow routing angle must be between 2.0° and 95.0°.")
                     return None
                 return val
             except Exception:
                 show_warning("Invalid numeric value for custom angle.")
                 return None
         else:
-            clean_str = content.replace(u"\xb0", "").strip()
+            clean_str = content.replace(u"°", "").replace(u"\xb0", "").strip()
             try:
                 return float(clean_str)
             except Exception:
