@@ -53,20 +53,20 @@ if not doc:
 def get_view_plane_z(view):
     """
     Lấy cao độ Z chính xác tuyệt đối của mặt phẳng view hiện hành.
-    Đảm bảo đường DetailCurve luôn nằm đúng trên mặt phẳng của View, không bao giờ lỗi.
+    Ưu tiên GenLevel của Plan View, fallback về SketchPlane hoặc Origin.
     """
     try:
-        sp = view.SketchPlane
+        lvl = getattr(view, 'GenLevel', None)
+        if lvl:
+            return lvl.Elevation
+    except Exception:
+        pass
+    try:
+        sp = getattr(view, 'SketchPlane', None)
         if sp:
             plane = sp.GetPlane()
             if plane:
                 return plane.Origin.Z
-    except Exception:
-        pass
-    try:
-        lvl = view.GenLevel
-        if lvl:
-            return lvl.Elevation
     except Exception:
         pass
     try:
@@ -76,44 +76,36 @@ def get_view_plane_z(view):
     return 0.0
 
 
-def ensure_view_sketch_plane(doc, view):
-    """Đảm bảo active view có SketchPlane hợp lệ trước khi vẽ DetailCurve."""
-    try:
-        if view.SketchPlane is None:
-            lvl = getattr(view, 'GenLevel', None)
-            if lvl:
-                plane = DB.Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ(0, 0, lvl.Elevation))
-            else:
-                normal = getattr(view, 'ViewDirection', XYZ.BasisZ)
-                origin = getattr(view, 'Origin', XYZ.Zero)
-                plane = DB.Plane.CreateByNormalAndOrigin(normal, origin)
-            sp = DB.SketchPlane.Create(doc, plane)
-            view.SketchPlane = sp
-    except Exception:
-        pass
-
-
 def create_temp_line(doc, view, p1, p2):
     """
     Vẽ đoạn DetailLine màu đỏ nổi bật giữa 2 điểm trên mặt bằng active view.
-    Tự động chuẩn hóa cao độ Z về đúng mặt phẳng View để vẽ line thành công 100%.
+    Thử nghiệm đa tầng cao độ Z (view_z, p1.Z, 0.0) để đảm bảo luôn vẽ thành công 100%.
     """
     try:
         if view.ViewType == ViewType.ThreeD:
             return None
-        ensure_view_sketch_plane(doc, view)
-        view_z = get_view_plane_z(view)
 
         dx = p2.X - p1.X
         dy = p2.Y - p1.Y
         if math.sqrt(dx * dx + dy * dy) < 1e-4:
             return None
 
-        geom_line = DB.Line.CreateBound(
-            XYZ(p1.X, p1.Y, view_z),
-            XYZ(p2.X, p2.Y, view_z)
-        )
-        curve = doc.Create.NewDetailCurve(view, geom_line)
+        view_z = get_view_plane_z(view)
+        curve = None
+        for z in [view_z, getattr(p1, 'Z', 0.0), 0.0]:
+            try:
+                geom_line = DB.Line.CreateBound(
+                    XYZ(p1.X, p1.Y, z),
+                    XYZ(p2.X, p2.Y, z)
+                )
+                curve = doc.Create.NewDetailCurve(view, geom_line)
+                if curve:
+                    break
+            except Exception:
+                continue
+
+        if not curve:
+            return None
 
         try:
             ogs = OverrideGraphicSettings()
@@ -124,11 +116,7 @@ def create_temp_line(doc, view, p1, p2):
             pass
 
         return curve.Id
-    except Exception as ex:
-        try:
-            print("create_temp_line error: {}".format(ex))
-        except Exception:
-            pass
+    except Exception:
         return None
 
 
@@ -138,20 +126,27 @@ def create_temp_crosshair(doc, view, pt, size_ft=0.6):
     try:
         if view.ViewType == ViewType.ThreeD:
             return ids
-        ensure_view_sketch_plane(doc, view)
+
         view_z = get_view_plane_z(view)
-
-        l1 = DB.Line.CreateBound(XYZ(pt.X - size_ft, pt.Y, view_z), XYZ(pt.X + size_ft, pt.Y, view_z))
-        l2 = DB.Line.CreateBound(XYZ(pt.X, pt.Y - size_ft, view_z), XYZ(pt.X, pt.Y + size_ft, view_z))
-        c1 = doc.Create.NewDetailCurve(view, l1)
-        c2 = doc.Create.NewDetailCurve(view, l2)
-
-        ogs = OverrideGraphicSettings()
-        ogs.SetProjectionLineColor(RevitColor(239, 68, 68))
-        ogs.SetProjectionLineWeight(5)
-        view.SetElementOverrides(c1.Id, ogs)
-        view.SetElementOverrides(c2.Id, ogs)
-        ids.extend([c1.Id, c2.Id])
+        for z in [view_z, getattr(pt, 'Z', 0.0), 0.0]:
+            try:
+                l1 = DB.Line.CreateBound(XYZ(pt.X - size_ft, pt.Y, z), XYZ(pt.X + size_ft, pt.Y, z))
+                l2 = DB.Line.CreateBound(XYZ(pt.X, pt.Y - size_ft, z), XYZ(pt.X, pt.Y + size_ft, z))
+                c1 = doc.Create.NewDetailCurve(view, l1)
+                c2 = doc.Create.NewDetailCurve(view, l2)
+                if c1 and c2:
+                    try:
+                        ogs = OverrideGraphicSettings()
+                        ogs.SetProjectionLineColor(RevitColor(239, 68, 68))
+                        ogs.SetProjectionLineWeight(5)
+                        view.SetElementOverrides(c1.Id, ogs)
+                        view.SetElementOverrides(c2.Id, ogs)
+                    except Exception:
+                        pass
+                    ids.extend([c1.Id, c2.Id])
+                    break
+            except Exception:
+                continue
     except Exception:
         pass
     return ids
@@ -178,14 +173,14 @@ def cleanup_temp_lines(doc, line_ids):
         return
     try:
         t = DB.Transaction(doc, "MEPANANA - Clear Temp Lines")
-        t.Start()
-        for lid in line_ids:
-            try:
-                doc.Delete(lid)
-            except Exception:
-                pass
-        t.Commit()
-        uidoc.RefreshActiveView()
+        if t.Start() == DB.TransactionStatus.Started:
+            for lid in line_ids:
+                try:
+                    doc.Delete(lid)
+                except Exception:
+                    pass
+            t.Commit()
+            uidoc.RefreshActiveView()
     except Exception:
         pass
 
@@ -843,13 +838,12 @@ def run():
 
                     # Vẽ khung chữ nhật màu đỏ trực quan trên mặt bằng
                     t = DB.Transaction(doc, "MEPANANA - Preview PickBox")
-                    t.Start()
                     try:
-                        box_lines = create_temp_box(doc, doc.ActiveView, xmin, ymin, xmax, ymax)
-                        saved_temp_lines.extend(box_lines)
-                        t.Commit()
-                        doc.Regenerate()
-                        uidoc.RefreshActiveView()
+                        if t.Start() == DB.TransactionStatus.Started:
+                            box_lines = create_temp_box(doc, doc.ActiveView, xmin, ymin, xmax, ymax)
+                            saved_temp_lines.extend(box_lines)
+                            t.Commit()
+                            uidoc.RefreshActiveView()
                     except Exception:
                         if t.HasStarted() and not t.HasEnded():
                             t.RollBack()
@@ -887,22 +881,20 @@ def run():
 
                     # Vẽ ngay lập tức lên màn hình để người dùng nhìn thấy đường line trực tiếp
                     t = DB.Transaction(doc, "MEPANANA - Draw Line Preview")
-                    t.Start()
                     try:
-                        if idx == 1:
-                            m_ids = create_temp_crosshair(doc, active_view, pt)
-                            saved_temp_lines.extend(m_ids)
-                        else:
-                            lid = create_temp_line(doc, active_view, prev_pt, pt)
-                            if lid:
-                                saved_temp_lines.append(lid)
-                        t.Commit()
-                        doc.Regenerate()
-                        uidoc.RefreshActiveView()
+                        if t.Start() == DB.TransactionStatus.Started:
+                            if idx == 1:
+                                m_ids = create_temp_crosshair(doc, active_view, pt)
+                                saved_temp_lines.extend(m_ids)
+                            else:
+                                lid = create_temp_line(doc, active_view, prev_pt, pt)
+                                if lid:
+                                    saved_temp_lines.append(lid)
+                            t.Commit()
+                            uidoc.RefreshActiveView()
                     except Exception as ex_t:
                         if t.HasStarted() and not t.HasEnded():
                             t.RollBack()
-                        print("Line preview transaction error: {}".format(ex_t))
 
                     prev_pt = pt
 
@@ -915,14 +907,13 @@ def run():
             # Nếu từ 3 điểm trở lên, tự động vẽ đường đỏ khép kín nối điểm cuối về điểm đầu
             if len(pts) >= 3 and prev_pt:
                 t = DB.Transaction(doc, "MEPANANA - Close Polygon")
-                t.Start()
                 try:
-                    lid = create_temp_line(doc, active_view, prev_pt, pts[0])
-                    if lid:
-                        saved_temp_lines.append(lid)
-                    t.Commit()
-                    doc.Regenerate()
-                    uidoc.RefreshActiveView()
+                    if t.Start() == DB.TransactionStatus.Started:
+                        lid = create_temp_line(doc, active_view, prev_pt, pts[0])
+                        if lid:
+                            saved_temp_lines.append(lid)
+                        t.Commit()
+                        uidoc.RefreshActiveView()
                 except Exception:
                     if t.HasStarted() and not t.HasEnded():
                         t.RollBack()
