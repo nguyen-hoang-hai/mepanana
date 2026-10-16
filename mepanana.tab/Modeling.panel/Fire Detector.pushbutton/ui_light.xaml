@@ -463,8 +463,16 @@
                                             <TextBlock Grid.Column="1" Text="1. Chọn loại đầu báo" FontSize="12.5" Foreground="#0F172A" Margin="8,0,0,0"/>
                                         </Grid>
 
-                                        <!-- Family Dropdown -->
-                                        <TextBlock Text="Family Symbol:" FontSize="11" Foreground="#64748B" Margin="0,0,0,4"/>
+                                        <!-- Family Dropdown Header with Reload button -->
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Family Symbol:" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                                            <Button Grid.Column="1" Name="btnRefreshFamilies" Content="🔄 Tải lại"
+                                                    Style="{StaticResource GhostBtn}" Height="30" Padding="8,0" FontSize="11"/>
+                                        </Grid>
                                         <ComboBox Name="cmbFamily" Style="{StaticResource ModernComboBox}" Margin="0,0,0,8"/>
 
                                         <!-- Detector Type Info -->
@@ -491,17 +499,14 @@
                                             <TextBlock Grid.Column="1" Text="2. Xác định vùng bố trí" FontSize="12.5" Foreground="#0F172A" Margin="8,0,0,0"/>
                                         </Grid>
 
-                                        <!-- Zone Mode RadioButtons -->
+                                        <!-- Zone Mode RadioButtons (2 Kiểu theo yêu cầu) -->
                                         <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
                                             <StackPanel>
                                                 <RadioButton Name="rbPickBox" GroupName="ZoneMode" IsChecked="True" Style="{StaticResource ModernRadio}" Margin="0,0,0,6">
-                                                    <TextBlock Text="⬛ Pick Box  — Khoanh vùng hình chữ nhật" Foreground="#0F172A" IsHitTestVisible="False"/>
+                                                    <TextBlock Text="⬛ Quét PickBox  — Khoanh vùng hình chữ nhật (2 góc chéo)" Foreground="#0F172A" IsHitTestVisible="False"/>
                                                 </RadioButton>
-                                                <RadioButton Name="rbRoom" GroupName="ZoneMode" Style="{StaticResource ModernRadio}" Margin="0,0,0,6">
-                                                    <TextBlock Text="🏠 Room/Space  — Chọn phòng có boundary" Foreground="#0F172A" IsHitTestVisible="False"/>
-                                                </RadioButton>
-                                                <RadioButton Name="rbRegion" GroupName="ZoneMode" Style="{StaticResource ModernRadio}">
-                                                    <TextBlock Text="✏️ Filled Region  — Vùng hatch / đường bao" Foreground="#0F172A" IsHitTestVisible="False"/>
+                                                <RadioButton Name="rbDrawLine" GroupName="ZoneMode" Style="{StaticResource ModernRadio}">
+                                                    <TextBlock Text="✏️ Kẻ Line / Đa giác  — Click các điểm, nhấn Esc để kết thúc" Foreground="#0F172A" IsHitTestVisible="False"/>
                                                 </RadioButton>
                                             </StackPanel>
                                         </Border>

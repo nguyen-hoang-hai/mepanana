@@ -2,9 +2,8 @@
 """
 Fire Detector Studio - Auto Place Fire Detectors
 Part of mepanana.extension.
-- Chế độ 1: PickBox (hình chữ nhật, hỗ trợ kéo chuột mọi hướng)
-- Chế độ 2: Room / Space (boundary polygon tự động tessellate góc cong, trừ cột/lỗ mở)
-- Chế độ 3: Filled Region (vùng bao hatch vẽ tay)
+- Chế độ 1: Quét PickBox (hình chữ nhật 2 góc chéo)
+- Chế độ 2: Kẻ Line / Đa giác (Click các điểm liên tiếp trên mặt bằng, nhấn ESC để hoàn thành)
 Thuật toán: Lưới phân bố đều + Ray-Casting đa giác theo TCVN 5738:2021.
 KHÔNG sử dụng gatekeeper auth (mở tự do theo yêu cầu).
 """
@@ -31,6 +30,10 @@ clr.AddReference("PresentationFramework")
 clr.AddReference("WindowsBase")
 import System
 import Autodesk.Revit.Exceptions as RevitExceptions
+from Autodesk.Revit.DB import (
+    FilteredElementCollector, FamilySymbol, BuiltInCategory,
+    CategoryType, ElementId, Structure, Line as RevitLine, XYZ
+)
 from System.Windows import Visibility
 from System.Windows.Media import Brushes, SolidColorBrush, Color
 from pyrevit import revit, DB, UI, forms
@@ -70,12 +73,34 @@ def is_point_in_polygon(px, py, poly_pts):
 
 
 def generate_grid_points(x_min, y_min, x_max, y_max, d_max_ft, z_ft,
-                         poly_outer=None, poly_inners=None):
+                         poly_outer=None, raw_pts=None):
     """
     Chia lưới đều trong BoundingBox [x_min, y_min, x_max, y_max] với bước nhảy tối đa d_max_ft.
     Khoảng cách từ biên tường tới đầu báo ngoài cùng = S / 2 (theo TCVN 5738).
-    Lọc bỏ các điểm nằm ngoài đa giác poly_outer hoặc rơi vào lỗ mở/cột poly_inners.
+    Lọc bỏ các điểm nằm ngoài đa giác poly_outer.
+    Nếu raw_pts là 2 điểm (đoạn kẻ line đơn), tự động rải đều dọc theo đường thẳng.
     """
+    # Trường hợp kẻ 2 điểm tạo thành đoạn thẳng đơn (hành lang hẹp hoặc đường line):
+    if raw_pts and len(raw_pts) == 2:
+        p1 = raw_pts[0]
+        p2 = raw_pts[1]
+        dx = p2.X - p1.X
+        dy = p2.Y - p1.Y
+        dist = math.sqrt(dx * dx + dy * dy)
+        # Nếu chiều ngang hoặc dọc rất bé (< 300mm), xem là đoạn thẳng 1 chiều
+        if dist > 1e-3 and (abs(dx) < mm_to_ft(300) or abs(dy) < mm_to_ft(300)):
+            n = int(math.ceil(dist / d_max_ft))
+            if n < 1:
+                n = 1
+            step = dist / float(n)
+            ux = dx / dist
+            uy = dy / dist
+            line_pts = []
+            for i in range(n):
+                d = step / 2.0 + i * step
+                line_pts.append(XYZ(p1.X + ux * d, p1.Y + uy * d, z_ft))
+            return line_pts
+
     length = x_max - x_min
     width  = y_max - y_min
     if length <= 1e-9 or width <= 1e-9:
@@ -93,50 +118,14 @@ def generate_grid_points(x_min, y_min, x_max, y_max, d_max_ft, z_ft,
         for j in range(ny):
             gx = x_min + sx / 2.0 + i * sx
             gy = y_min + sy / 2.0 + j * sy
-            # Filter by outer polygon boundary
             if poly_outer is not None:
                 if not is_point_in_polygon(gx, gy, poly_outer):
                     continue
-            # Exclude inner polygon holes (cột, giếng kỹ thuật)
-            if poly_inners:
-                skip = False
-                for inner in poly_inners:
-                    if is_point_in_polygon(gx, gy, inner):
-                        skip = True
-                        break
-                if skip:
-                    continue
-            pts.append(DB.XYZ(gx, gy, z_ft))
+            pts.append(XYZ(gx, gy, z_ft))
     return pts
 
 
-# ── 4. Selection Filters ──────────────────────────────────────────────────────
-
-class RoomSelectionFilter(UI.Selection.ISelectionFilter):
-    """Filter cho Room và MEP Space."""
-    def AllowElement(self, elem):
-        try:
-            return isinstance(elem, (DB.Architecture.Room, DB.Mechanical.Space))
-        except Exception:
-            return False
-
-    def AllowReference(self, ref, point):
-        return True
-
-
-class FilledRegionFilter(UI.Selection.ISelectionFilter):
-    """Filter cho FilledRegion."""
-    def AllowElement(self, elem):
-        try:
-            return isinstance(elem, DB.FilledRegion)
-        except Exception:
-            return False
-
-    def AllowReference(self, ref, point):
-        return True
-
-
-# ── 5. Zone Data Classes ──────────────────────────────────────────────────────
+# ── 4. Zone Data Classes ──────────────────────────────────────────────────────
 
 class PickBoxZone(object):
     """Vùng chọn bằng thao tác kéo chuột 2 điểm chéo (PickBox)."""
@@ -165,122 +154,45 @@ class PickBoxZone(object):
         return u"PickBox {:.0f} \u00d7 {:.0f} mm".format(w_mm, h_mm)
 
 
-class RoomZone(object):
-    """Vùng phòng kiến trúc Room hoặc MEP Space."""
-    def __init__(self, room):
-        self.room = room
-
-    def _get_segments(self):
-        opts = DB.SpatialElementBoundaryOptions()
-        opts.SpatialElementBoundaryLocation = DB.SpatialElementBoundaryLocation.Finish
-        return self.room.GetBoundarySegments(opts)
-
-    def get_bbox(self):
-        bb = self.room.get_BoundingBox(None)
-        if bb:
-            xmin = min(bb.Min.X, bb.Max.X)
-            xmax = max(bb.Min.X, bb.Max.X)
-            ymin = min(bb.Min.Y, bb.Max.Y)
-            ymax = max(bb.Min.Y, bb.Max.Y)
-            return xmin, ymin, xmax, ymax
-        return 0, 0, 0, 0
-
-    def get_outer_polygon(self):
-        segs = self._get_segments()
-        if not segs or len(segs) == 0:
-            return None
-        outer = segs[0]
-        pts = []
-        for seg in outer:
-            curve = seg.GetCurve()
-            tess = curve.Tessellate()
-            for p in tess[:-1]:
-                pts.append((p.X, p.Y))
-        return pts if len(pts) >= 3 else None
-
-    def get_inner_polygons(self):
-        segs = self._get_segments()
-        if not segs or len(segs) <= 1:
-            return []
-        inners = []
-        for loop in segs[1:]:
-            pts = []
-            for seg in loop:
-                curve = seg.GetCurve()
-                tess = curve.Tessellate()
-                for p in tess[:-1]:
-                    pts.append((p.X, p.Y))
-            if len(pts) >= 3:
-                inners.append(pts)
-        return inners
-
-    def describe(self):
-        try:
-            name_p = self.room.get_Parameter(DB.BuiltInParameter.ROOM_NAME)
-            name = safe_unicode(name_p.AsString() if name_p else u"Room")
-            num_p = self.room.get_Parameter(DB.BuiltInParameter.ROOM_NUMBER)
-            num = safe_unicode(num_p.AsString() if num_p else u"")
-            if num:
-                return u"Room {}: {}".format(num, name)
-            return u"Room {}".format(name)
-        except Exception:
-            return u"Room #{}".format(get_id_value(self.room))
-
-
-class FilledRegionZone(object):
-    """Vùng hatch hoặc đường bao khép kín từ FilledRegion."""
-    def __init__(self, region):
-        self.region = region
+class LinePolygonZone(object):
+    """
+    Vùng chọn bằng cách click các điểm kẻ line liên tiếp, nhấn ESC để kết thúc.
+    - Nếu >= 3 điểm: tạo thành đa giác khép kín (hỗ trợ phòng vuông, phòng L, hành lang gấp khúc...).
+    - Nếu 2 điểm: tự động tạo Bounding Box hình chữ nhật giữa 2 điểm (hoặc rải dọc đường thẳng).
+    """
+    def __init__(self, pts):
+        self.pts = pts  # list of XYZ
 
     def get_bbox(self):
-        bb = self.region.get_BoundingBox(None)
-        if bb:
-            xmin = min(bb.Min.X, bb.Max.X)
-            xmax = max(bb.Min.X, bb.Max.X)
-            ymin = min(bb.Min.Y, bb.Max.Y)
-            ymax = max(bb.Min.Y, bb.Max.Y)
-            return xmin, ymin, xmax, ymax
-        return 0, 0, 0, 0
+        xmin = min(p.X for p in self.pts)
+        xmax = max(p.X for p in self.pts)
+        ymin = min(p.Y for p in self.pts)
+        ymax = max(p.Y for p in self.pts)
+        return xmin, ymin, xmax, ymax
 
     def get_outer_polygon(self):
-        loops = list(self.region.GetBoundaries())
-        if not loops:
-            return None
-        pts = []
-        for curve in loops[0]:
-            tess = curve.Tessellate()
-            for p in tess[:-1]:
-                pts.append((p.X, p.Y))
-        return pts if len(pts) >= 3 else None
+        if len(self.pts) >= 3:
+            return [(p.X, p.Y) for p in self.pts]
+        elif len(self.pts) == 2:
+            xmin, ymin, xmax, ymax = self.get_bbox()
+            return [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+        return None
 
     def get_inner_polygons(self):
-        loops = list(self.region.GetBoundaries())
-        if len(loops) <= 1:
-            return []
-        inners = []
-        for loop in loops[1:]:
-            pts = []
-            for curve in loop:
-                tess = curve.Tessellate()
-                for p in tess[:-1]:
-                    pts.append((p.X, p.Y))
-            if len(pts) >= 3:
-                inners.append(pts)
-        return inners
+        return []
 
     def describe(self):
-        return u"Filled Region #{}".format(get_id_value(self.region))
+        n = len(self.pts)
+        xmin, ymin, xmax, ymax = self.get_bbox()
+        w_mm = ft_to_mm(xmax - xmin)
+        h_mm = ft_to_mm(ymax - ymin)
+        if n >= 3:
+            return u"Đa giác ({} điểm) · {:.0f} \u00d7 {:.0f} mm".format(n, w_mm, h_mm)
+        else:
+            return u"Đường line (2 điểm) · {:.0f} \u00d7 {:.0f} mm".format(w_mm, h_mm)
 
 
-# ── 6. Family Symbol Loader ───────────────────────────────────────────────────
-
-FIRE_DETECTOR_CATS = [
-    int(DB.BuiltInCategory.OST_FireAlarmDevices),
-    int(DB.BuiltInCategory.OST_ElectricalFixtures),
-    int(DB.BuiltInCategory.OST_CommunicationDevices),
-    int(DB.BuiltInCategory.OST_SecurityDevices),
-    int(DB.BuiltInCategory.OST_GenericModel),
-]
+# ── 5. Robust Family Symbol Loader ────────────────────────────────────────────
 
 DETECTOR_KEYWORDS = [
     u"detector", u"chay", u"smoke", u"heat", u"bao", u"fire",
@@ -290,60 +202,108 @@ DETECTOR_KEYWORDS = [
 
 def load_fire_detector_symbols(doc):
     """
-    Tìm tất cả FamilySymbol phù hợp cho đầu báo cháy.
-    Ưu tiên OST_FireAlarmDevices, sau đó lọc theo từ khóa thông minh.
+    Tải toàn bộ FamilySymbol đầu báo cháy và thiết bị báo cháy trong dự án.
+    Phương pháp 3 tầng bảo đảm 100% không bao giờ bỏ sót:
+    - Tầng 1: Native Quick Filter theo BuiltInCategory.OST_FireAlarmDevices
+    - Tầng 2: Các category MEP điện / an ninh liên quan (Electrical, Security, Comm, Generic)
+    - Tầng 3: Quét toàn bộ FamilySymbol non-annotation trong dự án làm fallback
     """
+    seen_ids = set()
     primary_symbols = []
     secondary_symbols = []
     fallback_symbols = []
 
+    # ── TẦNG 1: OST_FireAlarmDevices ──────────────────────────────────────────
     try:
-        collector = DB.FilteredElementCollector(doc)\
-                      .OfClass(DB.FamilySymbol)\
-                      .WhereElementIsElementType()
-        for sym in collector:
-            try:
-                cat = sym.Category
-                if cat is None:
-                    continue
-                cat_id = get_id_value(cat)
-                if cat_id not in FIRE_DETECTOR_CATS:
-                    continue
-
-                full_name = (safe_unicode(sym.FamilyName) + u" " + safe_unicode(sym.Name)).lower()
-                is_detector_cat = (cat_id == int(DB.BuiltInCategory.OST_FireAlarmDevices))
-                has_keyword = any(kw in full_name for kw in DETECTOR_KEYWORDS)
-
-                if is_detector_cat:
-                    primary_symbols.append(sym)
-                elif has_keyword:
-                    secondary_symbols.append(sym)
-                else:
-                    fallback_symbols.append(sym)
-            except Exception:
-                continue
-
-        sort_key = lambda s: (safe_unicode(s.FamilyName) + u" - " + safe_unicode(s.Name)).lower()
-        primary_symbols.sort(key=sort_key)
-        secondary_symbols.sort(key=sort_key)
-
-        # Nếu có primary hoặc secondary, chỉ hiển thị nhóm liên quan
-        if primary_symbols or secondary_symbols:
-            return primary_symbols + secondary_symbols
-
-        # Trường hợp dự án mẫu không đặt tên chuẩn, đưa toàn bộ fallback
-        fallback_symbols.sort(key=sort_key)
-        return fallback_symbols
+        col_fa = FilteredElementCollector(doc)\
+                    .OfCategory(BuiltInCategory.OST_FireAlarmDevices)\
+                    .WhereElementIsElementType()\
+                    .ToElements()
+        for s in col_fa:
+            if isinstance(s, FamilySymbol) and s.Id not in seen_ids:
+                seen_ids.add(s.Id)
+                primary_symbols.append(s)
     except Exception:
         pass
-    return []
+
+    # ── TẦNG 2: Các Category MEP khác lọc theo từ khóa ────────────────────────
+    other_cats = [
+        BuiltInCategory.OST_ElectricalFixtures,
+        BuiltInCategory.OST_SecurityDevices,
+        BuiltInCategory.OST_CommunicationDevices,
+        BuiltInCategory.OST_GenericModel,
+    ]
+
+    for cat_enum in other_cats:
+        try:
+            col = FilteredElementCollector(doc)\
+                    .OfCategory(cat_enum)\
+                    .WhereElementIsElementType()\
+                    .ToElements()
+            for s in col:
+                if isinstance(s, FamilySymbol) and s.Id not in seen_ids:
+                    seen_ids.add(s.Id)
+                    fam_name = safe_unicode(getattr(s, 'FamilyName', ''))
+                    type_name = safe_unicode(getattr(s, 'Name', ''))
+                    full_str = (fam_name + u" " + type_name).lower()
+                    if any(kw in full_str for kw in DETECTOR_KEYWORDS):
+                        secondary_symbols.append(s)
+                    else:
+                        fallback_symbols.append(s)
+        except Exception:
+            pass
+
+    # ── TẦNG 3: Quét tất cả FamilySymbol non-annotation nếu vẫn trống ─────────
+    if not primary_symbols and not secondary_symbols:
+        try:
+            all_syms = FilteredElementCollector(doc)\
+                        .OfClass(FamilySymbol)\
+                        .WhereElementIsElementType()\
+                        .ToElements()
+            for s in all_syms:
+                if s.Id not in seen_ids:
+                    seen_ids.add(s.Id)
+                    try:
+                        if s.Category and s.Category.CategoryType == CategoryType.Annotation:
+                            continue
+                    except Exception:
+                        pass
+                    fam_name = safe_unicode(getattr(s, 'FamilyName', ''))
+                    type_name = safe_unicode(getattr(s, 'Name', ''))
+                    full_str = (fam_name + u" " + type_name).lower()
+                    if any(kw in full_str for kw in DETECTOR_KEYWORDS):
+                        secondary_symbols.append(s)
+                    else:
+                        fallback_symbols.append(s)
+        except Exception:
+            pass
+
+    # Sắp xếp theo tên Family - Type
+    def _sym_sort_key(s):
+        fn = safe_unicode(getattr(s, 'FamilyName', ''))
+        tn = safe_unicode(getattr(s, 'Name', ''))
+        return (fn + u" - " + tn).lower()
+
+    primary_symbols.sort(key=_sym_sort_key)
+    secondary_symbols.sort(key=_sym_sort_key)
+    fallback_symbols.sort(key=_sym_sort_key)
+
+    if primary_symbols:
+        return primary_symbols + secondary_symbols
+    elif secondary_symbols:
+        return secondary_symbols + fallback_symbols[:40]
+    else:
+        return fallback_symbols
 
 
 def get_symbol_label(sym):
-    return u"{} - {}".format(safe_unicode(sym.FamilyName), safe_unicode(sym.Name))
+    cat_name = safe_unicode(sym.Category.Name) if sym.Category else u"Device"
+    fam_name = safe_unicode(getattr(sym, 'FamilyName', ''))
+    type_name = safe_unicode(getattr(sym, 'Name', ''))
+    return u"[{}] {} : {}".format(cat_name, fam_name, type_name)
 
 
-# ── 7. WPF Window Controller ──────────────────────────────────────────────────
+# ── 6. WPF Window Controller ──────────────────────────────────────────────────
 
 class FireDetectorWindow(forms.WPFWindow):
     def __init__(self, dark_mode=False):
@@ -354,7 +314,7 @@ class FireDetectorWindow(forms.WPFWindow):
         setup_modern_window(self, dark_mode=dark_mode)
 
         self.action = None
-        self.zone   = None          # PickBoxZone / RoomZone / FilledRegionZone
+        self.zone   = None          # PickBoxZone / LinePolygonZone
         self.rmm    = RunningModeManager(self, dark_mode=dark_mode)
 
         # Load family symbols
@@ -374,6 +334,8 @@ class FireDetectorWindow(forms.WPFWindow):
             self.btnGenerate.Click += self.OnGenerate
         if hasattr(self, 'btnStopRunning'):
             self.btnStopRunning.Click += self.OnStopRunning
+        if hasattr(self, 'btnRefreshFamilies'):
+            self.btnRefreshFamilies.Click += self.OnRefreshFamilies
 
         # Preset D_max buttons
         if hasattr(self, 'btnPreset9000'):
@@ -388,10 +350,8 @@ class FireDetectorWindow(forms.WPFWindow):
         # Zone mode radio buttons
         if hasattr(self, 'rbPickBox'):
             self.rbPickBox.Checked += self.OnZoneModeChanged
-        if hasattr(self, 'rbRoom'):
-            self.rbRoom.Checked += self.OnZoneModeChanged
-        if hasattr(self, 'rbRegion'):
-            self.rbRegion.Checked += self.OnZoneModeChanged
+        if hasattr(self, 'rbDrawLine'):
+            self.rbDrawLine.Checked += self.OnZoneModeChanged
 
         # Family selection change
         if hasattr(self, 'cmbFamily'):
@@ -406,24 +366,31 @@ class FireDetectorWindow(forms.WPFWindow):
         self._sync_zone_status()
 
     # ── Family combo ──
-    def _populate_family_combo(self):
+    def _populate_family_combo(self, preserve_tag=None):
         if not hasattr(self, 'cmbFamily'):
             return
         self.cmbFamily.Items.Clear()
         if not self._symbols:
             from System.Windows.Controls import ComboBoxItem
             item = ComboBoxItem()
-            item.Content = u"(Chưa tải Family đầu báo cháy vào dự án)"
+            item.Content = u"(Không tìm thấy Family đầu báo cháy trong dự án)"
             self.cmbFamily.Items.Add(item)
             self.cmbFamily.SelectedIndex = 0
+            if hasattr(self, 'txtFamilyHint'):
+                self.txtFamilyHint.Text = u"Vui lòng load Family (Fire Alarm Devices / Electrical) vào Revit rồi bấm '🔄 Tải lại'."
             return
+
         from System.Windows.Controls import ComboBoxItem
-        for sym in self._symbols:
+        selected_idx = 0
+        for i, sym in enumerate(self._symbols):
             item = ComboBoxItem()
             item.Content = get_symbol_label(sym)
             item.Tag = get_id_value(sym)
             self.cmbFamily.Items.Add(item)
-        self.cmbFamily.SelectedIndex = 0
+            if preserve_tag is not None and get_id_value(sym) == preserve_tag:
+                selected_idx = i
+
+        self.cmbFamily.SelectedIndex = selected_idx
         self._update_family_hint()
 
     def _update_family_hint(self):
@@ -441,16 +408,21 @@ class FireDetectorWindow(forms.WPFWindow):
     def OnFamilyChanged(self, sender, args):
         self._update_family_hint()
 
+    def OnRefreshFamilies(self, sender, args):
+        cur_tag = None
+        if hasattr(self, 'cmbFamily') and self.cmbFamily.SelectedItem:
+            cur_tag = getattr(self.cmbFamily.SelectedItem, 'Tag', None)
+        self._symbols = load_fire_detector_symbols(doc)
+        self._populate_family_combo(preserve_tag=cur_tag)
+
     # ── Zone mode ──
     def OnZoneModeChanged(self, sender, args):
         self.zone = None
         self._sync_zone_status()
 
     def _get_zone_mode(self):
-        if hasattr(self, 'rbRoom') and self.rbRoom.IsChecked == True:
-            return "ROOM"
-        if hasattr(self, 'rbRegion') and self.rbRegion.IsChecked == True:
-            return "REGION"
+        if hasattr(self, 'rbDrawLine') and self.rbDrawLine.IsChecked == True:
+            return "LINE"
         return "PICKBOX"
 
     def _sync_zone_status(self):
@@ -500,10 +472,10 @@ class FireDetectorWindow(forms.WPFWindow):
             z_ft = self._get_z_offset_ft()
             x0, y0, x1, y1 = self.zone.get_bbox()
             poly_outer = self.zone.get_outer_polygon()
-            poly_inners = self.zone.get_inner_polygons()
+            raw_pts = getattr(self.zone, 'pts', None)
             pts = generate_grid_points(x0, y0, x1, y1, d_ft, z_ft,
                                        poly_outer=poly_outer,
-                                       poly_inners=poly_inners)
+                                       raw_pts=raw_pts)
             self.txtPointCount.Text = u"≈ {} đầu báo".format(len(pts))
         except Exception:
             self.txtPointCount.Text = u"Lỗi tính toán"
@@ -560,7 +532,7 @@ class FireDetectorWindow(forms.WPFWindow):
             self.rmm.request_stop()
 
 
-# ── 8. Core Placement Function ────────────────────────────────────────────────
+# ── 7. Core Placement Function ────────────────────────────────────────────────
 
 def place_detectors(doc, symbol, zone, d_max_ft, z_offset_ft):
     """
@@ -569,12 +541,12 @@ def place_detectors(doc, symbol, zone, d_max_ft, z_offset_ft):
     Trả về (placed_count, errors).
     """
     x0, y0, x1, y1 = zone.get_bbox()
-    poly_outer  = zone.get_outer_polygon()
-    poly_inners = zone.get_inner_polygons()
+    poly_outer = zone.get_outer_polygon()
+    raw_pts = getattr(zone, 'pts', None)
 
     pts = generate_grid_points(x0, y0, x1, y1, d_max_ft, z_offset_ft,
                                poly_outer=poly_outer,
-                               poly_inners=poly_inners)
+                               raw_pts=raw_pts)
     if not pts:
         return 0, [u"Không có điểm grid trong vùng đã chọn."]
 
@@ -591,7 +563,7 @@ def place_detectors(doc, symbol, zone, d_max_ft, z_offset_ft):
         active_level = None
 
     if not active_level:
-        levels = list(DB.FilteredElementCollector(doc)
+        levels = list(FilteredElementCollector(doc)
                         .OfClass(DB.Level)
                         .WhereElementIsNotElementType()
                         .ToElements())
@@ -613,7 +585,7 @@ def place_detectors(doc, symbol, zone, d_max_ft, z_offset_ft):
     for pt in pts:
         try:
             inst = doc.Create.NewFamilyInstance(
-                pt, symbol, active_level, DB.Structure.StructuralType.NonStructural
+                pt, symbol, active_level, Structure.StructuralType.NonStructural
             )
             # Gán cao độ Offset so với Level
             offset_param = inst.get_Parameter(DB.BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM)
@@ -629,7 +601,7 @@ def place_detectors(doc, symbol, zone, d_max_ft, z_offset_ft):
     return placed, errors
 
 
-# ── 9. Interactive Loop ───────────────────────────────────────────────────────
+# ── 8. Interactive Loop ───────────────────────────────────────────────────────
 
 def run():
     current_dark = is_dark_theme()
@@ -644,6 +616,7 @@ def run():
     saved_d_max  = None
     saved_z_off  = None
     saved_sym_id = None
+    saved_mode   = "PICKBOX"
 
     while True:
         win = FireDetectorWindow(dark_mode=current_dark)
@@ -662,6 +635,12 @@ def run():
                 if getattr(item, 'Tag', None) == saved_sym_id:
                     win.cmbFamily.SelectedIndex = i
                     break
+        if saved_mode == "LINE":
+            if hasattr(win, 'rbDrawLine'):
+                win.rbDrawLine.IsChecked = True
+        else:
+            if hasattr(win, 'rbPickBox'):
+                win.rbPickBox.IsChecked = True
 
         win.ShowDialog()
 
@@ -671,6 +650,7 @@ def run():
             saved_zone  = win.zone
             saved_d_max = win.txtDMax.Text if hasattr(win, 'txtDMax') else None
             saved_z_off = win.txtZOffset.Text if hasattr(win, 'txtZOffset') else None
+            saved_mode  = win._get_zone_mode()
             if hasattr(win, 'cmbFamily') and win.cmbFamily.SelectedItem:
                 saved_sym_id = getattr(win.cmbFamily.SelectedItem, 'Tag', None)
             continue
@@ -680,11 +660,12 @@ def run():
         # Capture latest settings
         saved_d_max = win.txtDMax.Text if hasattr(win, 'txtDMax') else None
         saved_z_off = win.txtZOffset.Text if hasattr(win, 'txtZOffset') else None
+        saved_mode  = win._get_zone_mode()
         if hasattr(win, 'cmbFamily') and win.cmbFamily.SelectedItem:
             saved_sym_id = getattr(win.cmbFamily.SelectedItem, 'Tag', None)
         saved_zone  = win.zone
 
-        # ── Pick Zone Actions ──
+        # ── Chế độ 1: Quét PickBox ──
         if action == "PICK_ZONE_PICKBOX":
             try:
                 box_ref = uidoc.Selection.PickBox(
@@ -699,41 +680,31 @@ def run():
                 show_warning(u"Thao tác PickBox:\n{}".format(safe_unicode(ex)), u"Thông báo")
             continue
 
-        elif action == "PICK_ZONE_ROOM":
+        # ── Chế độ 2: Kẻ Line / Đa giác (kết thúc khi nhấn Esc) ──
+        elif action == "PICK_ZONE_LINE":
+            pts = []
             try:
-                ref = uidoc.Selection.PickObject(
-                    UI.Selection.ObjectType.Element,
-                    RoomSelectionFilter(),
-                    u"Click chọn Room hoặc MEP Space trên mặt bằng"
-                )
-                if ref:
-                    elem = doc.GetElement(ref.ElementId)
-                    if elem:
-                        saved_zone = RoomZone(elem)
+                snaps = (UI.Selection.ObjectSnapTypes.Endpoints |
+                         UI.Selection.ObjectSnapTypes.Intersections |
+                         UI.Selection.ObjectSnapTypes.Midpoints |
+                         UI.Selection.ObjectSnapTypes.Nearest)
+                while True:
+                    idx = len(pts) + 1
+                    prompt = u"Click điểm thứ {} để kẻ đường biên (Nhấn ESC khi hoàn thành)".format(idx)
+                    pt = uidoc.Selection.PickPoint(snaps, prompt)
+                    pts.append(pt)
             except RevitExceptions.OperationCanceledException:
                 pass
             except Exception as ex:
-                show_warning(u"Thao tác chọn Room:\n{}".format(safe_unicode(ex)), u"Thông báo")
+                show_warning(u"Thao tác kẻ line:\n{}".format(safe_unicode(ex)), u"Thông báo")
+
+            if len(pts) >= 2:
+                saved_zone = LinePolygonZone(pts)
+            elif len(pts) == 1:
+                show_warning(u"Cần click ít nhất 2 điểm để xác định vùng (nhấn ESC để kết thúc).", u"Chưa đủ điểm")
             continue
 
-        elif action == "PICK_ZONE_REGION":
-            try:
-                ref = uidoc.Selection.PickObject(
-                    UI.Selection.ObjectType.Element,
-                    FilledRegionFilter(),
-                    u"Click chọn Filled Region trên mặt bằng"
-                )
-                if ref:
-                    elem = doc.GetElement(ref.ElementId)
-                    if elem:
-                        saved_zone = FilledRegionZone(elem)
-            except RevitExceptions.OperationCanceledException:
-                pass
-            except Exception as ex:
-                show_warning(u"Thao tác chọn Filled Region:\n{}".format(safe_unicode(ex)), u"Thông báo")
-            continue
-
-        # ── Generate Detectors ──
+        # ── Bố trí đầu báo ──
         elif action == "GENERATE":
             zone = win.zone
             sym_idx = win.cmbFamily.SelectedIndex if hasattr(win, 'cmbFamily') else -1
@@ -774,5 +745,5 @@ def run():
             break
 
 
-# ── 10. Entry Point ───────────────────────────────────────────────────────────
+# ── 9. Entry Point ────────────────────────────────────────────────────────────
 run()
