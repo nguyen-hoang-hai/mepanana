@@ -2,8 +2,8 @@
 """
 Fire Detector Studio - Auto Place Fire Detectors
 Part of mepanana.extension.
-- Chế độ 1: Quét PickBox (khoanh vùng hình chữ nhật 2 góc chéo, hiển thị khung đỏ tức thì)
-- Chế độ 2: Kẻ Line / Đa giác (Click các điểm trên mặt bằng, vẽ đường line đỏ trực tiếp, nhấn ESC để hoàn thành)
+- Chế độ 1: Quét PickBox (khoanh vùng hình chữ nhật 2 góc chéo, vẽ khung đỏ trực quan)
+- Chế độ 2: Kẻ Line / Đa giác (Vẽ đường line đỏ trực tiếp theo từng cú click, nhấn ESC để hoàn thành)
 Thuật toán: Lưới phân bố đều + Ray-Casting đa giác theo TCVN 5738:2021.
 KHÔNG sử dụng gatekeeper auth (mở tự do theo yêu cầu).
 """
@@ -48,44 +48,107 @@ if not doc:
     sys.exit()
 
 
-# ── 3. Visual Line Preview Helpers ────────────────────────────────────────────
+# ── 3. View Plane & Live Visual Line Drawing ──────────────────────────────────
+
+def get_view_plane_z(view):
+    """
+    Lấy cao độ Z chính xác tuyệt đối của mặt phẳng view hiện hành.
+    Đảm bảo đường DetailCurve luôn nằm đúng trên mặt phẳng của View, không bao giờ lỗi.
+    """
+    try:
+        sp = view.SketchPlane
+        if sp:
+            plane = sp.GetPlane()
+            if plane:
+                return plane.Origin.Z
+    except Exception:
+        pass
+    try:
+        lvl = view.GenLevel
+        if lvl:
+            return lvl.Elevation
+    except Exception:
+        pass
+    try:
+        return view.Origin.Z
+    except Exception:
+        pass
+    return 0.0
+
+
+def ensure_view_sketch_plane(doc, view):
+    """Đảm bảo active view có SketchPlane hợp lệ trước khi vẽ DetailCurve."""
+    try:
+        if view.SketchPlane is None:
+            lvl = getattr(view, 'GenLevel', None)
+            if lvl:
+                plane = DB.Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ(0, 0, lvl.Elevation))
+            else:
+                normal = getattr(view, 'ViewDirection', XYZ.BasisZ)
+                origin = getattr(view, 'Origin', XYZ.Zero)
+                plane = DB.Plane.CreateByNormalAndOrigin(normal, origin)
+            sp = DB.SketchPlane.Create(doc, plane)
+            view.SketchPlane = sp
+    except Exception:
+        pass
+
 
 def create_temp_line(doc, view, p1, p2):
-    """Vẽ đoạn DetailLine màu đỏ nổi bật giữa 2 điểm trên mặt bằng active view."""
+    """
+    Vẽ đoạn DetailLine màu đỏ nổi bật giữa 2 điểm trên mặt bằng active view.
+    Tự động chuẩn hóa cao độ Z về đúng mặt phẳng View để vẽ line thành công 100%.
+    """
     try:
         if view.ViewType == ViewType.ThreeD:
             return None
+        ensure_view_sketch_plane(doc, view)
+        view_z = get_view_plane_z(view)
+
         dx = p2.X - p1.X
         dy = p2.Y - p1.Y
         if math.sqrt(dx * dx + dy * dy) < 1e-4:
             return None
+
         geom_line = DB.Line.CreateBound(
-            XYZ(p1.X, p1.Y, p1.Z),
-            XYZ(p2.X, p2.Y, p1.Z)
+            XYZ(p1.X, p1.Y, view_z),
+            XYZ(p2.X, p2.Y, view_z)
         )
         curve = doc.Create.NewDetailCurve(view, geom_line)
-        ogs = OverrideGraphicSettings()
-        ogs.SetProjectionLineColor(RevitColor(239, 68, 68))  # Đỏ rực #EF4444
-        ogs.SetProjectionLineWeight(4)
-        view.SetElementOverrides(curve.Id, ogs)
+
+        try:
+            ogs = OverrideGraphicSettings()
+            ogs.SetProjectionLineColor(RevitColor(239, 68, 68))  # Đỏ rực #EF4444
+            ogs.SetProjectionLineWeight(5)
+            view.SetElementOverrides(curve.Id, ogs)
+        except Exception:
+            pass
+
         return curve.Id
-    except Exception:
+    except Exception as ex:
+        try:
+            print("create_temp_line error: {}".format(ex))
+        except Exception:
+            pass
         return None
 
 
-def create_temp_crosshair(doc, view, pt, size_ft=0.5):
-    """Vẽ dấu chữ thập đỏ tại điểm bắt đầu để người dùng nhận biết vị trí click đầu tiên."""
+def create_temp_crosshair(doc, view, pt, size_ft=0.6):
+    """Vẽ dấu chữ thập màu đỏ tại điểm click đầu tiên để người dùng thấy rõ điểm xuất phát."""
     ids = []
     try:
         if view.ViewType == ViewType.ThreeD:
             return ids
-        l1 = DB.Line.CreateBound(XYZ(pt.X - size_ft, pt.Y, pt.Z), XYZ(pt.X + size_ft, pt.Y, pt.Z))
-        l2 = DB.Line.CreateBound(XYZ(pt.X, pt.Y - size_ft, pt.Z), XYZ(pt.X, pt.Y + size_ft, pt.Z))
+        ensure_view_sketch_plane(doc, view)
+        view_z = get_view_plane_z(view)
+
+        l1 = DB.Line.CreateBound(XYZ(pt.X - size_ft, pt.Y, view_z), XYZ(pt.X + size_ft, pt.Y, view_z))
+        l2 = DB.Line.CreateBound(XYZ(pt.X, pt.Y - size_ft, view_z), XYZ(pt.X, pt.Y + size_ft, view_z))
         c1 = doc.Create.NewDetailCurve(view, l1)
         c2 = doc.Create.NewDetailCurve(view, l2)
+
         ogs = OverrideGraphicSettings()
         ogs.SetProjectionLineColor(RevitColor(239, 68, 68))
-        ogs.SetProjectionLineWeight(4)
+        ogs.SetProjectionLineWeight(5)
         view.SetElementOverrides(c1.Id, ogs)
         view.SetElementOverrides(c2.Id, ogs)
         ids.extend([c1.Id, c2.Id])
@@ -94,13 +157,14 @@ def create_temp_crosshair(doc, view, pt, size_ft=0.5):
     return ids
 
 
-def create_temp_box(doc, view, xmin, ymin, xmax, ymax, z=0.0):
+def create_temp_box(doc, view, xmin, ymin, xmax, ymax):
     """Vẽ khung chữ nhật màu đỏ bao quanh vùng PickBox."""
     ids = []
-    p1 = XYZ(xmin, ymin, z)
-    p2 = XYZ(xmax, ymin, z)
-    p3 = XYZ(xmax, ymax, z)
-    p4 = XYZ(xmin, ymax, z)
+    view_z = get_view_plane_z(view)
+    p1 = XYZ(xmin, ymin, view_z)
+    p2 = XYZ(xmax, ymin, view_z)
+    p3 = XYZ(xmax, ymax, view_z)
+    p4 = XYZ(xmin, ymax, view_z)
     for a, b in [(p1, p2), (p2, p3), (p3, p4), (p4, p1)]:
         lid = create_temp_line(doc, view, a, b)
         if lid:
@@ -159,7 +223,6 @@ def generate_grid_points(x_min, y_min, x_max, y_max, d_max_ft, z_ft,
     Lọc bỏ các điểm nằm ngoài đa giác poly_outer.
     Nếu raw_pts là 2 điểm (đoạn kẻ line đơn), tự động rải đều dọc theo đường thẳng.
     """
-    # Trường hợp kẻ 2 điểm tạo thành đoạn thẳng đơn (hành lang hẹp hoặc đường line):
     if raw_pts and len(raw_pts) == 2:
         p1 = raw_pts[0]
         p2 = raw_pts[1]
@@ -385,7 +448,7 @@ def get_symbol_label(sym):
 # ── 7. WPF Window Controller ──────────────────────────────────────────────────
 
 class FireDetectorWindow(forms.WPFWindow):
-    def __init__(self, dark_mode=False):
+    def __init__(self, dark_mode=False, default_mode="PICKBOX"):
         self.dark_mode = dark_mode
         xaml_name = "ui_dark.xaml" if dark_mode else "ui_light.xaml"
         xaml_path = os.path.join(os.path.dirname(__file__), xaml_name)
@@ -395,6 +458,16 @@ class FireDetectorWindow(forms.WPFWindow):
         self.action = None
         self.zone   = None          # PickBoxZone / LinePolygonZone
         self.rmm    = RunningModeManager(self, dark_mode=dark_mode)
+        self._current_mode = default_mode
+        self._is_initializing = True
+
+        # Thiết lập RadioButton ban đầu TRƯỚC KHI gắn sự kiện Checked
+        if default_mode == "LINE":
+            if hasattr(self, 'rbDrawLine'):
+                self.rbDrawLine.IsChecked = True
+        else:
+            if hasattr(self, 'rbPickBox'):
+                self.rbPickBox.IsChecked = True
 
         # Load family symbols
         self._symbols = load_fire_detector_symbols(doc)
@@ -442,6 +515,7 @@ class FireDetectorWindow(forms.WPFWindow):
         if hasattr(self, 'txtZOffset'):
             self.txtZOffset.TextChanged += self.OnInputChanged
 
+        self._is_initializing = False
         self._sync_zone_status()
 
     # ── Family combo ──
@@ -496,8 +570,14 @@ class FireDetectorWindow(forms.WPFWindow):
 
     # ── Zone mode ──
     def OnZoneModeChanged(self, sender, args):
-        self.zone = None
-        self._sync_zone_status()
+        # Tránh xóa self.zone khi cửa sổ đang khôi phục trạng thái ban đầu
+        if getattr(self, '_is_initializing', False):
+            return
+        new_mode = self._get_zone_mode()
+        if getattr(self, '_current_mode', None) != new_mode:
+            self._current_mode = new_mode
+            self.zone = None
+            self._sync_zone_status()
 
     def _get_zone_mode(self):
         if hasattr(self, 'rbDrawLine') and self.rbDrawLine.IsChecked == True:
@@ -663,9 +743,14 @@ def place_detectors(doc, symbol, zone, d_max_ft, z_offset_ft):
 
     for pt in pts:
         try:
-            inst = doc.Create.NewFamilyInstance(
-                pt, symbol, active_level, Structure.StructuralType.NonStructural
-            )
+            try:
+                inst = doc.Create.NewFamilyInstance(
+                    pt, symbol, active_level, Structure.StructuralType.NonStructural
+                )
+            except Exception:
+                inst = doc.Create.NewFamilyInstance(
+                    pt, symbol, Structure.StructuralType.NonStructural
+                )
             # Gán cao độ Offset so với Level
             offset_param = inst.get_Parameter(DB.BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM)
             if not offset_param or offset_param.IsReadOnly:
@@ -699,9 +784,10 @@ def run():
     saved_temp_lines = []
 
     while True:
-        win = FireDetectorWindow(dark_mode=current_dark)
+        # Khởi tạo cửa sổ với đúng default_mode để không kích hoạt nhầm sự kiện wipe zone
+        win = FireDetectorWindow(dark_mode=current_dark, default_mode=saved_mode)
 
-        # Restore state
+        # Khôi phục trạng thái đã chọn trước đó
         if saved_zone is not None:
             win.zone = saved_zone
             win._sync_zone_status()
@@ -715,16 +801,10 @@ def run():
                 if getattr(item, 'Tag', None) == saved_sym_id:
                     win.cmbFamily.SelectedIndex = i
                     break
-        if saved_mode == "LINE":
-            if hasattr(win, 'rbDrawLine'):
-                win.rbDrawLine.IsChecked = True
-        else:
-            if hasattr(win, 'rbPickBox'):
-                win.rbPickBox.IsChecked = True
 
         win.ShowDialog()
 
-        # Handle theme toggle
+        # Xử lý đổi theme
         if getattr(win, 'switch_requested', False):
             current_dark = not current_dark
             saved_zone  = win.zone
@@ -737,7 +817,7 @@ def run():
 
         action = win.action or "CLOSE"
 
-        # Capture latest settings
+        # Lưu lại cấu hình mới nhất
         saved_d_max = win.txtDMax.Text if hasattr(win, 'txtDMax') else None
         saved_z_off = win.txtZOffset.Text if hasattr(win, 'txtZOffset') else None
         saved_mode  = win._get_zone_mode()
@@ -747,7 +827,6 @@ def run():
 
         # ── Chế độ 1: Quét PickBox (Hiển thị khung đỏ tức thì) ──
         if action == "PICK_ZONE_PICKBOX":
-            # Dọn dẹp các đường preview cũ trước đó
             cleanup_temp_lines(doc, saved_temp_lines)
             saved_temp_lines = []
 
@@ -766,9 +845,10 @@ def run():
                     t = DB.Transaction(doc, "MEPANANA - Preview PickBox")
                     t.Start()
                     try:
-                        box_lines = create_temp_box(doc, doc.ActiveView, xmin, ymin, xmax, ymax, box_ref.Min.Z)
+                        box_lines = create_temp_box(doc, doc.ActiveView, xmin, ymin, xmax, ymax)
                         saved_temp_lines.extend(box_lines)
                         t.Commit()
+                        doc.Regenerate()
                         uidoc.RefreshActiveView()
                     except Exception:
                         if t.HasStarted() and not t.HasEnded():
@@ -783,7 +863,6 @@ def run():
 
         # ── Chế độ 2: Kẻ Line trực tiếp (Vẽ đường đỏ ngay khi click, ESC kết thúc) ──
         elif action == "PICK_ZONE_LINE":
-            # Dọn dẹp các đường preview cũ
             cleanup_temp_lines(doc, saved_temp_lines)
             saved_temp_lines = []
 
@@ -799,41 +878,41 @@ def run():
                 while True:
                     idx = len(pts) + 1
                     if idx == 1:
-                        prompt = u"Click điểm thứ 1 (Điểm bắt đầu kẻ line)"
+                        prompt = u"Click điểm thứ 1 (Điểm bắt đầu vẽ đường biên)"
                     else:
                         prompt = u"Click điểm thứ {} (Nhấn ESC để hoàn thành đường biên)".format(idx)
 
                     pt = uidoc.Selection.PickPoint(snaps, prompt)
                     pts.append(pt)
 
-                    # Hiển thị đường kẻ ngay lập tức trên màn hình
+                    # Vẽ ngay lập tức lên màn hình để người dùng nhìn thấy đường line trực tiếp
                     t = DB.Transaction(doc, "MEPANANA - Draw Line Preview")
                     t.Start()
                     try:
                         if idx == 1:
-                            # Đánh dấu điểm bắt đầu bằng dấu chữ thập đỏ
                             m_ids = create_temp_crosshair(doc, active_view, pt)
                             saved_temp_lines.extend(m_ids)
                         else:
-                            # Vẽ đường line đỏ nối từ điểm trước đến điểm hiện tại
                             lid = create_temp_line(doc, active_view, prev_pt, pt)
                             if lid:
                                 saved_temp_lines.append(lid)
                         t.Commit()
+                        doc.Regenerate()
                         uidoc.RefreshActiveView()
-                    except Exception:
+                    except Exception as ex_t:
                         if t.HasStarted() and not t.HasEnded():
                             t.RollBack()
+                        print("Line preview transaction error: {}".format(ex_t))
 
                     prev_pt = pt
 
             except RevitExceptions.OperationCanceledException:
-                # Người dùng nhấn phím ESC để chốt hoàn thành đường biên!
+                # Người dùng nhấn phím ESC để chốt hoàn thành đường biên
                 pass
             except Exception as ex:
                 show_warning(u"Thao tác kẻ line:\n{}".format(safe_unicode(ex)), u"Thông báo")
 
-            # Nếu từ 3 điểm trở lên, tự động vẽ đường khép kín nối điểm cuối về điểm đầu
+            # Nếu từ 3 điểm trở lên, tự động vẽ đường đỏ khép kín nối điểm cuối về điểm đầu
             if len(pts) >= 3 and prev_pt:
                 t = DB.Transaction(doc, "MEPANANA - Close Polygon")
                 t.Start()
@@ -842,6 +921,7 @@ def run():
                     if lid:
                         saved_temp_lines.append(lid)
                     t.Commit()
+                    doc.Regenerate()
                     uidoc.RefreshActiveView()
                 except Exception:
                     if t.HasStarted() and not t.HasEnded():
