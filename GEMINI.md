@@ -1,16 +1,14 @@
 # MEPANANA EXTENSION - AI MASTER INSTRUCTIONS
 > This project follows the official **MEPANANA MANIFESTO**: [docs/MEPANANA_MANIFESTO.md](file:///d:/OneDrive/@%20Elec.%20Hub/31_Tools%20&%20Addins/mepanana.extension/docs/MEPANANA_MANIFESTO.md)
 
-## ⛔ CRITICAL MANDATE: NEVER MODIFY THE SECURITY SYSTEM
-1. **DO NOT edit, refactor, or touch:**
-   - \lib/py/auth.py\
-   - \lib/py/MepananaAuth.dll\
-   - \startup.py\
-   - \hooks/app-init.py\
-   - \hooks/doc-opened.py\
-   - \hooks/view-activated.py\
+## 🔓 SECURITY STATUS: ARCHIVED & UNLOCKED BY DEFAULT
+1. **Trạng thái hệ thống bảo mật & Unlock**:
+   - Toàn bộ các công cụ trong extension MEPANANA hiện đang được **MỞ KHÓA TỰ DO (UNLOCKED BY DEFAULT)** theo chỉ đạo trực tiếp của tác giả.
+   - Tính năng bảo mật (Security Gatekeeper / Password Unlock) đã được đưa vào lưu trữ an toàn tại thư mục `archive/security_system/`.
+   - **KHÔNG** tự ý tái kích hoạt hệ thống bảo mật, khóa ribbon hay yêu cầu password cho đến khi tác giả yêu cầu làm lại.
+   - Thư viện `lib/py/auth.py` duy trì chế độ bypass (`is_authenticated() -> True`, `require_auth() -> True`) để 100% các công cụ khởi chạy tức thì.
 2. **TOOL DEVELOPMENT STANDARD & PLAYBOOK:**
-   - Always refer to [docs/MEPANANA_MANIFESTO.md](file:///d:/OneDrive/@%20Elec.%20Hub/31_Tools%20&%20Addins/mepanana.extension/docs/MEPANANA_MANIFESTO.md) and [docs/MEPANANA_DEVELOPER_PLAYBOOK.md](file:///d:/OneDrive/@%20Elec.%20Hub/31_Tools%20&%20Addins/mepanana.extension/docs/MEPANANA_DEVELOPER_PLAYBOOK.md) for UI/UX layouts, 6-line gatekeeper boilerplate, code architecture, and common pitfall checklists.
+   - Always refer to [docs/MEPANANA_MANIFESTO.md](file:///d:/OneDrive/@%20Elec.%20Hub/31_Tools%20&%20Addins/mepanana.extension/docs/MEPANANA_MANIFESTO.md) and [docs/MEPANANA_DEVELOPER_PLAYBOOK.md](file:///d:/OneDrive/@%20Elec.%20Hub/31_Tools%20&%20Addins/mepanana.extension/docs/MEPANANA_DEVELOPER_PLAYBOOK.md) for UI/UX layouts, code architecture, and common pitfall checklists.
 
 ## ⚡ PYREVIT BUILT-IN FIRST PRINCIPLE (ZERO CODE REDUNDANCY)
 1. **Always leverage pyRevit's built-in libraries first** (`pyrevit.forms`, `pyrevit.revit`, `pyrevit.DB`, `pyrevit.UI`, `pyrevit.script`, `pyrevit.framework`):
@@ -146,7 +144,7 @@ All tools with background or batch operations (CAD conversion, wiring, piping, c
      **ALWAYS** stage, commit, and push changes to GitHub (`git add`, `git commit`, `git push origin <branch>`). Never leave working code uncommitted or unpushed at the end of a session or task.
 2. **Pre-Push Verification Standard**:
    - Verify that 100% of Python files compile cleanly (`py -m compileall -q lib mepanana.tab`).
-   - Verify that 0 security files are touched (`lib/py/auth.py`, `lib/py/MepananaAuth.dll`, `startup.py`, `hooks/`).
+   - Verify that all tools remain unlocked and function cleanly without password prompts.
    - Verify that all `.xaml` files adhere strictly to the **Zero Bold Rule** and **Zero Inline Event Attributes Rule**.
 3. **Commit Convention**:
    - Use clear, professional conventional commit messages (e.g. `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`).

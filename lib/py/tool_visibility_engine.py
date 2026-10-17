@@ -13,9 +13,6 @@ import sys
 import json
 
 PROTECTED_TOOLS = {
-    "Unlock",
-    "Lock",
-    "Security",
     "Tool Visibility",
 }
 

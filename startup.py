@@ -2,52 +2,11 @@
 """
 Startup script for mepanana.extension.
 Runs when pyRevit initializes this extension.
-Uses Revit Idling event to guarantee that all tools are locked/grayed out
-as soon as the ribbon becomes visible.
+[STATUS: UNLOCKED BY DEFAULT]
+Ensures all tools are enabled on the ribbon upon launch.
 """
-from pyrevit import HOST_APP
-
-_max_retries = 30
-_success_count = 0
-_attempt = 0
-
-def _lock_on_idling(sender, args):
-    global _attempt, _success_count
-    _attempt += 1
-    try:
-        from py.auth import update_ribbon_state, is_authenticated, get_current_user
-        if is_authenticated():
-            user = get_current_user() or "User"
-            update_ribbon_state(True, user)
-            try:
-                HOST_APP.app.Idling -= _lock_on_idling
-            except Exception:
-                pass
-        else:
-            count = update_ribbon_state(False)
-            if count > 0:
-                _success_count += 1
-            if _success_count >= 5 or _attempt >= _max_retries:
-                try:
-                    HOST_APP.app.Idling -= _lock_on_idling
-                except Exception:
-                    pass
-    except Exception:
-        if _attempt >= _max_retries:
-            try:
-                HOST_APP.app.Idling -= _lock_on_idling
-            except Exception:
-                pass
-
 try:
-    from py.auth import is_authenticated, update_ribbon_state, get_current_user
-    if is_authenticated():
-        # Session is already unlocked in this Revit process -> Preserve across reload!
-        user = get_current_user() or "User"
-        update_ribbon_state(True, user)
-    else:
-        # Fresh Revit launch -> Lock tools and subscribe to Idling event
-        update_ribbon_state(False)
-        HOST_APP.app.Idling += _lock_on_idling
+    from py.auth import update_ribbon_state
+    update_ribbon_state(True)
 except Exception:
     pass

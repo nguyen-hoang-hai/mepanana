@@ -19,6 +19,9 @@
 
 ## ⛔ 2. BẢO VỆ TUYỆT ĐỐI LÕI SECURITY (IMMUTABLE SECURITY CORE)
 
+> [!NOTE]
+> **Trạng thái lưu trữ (17/10/2026):** Theo quyết định của tác giả, toàn bộ hệ thống Security & tính năng Unlock hiện đã được đưa vào lưu trữ an toàn tại `archive/security_system/`. Toàn bộ các công cụ trong extension MEPANANA hiện hoạt động ở chế độ mở khóa tự do (`unlocked by default`). Khi có yêu cầu tái kích hoạt hệ thống bảo mật, thực hiện theo hướng dẫn tại [RESTORE_SECURITY.md](file:///d:/OneDrive/@%20Elec.%20Hub/31_Tools%20&%20Addins/mepanana.extension/archive/security_system/RESTORE_SECURITY.md).
+
 Khi thêm mới, nâng cấp hoặc sửa đổi bất kỳ công cụ nào trong tab \mepanana\:
 
 ### 🚫 CÁC FILE BẤT KHẢ XÂM PHẠM (DO NOT MODIFY):
